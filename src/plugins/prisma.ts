@@ -7,6 +7,7 @@ export const prismaPlugin = fp(async (server, options)=>{
     await prisma.$connect();
 
     server.decorate('prisma', prisma);
+
     server.addHook('onClose', async ()=>{
         await prisma.$disconnect();
     });

@@ -4,7 +4,7 @@
     "module": "CommonJS",                       // Node.js default module system
     "lib": ["ES2020"],                          // Includes modern JS features
     "outDir": "dist",                           // Compiled files go here
-    "rootDir": "src",                           // Your TS source files
+    "rootDir": "./",                           // Your TS source files
     "esModuleInterop": true,                    // Allows default import syntax for CommonJS modules
     "moduleResolution": "node",                 // Resolve modules like Node.js
     "resolveJsonModule": true,                  // Allows importing JSON files
@@ -12,6 +12,6 @@
     "strict": true,                             // Enables all strict type checks
     "skipLibCheck": true                        // Speeds up compilation, skips type checks on node_modules
   },
-  "include": ["src", "src/**/*.d.ts"],
+  "include": ["./src/**/*.{ts,js}", "./src/*.ts", "./src/types/fastify.d.ts", "./webpack.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

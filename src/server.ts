@@ -23,9 +23,9 @@ const fastify = Fastify({
     ignoreTrailingSlash: true,
     trustProxy: true,
 });
+fastify.register(prismaPlugin);
 
 fastify.register(corsPlugin);
-fastify.register(prismaPlugin);
 fastify.register(sessionPlugin);
 fastify.register(passportPlugin);
 
