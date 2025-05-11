@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String
+  createdAt DateTime @default(now())
+
+  friends   Friend[] @relation("userFriends")
+  friendOf  Friend[] @relation("userFriendOf")
+  invited   Invite[] @relation("userInvites")
+
+  @@map("users")
+}
+
+
+model Friend {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation("userFriends", fields: [userId], references: [id])
+
+  friendId String
+  friend   User   @relation("userFriendOf", fields: [friendId], references: [id])
+
+  @@unique([userId, friendId])
+  @@map("user_friends")
+}
+
+model Invite {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  token String @unique
+
+  targetId String
+  target   User   @relation("userInvites", fields: [targetId], references: [id])
+
+  @@map("friend_invites")
+}
