@@ -6,6 +6,7 @@ import {passportPlugin} from "./plugins/passport";
 import {publicRoutes} from "./routes/public";
 import {protectedRoutes} from "./routes/protected";
 import {baseRoutes} from "./routes/base";
+import {corsPlugin} from "./plugins/cors";
 
 const fastify = Fastify({
     logger: env.NODE_ENV !== "development" ? true : {
@@ -23,6 +24,7 @@ const fastify = Fastify({
     trustProxy: true,
 });
 
+fastify.register(corsPlugin);
 fastify.register(prismaPlugin);
 fastify.register(sessionPlugin);
 fastify.register(passportPlugin);
