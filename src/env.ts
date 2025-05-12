@@ -4,32 +4,32 @@ import { z } from "zod";
 //!ENV VARS + VALIDATION
 
 const envSchema = z.object({
-    AUTH_SECRET: z.string(),
-    PORT: z.string().optional(),
+	AUTH_SECRET: z.string(),
+	PORT: z.string().optional(),
 
-    DATABASE_URL: z.string(),
+	DATABASE_URL: z.string(),
 
-    GITHUB_CLIENT_ID: z.string(),
-    GITHUB_CLIENT_SECRET: z.string(),
+	GITHUB_CLIENT_ID: z.string(),
+	GITHUB_CLIENT_SECRET: z.string(),
 
-    SKIP_ENV_VALIDATION: z.boolean().optional(),
+	SKIP_ENV_VALIDATION: z.boolean().optional(),
 
-    NODE_ENV: z.enum(["development", "production"]).optional().default("development"),
+	NODE_ENV: z.enum(["development", "production"]).optional().default("development"),
 });
 
 type Env = z.infer<typeof envSchema>;
 
 let _env: Env;
 if (!process.env.SKIP_ENV_VALIDATION) {
-    const parsedEnv = envSchema.safeParse(process.env);
-    if (parsedEnv.success) {
-        _env = parsedEnv.data;
-    } else {
-        console.error("Error parsing environment variables:", parsedEnv.error);
-        process.exit(1);
-    }
+	const parsedEnv = envSchema.safeParse(process.env);
+	if (parsedEnv.success) {
+		_env = parsedEnv.data;
+	} else {
+		console.error("Error parsing environment variables:", parsedEnv.error);
+		process.exit(1);
+	}
 } else {
-    _env = ({...process.env as any} as Env)!;
+	_env = ({ ...process.env as any } as Env)!;
 }
 
 export const env = _env;

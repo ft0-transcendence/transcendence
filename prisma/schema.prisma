@@ -5,49 +5,50 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+    provider = "mysql"
+    // provider = "sqlite"
+    url      = env("DATABASE_URL")
 }
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  username  String
-  createdAt DateTime @default(now())
+    id        String   @id @default(cuid())
+    email     String   @unique
+    username  String
+    createdAt DateTime @default(now())
 
-  friends   Friend[] @relation("userFriends")
-  friendOf  Friend[] @relation("userFriendOf")
-  invited   Invite[] @relation("userInvites")
+    friends  Friend[] @relation("userFriends")
+    friendOf Friend[] @relation("userFriendOf")
+    invited  Invite[] @relation("userInvites")
 
-  @@map("users")
+    @@map("users")
 }
-
 
 model Friend {
-  id String @id @default(cuid())
+    id String @id @default(cuid())
 
-  userId String
-  user   User   @relation("userFriends", fields: [userId], references: [id])
+    userId String
+    user   User   @relation("userFriends", fields: [userId], references: [id])
 
-  friendId String
-  friend   User   @relation("userFriendOf", fields: [friendId], references: [id])
+    friendId String
+    friend   User   @relation("userFriendOf", fields: [friendId], references: [id])
 
-  @@unique([userId, friendId])
-  @@map("user_friends")
+    @@unique([userId, friendId])
+    @@map("user_friends")
 }
 
 model Invite {
-  id        String   @id @default(cuid())
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+    id        String   @id @default(cuid())
+    expiresAt DateTime
+    createdAt DateTime @default(now())
 
-  token String @unique
+    token String @unique
 
-  targetId String
-  target   User   @relation("userInvites", fields: [targetId], references: [id])
+    targetId String
+    target   User   @relation("userInvites", fields: [targetId], references: [id])
 
-  @@map("friend_invites")
+    @@map("friend_invites")
 }
