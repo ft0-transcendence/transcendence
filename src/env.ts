@@ -26,7 +26,7 @@ if (!process.env.SKIP_ENV_VALIDATION) {
 		_env = parsedEnv.data;
 	} else {
 		console.error("Error parsing environment variables:", parsedEnv.error);
-		process.exit(1);
+		throw new Error("Error parsing environment variables");
 	}
 } else {
 	_env = ({ ...process.env as any } as Env)!;
