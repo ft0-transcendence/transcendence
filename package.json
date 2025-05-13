@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "ts-node-dev --ignore-watch node_modules --respawn --transpile-only src/server.ts",
-    "build": "webpack --config webpack.config.ts && npm run db:generate",
+    "build": "npm run db:generate && webpack --config webpack.config.ts",
     "start": "npm run build && node dist/server.js",
     "db:push": "prisma db push",
     "db:reset": "prisma migrate reset --force",

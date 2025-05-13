@@ -21,6 +21,7 @@ const fastify = Fastify({
 		},
 	},
 	ignoreTrailingSlash: true,
+	ignoreDuplicateSlashes: true,
 	trustProxy: true,
 });
 fastify.register(prismaPlugin);
