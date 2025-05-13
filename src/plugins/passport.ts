@@ -22,18 +22,20 @@ export const passportPlugin = fp(async (fastify) => {
 
 			/// When the user is logged in, the callback is called with the user's profile and the tokens, which can be saved in the database.
 			async (accessToken, refreshToken, profile, done) => {
+				const id = profile.id;
 				const email = profile.emails?.[0]?.value;
-				if (!email) return done(null, false);
+				if (!id) return done(null, false);
 
 				const user: User = await fastify.prisma.user.upsert({
-					where: { email },
+					where: { id },
 					create: {
 						id: profile.id,
-						email,
+						email: email ? email : null,
 						username: profile.username!,
 					},
 					update: {
 						username: profile.username!,
+						email: email ? email : null,
 					},
 				});
 
