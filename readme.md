@@ -1,10 +1,10 @@
-# Pulse BACKEND
+# FT0 Backend
 
-This is a backend for the pulse vscode extension (yet to be made).
+This is a backend for the Transcendence project at 42 Firenze school.
 
 ## Requirements
 
-- NodeJS 16+
+- NodeJS 22+
 
 ## Getting Started
 
