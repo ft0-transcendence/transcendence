@@ -15,42 +15,81 @@ datasource db {
 }
 
 model User {
-    id        String   @id @default(cuid())
-    email     String   @unique
-    username  String
-	image     String?
-    createdAt DateTime @default(now())
+    id                 String                  @id @default(cuid())
+    email              String                  @unique
+    username           String
+    image              String?
+    createdAt          DateTime                @default(now())
+    friendOf           Friend[]                @relation("friendOf")
+    friends            Friend[]                @relation("friends")
+    gamesAsLeftPlayer  Game[]                  @relation("gamesAsLeftPlayer")
+    gamesAsRightPlayer Game[]                  @relation("gamesAsRightPlayer")
+    joinedTournaments  TournamentParticipant[] @relation("joinedTournaments")
+    createdTournaments Tournament[]            @relation("createdTournaments")
+}
 
-
-    friends  Friend[] @relation("userFriends")
-    friendOf Friend[] @relation("userFriendOf")
-    invited  Invite[] @relation("userInvites")
-
-    @@map("users")
+enum FriendState {
+    PENDING
+    ACCEPTED
+    REJECTED
 }
 
 model Friend {
-    id String @id @default(cuid())
-
-    userId String
-    user   User   @relation("userFriends", fields: [userId], references: [id])
-
+    id       String      @id @default(cuid())
+    state    FriendState
+    userId   String
+    user     User        @relation("friends", fields: [userId], references: [id])
     friendId String
-    friend   User   @relation("userFriendOf", fields: [friendId], references: [id])
-
-    @@unique([userId, friendId])
-    @@map("user_friends")
+    friend   User        @relation("friendOf", fields: [friendId], references: [id])
 }
 
-model Invite {
-    id        String   @id @default(cuid())
-    expiresAt DateTime
-    createdAt DateTime @default(now())
+enum TournamentType {
+    EIGHT
+    SIXTEEN
+}
 
-    token String @unique
+model Tournament {
+    id            String                  @id @default(cuid())
+    type          TournamentType?         @default(EIGHT)
+    name          String
+    password      String?
+    startDate     DateTime
+    endDate       DateTime?
+    createdById   String
+    createdBy     User                    @relation("createdTournaments", fields: [createdById], references: [id])
+    pariticipants TournamentParticipant[] @relation("participants")
+    games         Game[]                  @relation("games")
+}
 
-    targetId String
-    target   User   @relation("userInvites", fields: [targetId], references: [id])
+model TournamentParticipant {
+    id           String     @id @default(cuid())
+    tournamentId String
+    userId       String
+    tournament   Tournament @relation("participants", fields: [tournamentId], references: [id])
+    user         User       @relation("joinedTournaments", fields: [userId], references: [id])
+}
 
-    @@map("friend_invites")
+enum GameType {
+    ONLINE
+    TOURNAMENT
+    AI
+}
+
+model Game {
+    id               String      @id @default(cuid())
+    type             GameType
+    startDate        DateTime
+    endDate          DateTime?
+    scoreGoal        Int         @default(7)
+    leftPlayerScore  Int         @default(0)
+    leftPlayerId     String
+    leftPlayer       User        @relation("gamesAsLeftPlayer", fields: [leftPlayerId], references: [id])
+    rightPlayerScore Int         @default(0)
+    rightPlayerId    String
+    rightPlayer      User        @relation("gamesAsRightPlayer", fields: [rightPlayerId], references: [id])
+    nextGameId       String?
+    nextGame         Game?       @relation("previousGames", fields: [nextGameId], references: [id])
+    tournamentId     String?
+    tournament       Tournament? @relation("games", fields: [tournamentId], references: [id])
+    previousGames    Game[]      @relation("previousGames")
 }
