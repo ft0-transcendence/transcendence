@@ -9,8 +9,8 @@ const envSchema = z.object({
 
 	DATABASE_URL: z.string(),
 
-	GITHUB_CLIENT_ID: z.string(),
-	GITHUB_CLIENT_SECRET: z.string(),
+	GOOGLE_CLIENT_ID: z.string(),
+	GOOGLE_CLIENT_SECRET: z.string(),
 
 	SKIP_ENV_VALIDATION: z.boolean().optional(),
 

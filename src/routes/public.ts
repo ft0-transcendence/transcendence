@@ -3,8 +3,8 @@ import fastifyPassport from "@fastify/passport";
 
 export const publicRoutes: FastifyPluginAsync = async (fastify) => {
 	// Authentication----------------------------------------------------------
-	fastify.get("/auth/github/callback", {
-		preValidation: fastifyPassport.authenticate("github", {}),
+	fastify.get("/auth/google/callback", {
+		preValidation: fastifyPassport.authenticate("google", {}),
 	}, async (_, reply) => {
 		reply.status(200).send({ message: "Successfully authenticated!", userId: _.user });
 	});

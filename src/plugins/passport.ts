@@ -1,41 +1,43 @@
 import fp from "fastify-plugin";
 import fastifyPassport from "@fastify/passport";
-import { Strategy as GitHubStrategy } from "passport-github";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { env } from "../env";
 import { User } from "@prisma/client";
 
 export const passportPlugin = fp(async (fastify) => {
-	const githubCallbackUrl = "/api/auth/github/callback";
+	const googleCallbackUrl = "/api/auth/google/callback";
 
 	fastify.register(fastifyPassport.initialize());
 	fastify.register(fastifyPassport.secureSession());
 
 	fastifyPassport.use(
-		"github",
-		new GitHubStrategy(
+		"google",
+		new GoogleStrategy(
 			{
-				clientID: env.GITHUB_CLIENT_ID,
-				clientSecret: env.GITHUB_CLIENT_SECRET,
-				callbackURL: githubCallbackUrl,
-				scope: ["user:email"],
+				clientID: env.GOOGLE_CLIENT_ID,
+				clientSecret: env.GOOGLE_CLIENT_SECRET,
+				callbackURL: googleCallbackUrl,
+				scope: ["profile", "email", "openid"],
 			},
 
 			/// When the user is logged in, the callback is called with the user's profile and the tokens, which can be saved in the database.
 			async (accessToken, refreshToken, profile, done) => {
 				const id = profile.id;
-				const email = profile.emails?.[0]?.value;
+				const email = profile.emails?.find((email) => email.verified)?.value;
 				if (!id) return done(null, false);
 
 				const user: User = await fastify.prisma.user.upsert({
 					where: { id },
 					create: {
 						id: profile.id,
-						email: email ? email : null,
-						username: profile.username!,
+						email: email!,
+						username: profile.displayName!,
+						image: profile.photos?.find((photo) => photo.value)?.value,
 					},
 					update: {
-						username: profile.username!,
-						email: email ? email : null,
+						username: profile.displayName!,
+						email: email!,
+						image: profile.photos?.find((photo) => photo.value)?.value,
 					},
 				});
 
