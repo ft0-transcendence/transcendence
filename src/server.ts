@@ -7,6 +7,8 @@ import { publicRoutes } from "./routes/public";
 import { protectedRoutes } from "./routes/protected";
 import { baseRoutes } from "./routes/base";
 import { corsPlugin } from "./plugins/cors";
+import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
+import fastifyFormbody from "@fastify/formbody";
 
 const fastify = Fastify({
 	logger: env.NODE_ENV !== "development" ? true : {
@@ -24,9 +26,15 @@ const fastify = Fastify({
 	ignoreDuplicateSlashes: true,
 	trustProxy: true,
 });
-fastify.register(prismaPlugin);
 
 fastify.register(corsPlugin);
+fastify.register(fastifyFormbody);
+
+fastify.setValidatorCompiler(validatorCompiler);
+fastify.setSerializerCompiler(serializerCompiler);
+
+fastify.register(prismaPlugin);
+
 fastify.register(sessionPlugin);
 fastify.register(passportPlugin);
 
