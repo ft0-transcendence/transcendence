@@ -4,6 +4,7 @@ import superjson from "superjson";
 import {CreateFastifyContextOptions} from "@trpc/server/adapters/fastify";
 import {Profile} from "passport-google-oauth20";
 import {User} from "@prisma/client";
+import {db} from "./db";
 
 export async function createContext() {
 	return {};
@@ -22,6 +23,7 @@ export const createTRPCContext = async (opts: CreateFastifyContextOptions) => {
 		req,
 		res,
 		user: user,
+		db: db
 	}
 };
 

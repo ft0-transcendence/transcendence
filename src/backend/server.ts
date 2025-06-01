@@ -8,11 +8,10 @@ import {serializerCompiler, validatorCompiler} from 'fastify-type-provider-zod';
 import fastifyFormbody from "@fastify/formbody";
 import {fastifyTRPCPlugin} from "@trpc/server/adapters/fastify";
 import {appRouter} from "./trpc/root";
-import {createContext, createTRPCContext} from "./trpc/trpc";
+import {createTRPCContext} from "./trpc/trpc";
 import fastifyStatic from "@fastify/static";
 import * as path from "path";
-import {publicRoutes} from "./routes/public";
-import fastifyPassport from "@fastify/passport";
+import {publicRoutes} from "./fastify-routes/public";
 
 const fastify = Fastify({
 	logger: env.NODE_ENV !== "development" ? true : {
@@ -51,28 +50,7 @@ fastify.register(fastifyTRPCPlugin, {
 	}
 })
 
-fastify.get("/api/auth/google",
-	fastifyPassport.authenticate("google", {
-		scope: ["profile", "email"],
-	})
-);
-
-fastify.get("/api/auth/google/callback", {
-	preValidation: fastifyPassport.authenticate("google", {
-		scope: ["profile", "email"],
-	}),
-}, async (request, reply) => {
-	// TODO: change this hardcoded URL
-	reply.redirect('http://localhost:5173/');
-});
-
-fastify.get("/api/auth/signout", async (request, reply) => {
-	request.logout();
-	reply.status(200).send();
-});
-
 fastify.register(publicRoutes, {prefix: "/api"});
-// fastify.register(protectedRoutes, { prefix: "/api/protected" });
 
 fastify.register(fastifyStatic, {
 	root: path.join(__dirname, "..", "frontend"),

@@ -1,3 +1,3 @@
-import type { AppRouter } from '../backend/trpc/root';
+import type {AppRouter, RouterInputs, RouterOutputs} from '../backend/trpc/root';
 
-export type { AppRouter };
+export type {AppRouter, RouterOutputs, RouterInputs};

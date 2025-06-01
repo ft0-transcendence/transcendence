@@ -1,10 +1,10 @@
 import {api} from "../trpc/client";
 
-export default async function HomeController() {
+async function HomeController() {
 	console.log('Home controller loaded');
 
 	async function runTest() {
-		const response = await api.test.publicGreeting.query({name: undefined});
+		const response = await api.test.publicGreeting.query({name: "Sandoramix Dev"});
 		console.log("Public Greeting Response", response);
 
 		const response2 = await api.test.secretGreeting.query({name: "Odudniak"});
@@ -16,3 +16,5 @@ export default async function HomeController() {
 		window.location.href = "/api/auth/google";
 	})
 }
+
+export default HomeController;
