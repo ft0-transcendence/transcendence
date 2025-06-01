@@ -1,6 +1,6 @@
 import fp from "fastify-plugin";
 import fastifySession from "@fastify/session";
-import { env } from "../env";
+import { env } from "../../env";
 import fastifyCookie from "@fastify/cookie";
 
 export const sessionPlugin = fp(async (fastify) => {

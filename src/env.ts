@@ -5,7 +5,7 @@ import { z } from "zod";
 
 const envSchema = z.object({
 	AUTH_SECRET: z.string(),
-	PORT: z.string().optional(),
+	PORT: z.string().optional().default("4200"),
 
 	DATABASE_URL: z.string(),
 
