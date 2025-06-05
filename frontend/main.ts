@@ -1,7 +1,7 @@
 import {router} from './src/router';
 import {createTRPCProxyClient, httpBatchLink} from '@trpc/client';
 import superjson from 'superjson';
-import type {AppRouter} from '../shared/trpc';
+import type {AppRouter} from '../_shared/trpc';
 
 export const getBaseUrl = () => {
 	if (typeof window !== "undefined") return "";

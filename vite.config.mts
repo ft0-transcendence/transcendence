@@ -5,15 +5,15 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
 	root: './frontend',
 	build: {
-		outDir: '../../dist/frontend',
+		outDir: '../dist/frontend',
 		emptyOutDir: true,
+		assetsDir: 'public',
 	},
 	resolve: {
 		alias: {
 			'@shared': resolve(__dirname, 'src', 'shared'),
 		},
 	},
-	publicDir: './public',
 	server: {
 		port: 5173,
 		proxy: {

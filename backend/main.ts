@@ -1,17 +1,18 @@
 import Fastify from "fastify";
-import {env} from "../env";
-import {prismaPlugin} from "./plugins/prisma";
-import {sessionPlugin} from "./plugins/session";
-import {passportPlugin} from "./plugins/passport"
-import {corsPlugin} from "./plugins/cors";
+import {env} from "./env";
+import {prismaPlugin} from "./src/plugins/prisma";
+import {sessionPlugin} from "./src/plugins/session";
+import {passportPlugin} from "./src/plugins/passport"
+import {corsPlugin} from "./src/plugins/cors";
 import {serializerCompiler, validatorCompiler} from 'fastify-type-provider-zod';
 import fastifyFormbody from "@fastify/formbody";
 import {fastifyTRPCPlugin} from "@trpc/server/adapters/fastify";
-import {appRouter} from "./trpc/root";
-import {createTRPCContext} from "./trpc/trpc";
-import fastifyStatic from "@fastify/static";
-import * as path from "path";
-import {publicRoutes} from "./fastify-routes/public";
+import {appRouter} from "./src/trpc/root";
+import {createTRPCContext} from "./src/trpc/trpc";
+import {publicRoutes} from "./src/fastify-routes/public";
+import pino from "pino-pretty";
+
+pino;
 
 const fastify = Fastify({
 	logger: env.NODE_ENV !== "development" ? true : {
@@ -51,14 +52,6 @@ fastify.register(fastifyTRPCPlugin, {
 })
 
 fastify.register(publicRoutes, {prefix: "/api"});
-
-fastify.register(fastifyStatic, {
-	root: path.join(__dirname, "..", "frontend"),
-	prefix: "/",
-})
-fastify.get("/", async (request, reply) => {
-	reply.type("text/html").sendFile("index.html");
-});
 
 const start = async () => {
 	try {

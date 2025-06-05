@@ -1,5 +1,5 @@
 {
-	"extends": "./tsconfig.base.json",
+	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
 		"module": "ESNext",
 		"moduleResolution": "node16",
@@ -12,7 +12,7 @@
 	},
 	"include": [
 		"frontend/**/*.{ts,js,html}",
-		"frontend/index.html",
+		"index.html",
 		"frontend/main.mts",
 		"vite.config.mts"
 	]
