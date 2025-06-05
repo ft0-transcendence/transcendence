@@ -53,8 +53,31 @@ npm run db:push
 
 ## Development
 
+You can run bothe the backend and the frontend in development mode.
 ```bash
 npm run dev
+```
+
+If you want to run the backend only, run
+
+```bash
+npm run dev:backend
+```
+
+If you want to run the frontend only, run
+
+```bash
+npm run dev:frontend
+```
+
+---
+
+## Build
+
+To build the app, run
+
+```bash
+npm run build
 ```
 
 ## Run on production

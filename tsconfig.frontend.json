@@ -1,0 +1,19 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"module": "ESNext",
+		"moduleResolution": "node16",
+		"outDir": "dist/frontend",
+		"rootDir": "frontend",
+		"lib": [
+			"ES2020",
+			"DOM"
+		]
+	},
+	"include": [
+		"frontend/**/*.{ts,js,html}",
+		"frontend/index.html",
+		"frontend/main.mts",
+		"vite.config.mts"
+	]
+}
