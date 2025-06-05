@@ -15,7 +15,7 @@ export default defineConfig({
 		},
 	},
 	server: {
-		port: 5173,
+		port: 42000,
 		proxy: {
 			'/api': 'http://localhost:4200', // proxy API to Fastify
 		},

@@ -3,9 +3,9 @@ import {Route} from "./dto/types";
 const routes: Route[] = [
 	{
 		path: '/',
-		view: './views/HomeView.html',
+		view: '/views/HomeView.html',
 		controller: () => import('./controllers/HomeController').then(m => m.default()),
-	},
+	}
 ];
 
 const APP_CONTAINER_ID = 'app';
