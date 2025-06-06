@@ -11,8 +11,8 @@ This is a backend for the Transcendence project at 42 Firenze school.
 ### Clone the repo
 
 ```bash
-git clone https://github.com/pulse-ui/pulse-vscode.git
-cd pulse-vscode
+git clone https://github.com/ft0-transcendence/backend transcendence
+cd transcendence
 ```
 
 ### Install dependencies
