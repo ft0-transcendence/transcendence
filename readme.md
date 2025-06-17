@@ -82,11 +82,21 @@ npm run build
 
 ## Run on production
 
-The app will be bundled with webpack in the `dist` folder in a single file.
-Just run that file with node. Or run the `start` script.
-
 ```bash
 npm run start
+```
+
+
+If you want to run the backend only, run
+
+```bash
+npm run start:backend
+```
+
+If you want to run the frontend only, run
+
+```bash
+npm run start:frontend
 ```
 
 ---
