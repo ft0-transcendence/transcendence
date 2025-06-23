@@ -1,7 +1,10 @@
 import {api} from "../../main";
-import {RouteController} from "../dto/types";
+import {RouteController} from "../dto/routing";
 
-export class HomeController implements RouteController {
+export class LandingPageController extends RouteController {
+	constructor() {
+		super();
+	}
 
 	init() {
 		console.log('Home controller loaded');
@@ -19,12 +22,6 @@ export class HomeController implements RouteController {
 	async runTest() {
 		const response = await api.test.publicGreeting.query({name: "Sasha"});
 		console.log("Public Greeting Response", response);
-
-		const response2 = await api.test.secretGreeting.query({name: "Odudniak"});
-		console.log("Secret Greeting Response", response2);
-		console.log("T2")
 	}
 
 }
-
-export default HomeController;

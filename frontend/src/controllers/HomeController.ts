@@ -1,7 +1,12 @@
 import {api} from "../../main";
-import {RouteController} from "../dto/types";
+import {RouteController} from "../dto/routing";
 
-export class HomeController implements RouteController {
+export class HomeController extends RouteController {
+
+	constructor() {
+		super();
+	}
+
 
 	init() {
 		console.log('Home controller loaded');
@@ -26,5 +31,3 @@ export class HomeController implements RouteController {
 	}
 
 }
-
-export default HomeController;

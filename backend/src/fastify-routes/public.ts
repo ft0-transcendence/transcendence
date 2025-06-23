@@ -5,7 +5,7 @@ import {env} from "../../env";
 export const publicRoutes: FastifyPluginAsync = async (fastify) => {
 	// Authentication----------------------------------------------------------
 
-	fastify.get("/auth/google",
+	fastify.get("/auth/login/google",
 		fastifyPassport.authenticate("google", {
 			scope: ["profile", "email"],
 		})
