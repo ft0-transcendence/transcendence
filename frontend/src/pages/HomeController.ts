@@ -1,15 +1,20 @@
 import {api} from "../../main";
-import {RouteController} from "../dto/routing";
+import {RouteController} from "../types/pages";
 
 export class HomeController extends RouteController {
 
-	constructor() {
-		super();
+	async preRender(){
+		console.log('Home controller pre-render');
 	}
-
-
-	init() {
-		console.log('Home controller loaded');
+	async render(){
+		return `
+			<div class="text-xl font-mono">
+				home view works!
+			</div>
+		`;
+	}
+	async postRender(){
+		console.log('Home controller post-render');
 		this.runTest();
 
 		document.querySelector('#login-btn')?.addEventListener('click', () => {
@@ -17,9 +22,7 @@ export class HomeController extends RouteController {
 		})
 	}
 
-	destroy() {
-		console.log('Home controller destroyed');
-	}
+
 
 	async runTest() {
 		const response = await api.test.publicGreeting.query({name: "Sasha"});

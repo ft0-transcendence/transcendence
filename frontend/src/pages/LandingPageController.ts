@@ -1,12 +1,17 @@
 import {api} from "../../main";
-import {RouteController} from "../dto/routing";
+import {RouteController} from "../types/pages";
 
 export class LandingPageController extends RouteController {
-	constructor() {
-		super();
+
+	async render() {
+		return `
+			<div class="text-xl font-mono">
+				landing page view works!
+			</div>
+		`;
 	}
 
-	init() {
+	async postRender(){
 		console.log('Home controller loaded');
 		this.runTest();
 
@@ -15,7 +20,7 @@ export class LandingPageController extends RouteController {
 		})
 	}
 
-	destroy() {
+	async destroy() {
 		console.log('Home controller destroyed');
 	}
 

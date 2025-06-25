@@ -1,4 +1,4 @@
-import {router} from './src/router';
+import {router} from './src/pages/_router';
 import {createTRPCProxyClient, httpBatchLink} from '@trpc/client';
 import superjson from 'superjson';
 import type {AppRouter} from '../_shared';
