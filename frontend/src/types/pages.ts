@@ -3,6 +3,7 @@ import {CONSTANTS} from "../pages/_router";
 export abstract class RouteController {
 	// @ts-ignore
 	#isDestroyed = false;
+	protected suffix: string | null = null;
 
 	protected get isDestroyed() {
 		return this.#isDestroyed;
@@ -11,10 +12,17 @@ export abstract class RouteController {
 	constructor() {
 	}
 
+	/**
+	 * Sets the title suffix of the page. This is used to set the title of the page to include the BASE APP TITLE and the current page's title suffix.
+	 * @param titleSuffix The title suffix to set.
+	 */
 	set titleSuffix(titleSuffix: string | null) {
 		if (titleSuffix){
 			document.title = `${CONSTANTS.APP_TITLE} | ${titleSuffix}`;
+		} else {
+			document.title = `${CONSTANTS.APP_TITLE}`;
 		}
+		this.suffix = titleSuffix;
 	}
 
 	// METHODS TO IMPLEMENT IN EXTENDING CLASS
@@ -44,12 +52,21 @@ export abstract class RouteController {
 
 
 	//  METHODS TO NOT TO TOUCH -----------------------------------------------
+	/**
+	 * Destroys the controller if it has not been destroyed yet.
+	 * @note This method is called automatically by the router.
+	 */
 	public async destroyIfNotDestroyed() {
 		if (this.#isDestroyed) return;
 		await this.destroy();
 		this.#isDestroyed = true;
 	}
 
+	/**
+	 * Renders the view of the controller.
+	 * @param parentContainerID The ID of the parent container to render the view in. If not provided, the view is rendered in the body of the document (warning: this can cause issues with nested views, don't do it).
+	 * @note This method is called automatically by the router.
+	 */
 	public async renderView(parentContainerID: string | null = CONSTANTS.APP_CONTAINER_ID){
 		await this.preRender();
 
@@ -87,5 +104,8 @@ export type Route = {
 	layout?: string;
 
 	newController: () => RouteController;
+
+
+	// DO NOT TOUCH
 	controller?: RouteController | null;
 };

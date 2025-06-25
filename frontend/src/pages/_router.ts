@@ -92,7 +92,7 @@ export class AppRouter {
 	}
 
 
-	navigate(path: Route['path']) {
+	public navigate(path: Route['path']) {
 		history.pushState({}, '', path);
 		this.route();
 	}
