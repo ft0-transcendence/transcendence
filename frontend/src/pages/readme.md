@@ -30,7 +30,7 @@ A Controller has 3 lifecycle methods:
 - `render()`: This method returns the HTML of the view. It can use the class' data fetched in `preRender` function.
 - `postRender()`: @Optional. Called after the `render()` method. Useful for binding event listeners and other post-render operations.
 
-See the [`HomeController`](./HomeController.ts) and [`LandingPageController`](./LandingPageController.ts) for examples.
+See the [HomeController](./HomeController.ts) and [LandingPageController](./LandingPageController.ts) for examples.
 
 
 ## Router usage
@@ -39,7 +39,7 @@ The router is a singleton class that is accessible globally via the `window.rout
 
 The methods available on the router are:
 
-- [`init()`](./_router.ts): This method should be called only once, when the application is ready to start routing.
+- `init()`: This method should be called only once, when the application is ready to start routing.
 - `currentController`: You can use this property to access the current controller instance.
 - `navigate(path: string)`: Navigate to the specified page. This method updates the URL if not already on the target page and renders the new page (all 3 lifecycle methods are called).
 - `changeLoadingState(isLoading: boolean)`: This method is used internally by the router to update the loading state of the application. If you want to manually update the loading state, you can call this method. It's functionality works as follows:
