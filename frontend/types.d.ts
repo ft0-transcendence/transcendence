@@ -1,4 +1,4 @@
-import {type AppRouter} from "../pages/_router";
+import {type AppRouter} from "./src/pages/_router";
 
 declare global {
 	interface Window {

@@ -4,7 +4,7 @@ import {RouteController} from "../types/pages";
 export class LandingPageController extends RouteController {
 
 	async render() {
-		return `
+		return /*html*/`
 			<div class="text-xl font-mono">
 				landing page view works!
 			</div>

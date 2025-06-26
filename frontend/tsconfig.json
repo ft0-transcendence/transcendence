@@ -2,9 +2,9 @@
 	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
 		"module": "ES2022",
+		"moduleResolution": "node",
 		"outDir": "dist/frontend",
 		"target": "ES2022",
-		"rootDir": ".",
 		"lib": [
 			"ES2020",
 			"DOM"
@@ -16,9 +16,10 @@
 		},
 	},
 	"include": [
+		"./types.d.ts",
 		"./**/*.{ts,js,html}",
 		"./index.html",
-		"./main.mts",
-		"vite.config.mts"
+		"./main.ts",
+		"vite.config.mts",
 	],
 }

@@ -88,7 +88,10 @@ export abstract class RouteController {
 			container.innerHTML = '';
 			container.appendChild(view);
 		} else {
-			container.innerHTML = view;
+			if (!view){
+				console.warn(`Rendering a null view`);
+			}
+			container.innerHTML = view ?? "";
 		}
 
 		await this.postRender();

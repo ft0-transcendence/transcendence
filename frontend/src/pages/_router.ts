@@ -1,7 +1,6 @@
-import {Route} from "../types/pages";
-import {HomeController} from "./HomeController";
-import {LandingPageController} from "./LandingPageController";
-
+import { Route } from "../types/pages";
+import { HomeController } from "./HomeController";
+import { LandingPageController } from "./LandingPageController";
 
 export const CONSTANTS = {
 	APP_CONTAINER_ID: 'app',
@@ -24,9 +23,9 @@ const routes: Route[] = [
 ];
 
 
-const APP_CONTAINER = document.getElementById(CONSTANTS.APP_CONTAINER_ID);
-
 export class AppRouter {
+	#APP_CONTAINER: HTMLElement;
+
 	private currentRoute: Route | null = null;
 
 	private activeTrueLoadingRequests: true[] = [];
@@ -36,10 +35,19 @@ export class AppRouter {
 		return this.currentRoute?.controller ?? null;
 	}
 
+	constructor() {
+		const container = document.getElementById(CONSTANTS.APP_CONTAINER_ID);
+		if (!container) {
+			throw new Error(`Container with ID '${CONSTANTS.APP_CONTAINER_ID}' not found. You need to add it to your index.html file.`);
+		}
+		this.#APP_CONTAINER = container;
+	}
+
 	init() {
 		window.addEventListener('popstate', this.route.bind(this));
 		this.route();
 	}
+
 
 	private async route() {
 		try {
@@ -69,7 +77,7 @@ export class AppRouter {
 				parentContainerID = CONSTANTS.APP_LAYOUT_CONTENT_ID;
 				if (prevRoute?.layout !== route.layout) {
 					console.debug(`Loading ${route.layout} layout...`);
-					APP_CONTAINER.innerHTML = await (await fetch(route.layout)).text();
+					this.#APP_CONTAINER.innerHTML = await (await fetch(route.layout)).text();
 				}
 				const layoutContainer = document.getElementById(CONSTANTS.APP_LAYOUT_CONTENT_ID);
 				if (!layoutContainer) {
@@ -81,7 +89,7 @@ export class AppRouter {
 			}
 
 			this.currentRoute = route;
-			route.controller.renderView(parentContainerID);
+			await route.controller.renderView(parentContainerID);
 
 		} catch (error) {
 			console.error('Routing error:', error);
@@ -123,11 +131,11 @@ export class AppRouter {
 
 	private renderNotFound() {
 		// TODO: cook a 404 page
-		APP_CONTAINER.innerHTML = '<h1>404 Not Found</h1>';
+		this.#APP_CONTAINER.innerHTML = '<h1>404 Not Found</h1>';
 	}
 
 	private renderGenericError(error: any) {
-		APP_CONTAINER.innerHTML = `
+		this.#APP_CONTAINER.innerHTML = `
 			<div class="flex flex-col items-center justify-center w-full h-full">
 				<h1 class="text-red-500">Error</h1>
 				<p class="text-red-600">${error}</p>
