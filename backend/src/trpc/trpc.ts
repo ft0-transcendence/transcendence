@@ -17,7 +17,7 @@ export const createTRPCContext = async (opts: CreateFastifyContextOptions) => {
 	const {req, res, info} = opts;
 
 	const user: User | null = req.user as User | null;
-	// console.log("TRPC Context user:", req.user); // ✅ Check this in the terminal
+	// console.log("TRPC Context user:", req.user);
 
 	return {
 		req,

@@ -14,7 +14,7 @@ export class HomeController extends RouteController {
 	}
 
 	async render(){
-		return `
+		return /*html*/`
 			<div class="text-xl font-mono">
 				home view works! ${this.suffix}
 			</div>
