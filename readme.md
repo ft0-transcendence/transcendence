@@ -38,7 +38,7 @@ npx auth secret --raw
 If you want to use sqlite instead of mysql, change the `DATABASE_URL` in `.env` to the following:
 
 ```bash
-DATABASE_URL="./db.sqlite"
+DATABASE_URL="file:./db.sqlite"
 ```
 
 and in prisma/schema.prisma, change the `provider` to `sqlite`.
