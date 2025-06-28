@@ -9,14 +9,41 @@ This is a backend for the Transcendence project at 42 Firenze school.
 ## Suggested extensions for VSCode
 
 - [EditorConfig for VSCode](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)
+  ```
+  EditorConfig.EditorConfig
+  ```
 - [es6-string-html](https://marketplace.visualstudio.com/items?itemName=Tobermory.es6-string-html)
+  ```
+  Tobermory.es6-string-html
+  ```
 - [Git Graph](https://marketplace.visualstudio.com/items?itemName=mhutchie.git-graph)
+  ```
+  mhutchie.git-graph
+  ```
 - [Headwind](https://marketplace.visualstudio.com/items?itemName=heybourn.headwind)
+  ```
+  heybourn.headwind
+  ```
 - [Pretty TypeScript Errors](https://marketplace.visualstudio.com/items?itemName=yoavbls.pretty-ts-errors)
+  ```
+  yoavbls.pretty-ts-errors
+  ```
 - [Prisma](https://marketplace.visualstudio.com/items?itemName=Prisma.prisma)
+  ```
+  Prisma.prisma
+  ```
 - [Prisma Import](https://marketplace.visualstudio.com/items?itemName=ajmnz.prisma-import)
+  ```
+  ajmnz.prisma-import
+  ```
 - [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss)
+  ```
+  bradlc.vscode-tailwindcss
+  ```
 - [TypeScript Importer](https://marketplace.visualstudio.com/items?itemName=pmneo.tsimporter)
+  ```
+  pmneo.tsimporter
+  ```
 
 ## Getting Started
 
