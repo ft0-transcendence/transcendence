@@ -4,6 +4,8 @@ import {api} from "@main";
 
 export type AuthConfig = {
 	domSelectors: {
+		userMenuContainer: string;
+		userMenuButton: string;
 		loggedInUsername: string,
 		loggedInImageUrl: string,
 		loggedInContainer: string,
@@ -11,13 +13,16 @@ export type AuthConfig = {
 	},
 }
 
-export const AUTH_DOM_SELECTORS: {
+export const AUTH_DOM_IDS: {
 	[key in keyof AuthConfig['domSelectors']]: AuthConfig['domSelectors'][key]
 } = {
-	loggedInUsername: '#logged_in_username',
-	loggedInImageUrl: '#logged_in_image_url',
-	loggedInContainer: '#logged_in_container',
-	loggedOutContainer: '#logged_out_container',
+	userMenuButton: 'user_menu_button',
+	userMenuContainer: 'user_menu_container',
+
+	loggedInUsername: 'logged_in_username',
+	loggedInImageUrl: 'logged_in_image_url',
+	loggedInContainer: 'logged_in_container',
+	loggedOutContainer: 'logged_out_container',
 }
 
 
@@ -28,14 +33,17 @@ export class AuthManager {
 
 	#userRefreshInterval: NodeJS.Timeout | null = null;
 	#userRefreshIntervalMs = 1000 * 30;
+	#lastCall: Promise<void> | null = null;
 
 	constructor(config?: Partial<AuthConfig>) {
 		this.#config = {
 			domSelectors: {
-				loggedInUsername: AUTH_DOM_SELECTORS.loggedInUsername,
-				loggedInImageUrl: AUTH_DOM_SELECTORS.loggedInImageUrl,
-				loggedInContainer: AUTH_DOM_SELECTORS.loggedInContainer,
-				loggedOutContainer: AUTH_DOM_SELECTORS.loggedOutContainer,
+				userMenuContainer: AUTH_DOM_IDS.userMenuContainer,
+				userMenuButton: AUTH_DOM_IDS.userMenuButton,
+				loggedInUsername: AUTH_DOM_IDS.loggedInUsername,
+				loggedInImageUrl: AUTH_DOM_IDS.loggedInImageUrl,
+				loggedInContainer: AUTH_DOM_IDS.loggedInContainer,
+				loggedOutContainer: AUTH_DOM_IDS.loggedOutContainer,
 			},
 			...config,
 		};
@@ -44,13 +52,22 @@ export class AuthManager {
 	get user() {
 		return this.#user;
 	}
+	get userImageUrl() {
+		if (!this.#user) return null;
+		if (!this.#user.imageBlob) return this.#user.imageUrl;
+		const blob = new Blob([this.#user.imageBlob], { type: "image/png" });
+		return URL.createObjectURL(blob)
+	}
 
-	get isLoggedIn() {
+	async isUserLoggedIn() {
+		if (this.#lastCall) {
+			await this.#lastCall;
+		}
 		return !!this.#user;
 	}
 
 	init() {
-		this.refreshUser();
+		this.#lastCall = this.refreshUser();
 	}
 
 
@@ -71,8 +88,10 @@ export class AuthManager {
 				console.error('Error refreshing user', err);
 			}
 		}
-		if (this.#user){
-			this.#userRefreshInterval = setInterval(() => this.refreshUser(), this.#userRefreshIntervalMs);
+		if (this.#user) {
+			this.#userRefreshInterval = setInterval(() => {
+				this.#lastCall = this.refreshUser();
+			}, this.#userRefreshIntervalMs);
 		}
 	}
 }

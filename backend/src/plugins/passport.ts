@@ -26,18 +26,39 @@ export const passportPlugin = fp(async (fastify) => {
 				const email = profile.emails?.find((email) => email.verified)?.value;
 				if (!id) return done(null, false);
 
+				const imageUrl = profile.photos?.find((photo) => photo.value)?.value;
+
+
+				let imageBlob: Uint8Array | null = null;
+				let blobMimeType: string | null = null;
+				if (imageUrl) {
+					try {
+						const response = await fetch(imageUrl);
+						const blob = await response.blob();
+						blobMimeType = blob.type;
+						imageBlob = new Uint8Array(await blob.arrayBuffer());
+					} catch (err) {
+						console.error('Error fetching image', err);
+					}
+				}
+
+
 				const user: User = await fastify.prisma.user.upsert({
 					where: { id },
 					create: {
 						id: profile.id,
 						email: email!,
 						username: profile.displayName!,
-						image: profile.photos?.find((photo) => photo.value)?.value,
+						imageUrl: imageUrl,
+						imageBlob: imageBlob,
+						imageBlobMimeType: blobMimeType
 					},
 					update: {
 						username: profile.displayName!,
 						email: email!,
-						image: profile.photos?.find((photo) => photo.value)?.value,
+						imageUrl: imageUrl,
+						imageBlob: imageBlob,
+						imageBlobMimeType: blobMimeType
 					},
 				});
 

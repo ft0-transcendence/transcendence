@@ -29,9 +29,11 @@ export const publicRoutes: FastifyPluginAsync = async (fastify) => {
 		}
 	});
 
-	fastify.get("/auth/signout", async (request, reply) => {
+	fastify.get("/auth/logout", async (request, reply) => {
 		request.logout();
-		reply.status(200).send();
+		const redirectTo = request.session.redirectTo || env.FRONTEND_URL;
+		delete request.session.redirectTo;
+		reply.redirect(redirectTo);
 	});
 	// --------------------------------------------------------------------------
 };

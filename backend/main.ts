@@ -13,6 +13,7 @@ import {publicRoutes} from "./src/fastify-routes/public";
 import pino from "pino-pretty";
 import fastifyStatic from "@fastify/static";
 import * as path from "node:path";
+import * as fs from "node:fs";
 
 pino;
 
@@ -55,21 +56,22 @@ fastify.register(fastifyTRPCPlugin, {
 
 fastify.register(publicRoutes, {prefix: "/api"});
 
+if (fs.existsSync(path.join(__dirname, "..", "dist", "frontend"))) {
 
-fastify.register(fastifyStatic, {
-	root: path.join(__dirname, '../dist/frontend'),
-	prefix: '/', // serve frontend from root
-	index: 'index.html',
-});
+	fastify.register(fastifyStatic, {
+		root: path.join(__dirname, '../dist/frontend'),
+		prefix: '/', // serve frontend from root
+		index: 'index.html',
+	});
 
-// Optional: fallback to index.html for SPA routing
-fastify.setNotFoundHandler((req, reply) => {
-	if (req.raw.url?.startsWith('/api')) {
-		reply.code(404).send({ error: 'API route not found' });
-	} else {
-		reply.type('text/html').sendFile('index.html');
-	}
-});
+	fastify.setNotFoundHandler((req, reply) => {
+		if (req.raw.url?.startsWith('/api')) {
+			reply.code(404).send({ error: 'API route not found' });
+		} else {
+			reply.type('text/html').sendFile('index.html');
+		}
+	});
+}
 
 const start = async () => {
 	try {
