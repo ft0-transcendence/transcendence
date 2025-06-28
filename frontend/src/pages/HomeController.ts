@@ -1,5 +1,5 @@
 import {api} from "../../main";
-import {RouteController} from "../types/pages";
+import {RouteController, ViewController} from "../types/pages";
 import {router} from "./_router";
 
 export class HomeController extends RouteController {

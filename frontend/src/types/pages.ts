@@ -1,6 +1,7 @@
 import {CONSTANTS} from "../pages/_router";
 
-export abstract class RouteController {
+export abstract class ViewController {
+	protected type: "page" | "layout" = "page";
 	// @ts-ignore
 	#isDestroyed = false;
 	protected suffix: string | null = null;
@@ -94,9 +95,30 @@ export abstract class RouteController {
 			container.innerHTML = view ?? "";
 		}
 
+		if (this.type === "layout") {
+			if (!container.querySelector(`#${CONSTANTS.APP_LAYOUT_CONTENT_ID}`)) {
+				const msg = `Layout ${this} is missing element with ID '${CONSTANTS.APP_LAYOUT_CONTENT_ID}'`;
+				throw new Error(msg);
+			}
+		}
+
 		await this.postRender();
 
 		return view;
+	}
+}
+
+export abstract class RouteController extends ViewController {
+	constructor() {
+		super();
+		this.type = "page";
+	}
+}
+
+export abstract class LayoutController extends ViewController {
+	constructor() {
+		super();
+		this.type = "layout";
 	}
 }
 
@@ -104,11 +126,6 @@ export type Route = {
 	path: string;
 	authRequired?: boolean;
 
-	layout?: string;
-
-	newController: () => RouteController;
-
-
-	// DO NOT TOUCH
-	controller?: RouteController | null;
+	newLayout?: () => ViewController;
+	newController: () => ViewController;
 };

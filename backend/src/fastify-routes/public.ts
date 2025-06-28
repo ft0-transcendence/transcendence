@@ -5,19 +5,28 @@ import {env} from "../../env";
 export const publicRoutes: FastifyPluginAsync = async (fastify) => {
 	// Authentication----------------------------------------------------------
 
-	fastify.get("/auth/login/google",
-		fastifyPassport.authenticate("google", {
+	fastify.get("/auth/login/google", {
+		preHandler: async (req, reply) => {
+			const { redirect } = req.query as { redirect?: string };
+			if (redirect) {
+				req.session.redirectTo = redirect;
+			}
+		},
+		handler: fastifyPassport.authenticate("google", {
 			scope: ["profile", "email"],
 		})
-	);
+	});
 
 	fastify.get("/auth/google/callback", {
-		preValidation: fastifyPassport.authenticate("google", {
-			scope: ["profile", "email"],
-			failureRedirect: `/api/auth/google`,
+		preHandler: fastifyPassport.authenticate("google", {
+			failureRedirect: "/error",
+			session: true,
 		}),
-	}, async (request, reply) => {
-		reply.redirect(env.FRONTEND_URL);
+		handler: async (req, reply) => {
+			const redirectTo = req.session.redirectTo || env.FRONTEND_URL;
+			delete req.session.redirectTo;
+			reply.redirect(redirectTo);
+		}
 	});
 
 	fastify.get("/auth/signout", async (request, reply) => {

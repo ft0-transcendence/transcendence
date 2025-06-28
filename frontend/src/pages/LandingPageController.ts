@@ -1,18 +1,18 @@
 import {api} from "../../main";
-import {RouteController} from "../types/pages";
+import {RouteController, ViewController} from "../types/pages";
 
 export class LandingPageController extends RouteController {
 
 	async render() {
 		return /*html*/`
-			<div class="text-xl font-mono">
-				landing page view works!
+			<div class="flex flex-col grow w-full items-center justify-center">
+				<h1> Pong Game</h1>
 			</div>
 		`;
 	}
 
 	async postRender(){
-		console.log('Home controller loaded');
+		console.log('Landing page controller loaded');
 		this.runTest();
 
 		document.querySelector('#login-btn')?.addEventListener('click', () => {
@@ -20,9 +20,6 @@ export class LandingPageController extends RouteController {
 		})
 	}
 
-	async destroy() {
-		console.log('Home controller destroyed');
-	}
 
 	async runTest() {
 		const response = await api.test.publicGreeting.query({name: "Sasha"});

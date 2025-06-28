@@ -2,6 +2,7 @@ import {router} from './src/pages/_router';
 import {createTRPCProxyClient, httpBatchLink} from '@trpc/client';
 import superjson from 'superjson';
 import type {AppRouter} from '../_shared';
+import {authManager} from "./src/tools/AuthManager";
 
 export const api = createTRPCProxyClient<AppRouter>({
 	links: [
@@ -20,6 +21,13 @@ export const api = createTRPCProxyClient<AppRouter>({
 	],
 });
 
+if (process.env.NODE_ENV !== 'development') {
+	console.info(`Debug logs are disabled in production`);
+	console.debug = function () {
+	};
+}
+
 window.addEventListener('DOMContentLoaded', () => {
 	router.init();
+	authManager.init();
 });

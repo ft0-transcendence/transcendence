@@ -1,6 +1,7 @@
-import { Route } from "../types/pages";
+import {Route, ViewController} from "../types/pages";
 import { HomeController } from "./HomeController";
 import { LandingPageController } from "./LandingPageController";
+import {BaseLayout} from "../layouts/BaseLayout";
 
 export const CONSTANTS = {
 	APP_CONTAINER_ID: 'app',
@@ -18,7 +19,7 @@ const routes: Route[] = [
 	{
 		path: '/',
 		newController: () => new LandingPageController(),
-		layout: '/layouts/BaseLayout.html',
+		newLayout: () => new BaseLayout(),
 	}
 ];
 
@@ -27,13 +28,12 @@ export class AppRouter {
 	#APP_CONTAINER: HTMLElement;
 
 	private currentRoute: Route | null = null;
+	private currentController: ViewController | null = null;
+	private currentLayout: ViewController | null = null;
 
 	private activeTrueLoadingRequests: true[] = [];
 	private isLoading = false;
 
-	get currentController() {
-		return this.currentRoute?.controller ?? null;
-	}
 
 	constructor() {
 		const container = document.getElementById(CONSTANTS.APP_CONTAINER_ID);
@@ -64,32 +64,27 @@ export class AppRouter {
 
 			// Cleanup previous controller
 			const prevRoute = this.currentRoute;
-			prevRoute?.controller?.destroyIfNotDestroyed?.();
+			this.currentController?.destroyIfNotDestroyed?.();
 			this.currentRoute = null;
 
-			route.controller?.destroyIfNotDestroyed?.();
-			route.controller = route.newController();
+			this.currentController = route.newController();
 
 
 			let parentContainerID: string | null = CONSTANTS.APP_CONTAINER_ID;
 
-			if (route.layout) {
+			if (route.newLayout) {
 				parentContainerID = CONSTANTS.APP_LAYOUT_CONTENT_ID;
-				if (prevRoute?.layout !== route.layout) {
-					console.debug(`Loading ${route.layout} layout...`);
-					this.#APP_CONTAINER.innerHTML = await (await fetch(route.layout)).text();
-				}
-				const layoutContainer = document.getElementById(CONSTANTS.APP_LAYOUT_CONTENT_ID);
-				if (!layoutContainer) {
-					const msg = `Layout ${route.layout} is missing element with ID '${CONSTANTS.APP_LAYOUT_CONTENT_ID}'`;
-					console.error(msg);
-					this.renderGenericError(msg);
-					return null;
+				if (prevRoute?.newLayout !== route.newLayout) {
+					console.debug(`Loading new ${route.newLayout} layout...`);
+					await this.currentLayout?.destroyIfNotDestroyed?.();
+
+					this.currentLayout = route.newLayout();
+					await this.currentLayout.renderView(CONSTANTS.APP_CONTAINER_ID);
 				}
 			}
 
 			this.currentRoute = route;
-			await route.controller.renderView(parentContainerID);
+			await this.currentController.renderView(parentContainerID);
 
 		} catch (error) {
 			console.error('Routing error:', error);

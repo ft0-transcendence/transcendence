@@ -12,6 +12,9 @@
 		"paths": {
 			"@main": [
 				"./main.ts"
+			],
+			"@shared": [
+				"../_shared"
 			]
 		},
 	},

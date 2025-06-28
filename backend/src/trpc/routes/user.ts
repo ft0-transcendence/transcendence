@@ -1,8 +1,13 @@
-import {t} from "../trpc";
+import {protectedProcedure, t} from "../trpc";
 
 export const userRouter = t.router({
-	getUser: t.procedure
+	getUser: protectedProcedure
 		.query(async ({ctx}) => {
-			return ctx.user;
+			const user = await ctx.db.user.findFirst({
+				where: {
+					id: ctx.user!.id,
+				},
+			});
+			return user;
 		}),
 })

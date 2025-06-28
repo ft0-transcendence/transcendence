@@ -2,9 +2,13 @@
 	"name": "transcendence-backend",
 	"version": "1.0.0",
 	"scripts": {
+		"build:frontend": "vite build",
+		"build": "npm run build:frontend",
+		"prebuild": "npm run db:generate",
 		"prestart:frontend": "npm run db:generate",
 		"start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
 		"start:frontend": "vite --host 0.0.0.0",
+		"prestart:backend": "npm run build",
 		"start:backend": "ts-node --project backend/tsconfig.json --transpile-only backend/main.ts",
 		"dev": "concurrently \"npm run dev:backend\" \"vite dev\"",
 		"dev:expose": "concurrently \"npm run dev:backend\" \"npm run dev:frontend:expose\"",
