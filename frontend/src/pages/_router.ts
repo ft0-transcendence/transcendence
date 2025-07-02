@@ -3,6 +3,7 @@ import { HomeController } from "./HomeController";
 import { LandingPageController } from "./LandingPageController";
 import {BaseLayout} from "../layouts/BaseLayout";
 import {authManager} from "../tools/AuthManager";
+import toast from "../tools/Toast";
 
 export const CONSTANTS = {
 	APP_CONTAINER_ID: 'app',
@@ -61,6 +62,7 @@ export class AppRouter {
 			const dataRoute = el.getAttribute('data-route');
 			if (!dataRoute?.trim()?.length){
 				console.error(`Route link has no data-route attribute`, el);
+				toast.error('Error', 'Route link has no data-route attribute.<br/> Check console for more details.');
 				// TODO popup error
 				return;
 			}
@@ -139,6 +141,11 @@ export class AppRouter {
 
 		} catch (error) {
 			console.error('Routing error:', error);
+			if (error instanceof Error) {
+				toast.error('Routing Error', error.message);
+			} else {
+				toast.error('Routing Error', 'An unknown error occurred. Check console for details.');
+			}
 			this.renderGenericError(error);
 		} finally {
 			this.initRouteLinks();
@@ -157,6 +164,7 @@ export class AppRouter {
 		const loadingSpinner = document.getElementById(CONSTANTS.LOADING_SPINNER_ID);
 		if (!loadingSpinner) {
 			console.error(`Loading spinner with ID '${CONSTANTS.LOADING_SPINNER_ID}' not found`);
+			toast.error('Error', 'Loading spinner not found. Check console for more details.');
 			return;
 		}
 

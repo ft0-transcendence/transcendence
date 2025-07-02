@@ -1,5 +1,6 @@
 import {LayoutController} from "../types/pages";
 import {AUTH_DOM_IDS, authManager} from "../tools/AuthManager";
+import { CONSTANTS } from "../pages/_router";
 
 export class BaseLayout extends LayoutController {
 	#userMenuContainer: HTMLElement | null = null;
@@ -31,7 +32,7 @@ export class BaseLayout extends LayoutController {
 
 		return /*html*/`
 			<div class="flex flex-col w-full text-white grow bg-neutral-900">
-				<div id="app_layout_content" class="flex flex-col w-full grow"></div>
+				<div id="${CONSTANTS.APP_LAYOUT_CONTENT_ID}" class="flex flex-col w-full grow"></div>
 
 				<footer class="grid items-center h-20 grid-cols-5 shadow-xl bg-neutral-950">
 					<div class="flex items-center col-span-1 gap-2 font-mono font-bold">

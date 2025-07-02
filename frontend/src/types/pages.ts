@@ -1,4 +1,5 @@
 import {CONSTANTS} from "../pages/_router";
+import toast from "../tools/Toast";
 
 export abstract class ViewController {
 	protected type: "page" | "layout" = "page";
@@ -79,6 +80,7 @@ export abstract class ViewController {
 			container = document.getElementById(parentContainerID);
 			if (!container){
 				console.error(`Parent container with ID '#${parentContainerID}' not found`);
+				toast.error('Error', `Parent container with ID '#${parentContainerID}' for the view '#${this.constructor.name}' not found. Check console for more details.`);
 				return null;
 			}
 		}
@@ -97,7 +99,7 @@ export abstract class ViewController {
 
 		if (this.type === "layout") {
 			if (!container.querySelector(`#${CONSTANTS.APP_LAYOUT_CONTENT_ID}`)) {
-				const msg = `Layout ${this} is missing element with ID '${CONSTANTS.APP_LAYOUT_CONTENT_ID}'`;
+				const msg = `Layout ${this.constructor.name} is missing element with ID '${CONSTANTS.APP_LAYOUT_CONTENT_ID}'`;
 				throw new Error(msg);
 			}
 		}

@@ -1,13 +1,41 @@
 @import "tailwindcss";
-
+:root {
+	--fade-out-duration: 0.25s;
+}
 img {
 	max-width: unset;
 }
 
 .route-link {
-	@apply cursor-pointer hover:bg-neutral-800 flex flex-col items-center justify-center p-4;
+	@apply flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-neutral-800;
 }
 
 .route-link.active {
 	@apply text-emerald-500;
+}
+
+.toast-success {
+	@apply bg-emerald-600;
+}
+.toast-error {
+	@apply text-white bg-red-500;
+}
+.toast-info {
+	@apply bg-blue-500;
+}
+
+.fade-out {
+	animation: fadeOut var(--fade-out-duration, 0.3s) linear;
+	transition: opacity;
+	opacity: 0;
+}
+
+
+@keyframes fadeOut {
+	0% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
 }

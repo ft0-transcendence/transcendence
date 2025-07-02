@@ -95,6 +95,7 @@ export class AuthManager {
 				}
 			} else {
 				console.error('Error refreshing user', err);
+
 			}
 		}
 		if (this.#user) {

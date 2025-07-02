@@ -2,6 +2,7 @@ import {api} from "../../main";
 import {RouteController, ViewController} from "../types/pages";
 import {router} from "./_router";
 import {authManager} from "../tools/AuthManager";
+import toast from "../tools/Toast";
 
 export class HomeController extends RouteController {
 	constructor() {
