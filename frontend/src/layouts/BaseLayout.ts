@@ -11,7 +11,7 @@ export class BaseLayout extends LayoutController {
 		let userMenuButtons: string = '';
 		if (isLoggedIn) {
 			userMenuButtons =  /*html*/`
-				<div class="hover:text-emerald-400 cursor-pointer">
+				<div class="cursor-pointer hover:text-emerald-400">
 					<i class="fa fa-cog"></i>
 					Settings
 				</div>
@@ -30,14 +30,14 @@ export class BaseLayout extends LayoutController {
 		}
 
 		return /*html*/`
-			<div class="flex flex-col grow w-full bg-neutral-900 text-white">
-				<div id="app_layout_content" class="flex grow flex-col w-full"></div>
+			<div class="flex flex-col w-full text-white grow bg-neutral-900">
+				<div id="app_layout_content" class="flex flex-col w-full grow"></div>
 
-				<footer class="grid grid-cols-5 items-center h-20 shadow-xl bg-neutral-950">
-					<div class="col-span-1 flex items-center gap-2 font-mono font-bold">
+				<footer class="grid items-center h-20 grid-cols-5 shadow-xl bg-neutral-950">
+					<div class="flex items-center col-span-1 gap-2 font-mono font-bold">
 						<button data-route="/home" class="route-link">
 							<i class="fa fa-2x fa-home" aria-hidden="true"></i>
-							<div class="hidden sm:flex uppercase">HOME</div>
+							<div class="hidden uppercase sm:flex">HOME</div>
 						</button>
 
 					</div>
@@ -45,20 +45,20 @@ export class BaseLayout extends LayoutController {
 					<div class="flex items-center justify-center col-span-3 gap-2 font-mono font-bold">
 						<button data-route="/play" class="route-link">
 							<i class="fa fa-2x fa-gamepad" aria-hidden="true"></i>
-							<div class="hidden sm:flex uppercase">PLAY</div>
+							<div class="hidden uppercase sm:flex">PLAY</div>
 						</button>
 					</div>
 
-					<div class="text-xl relative col-span-1 flex items-center justify-end">
-						<div id="${AUTH_DOM_IDS.userMenuButton}" class="flex items-center cursor-pointer w-10 h-10 mx-4 shrink-0">
+					<div class="relative flex items-center justify-end col-span-1 text-xl">
+						<div id="${AUTH_DOM_IDS.userMenuButton}" class="flex items-center w-10 h-10 mx-4 cursor-pointer shrink-0">
 							${isLoggedIn
-								? /*html*/`<img src="${authManager.userImageUrl}" alt="Logged in user image" class="rounded-full w-10 h-10">`
+								? /*html*/`<img src="${authManager.userImageUrl}" alt="Logged in user image" class="w-10 h-10 rounded-full">`
 								: /*html*/`<i class="fa fa-2x fa-user-circle hover:text-emerald-100"></i>`
 							}
 						</div>
 
-						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute bottom-full right-0 hidden w-40 bg-black rounded px-3 py-1 text-base items-center">
-							<div class="flex flex-col gap-1 w-full select-none">
+						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute right-0 items-center hidden w-40 px-3 py-1 text-base bg-black rounded bottom-full">
+							<div class="flex flex-col w-full gap-1 select-none">
 								${isLoggedIn
 									? /*html*/`
 										<h3 class="text-center">${authManager.user?.username}</h3>

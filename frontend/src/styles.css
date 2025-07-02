@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+img {
+	max-width: unset;
+}
+
 .route-link {
 	@apply cursor-pointer hover:bg-neutral-800 flex flex-col items-center justify-center p-4;
 }

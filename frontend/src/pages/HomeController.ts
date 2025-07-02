@@ -20,23 +20,23 @@ export class HomeController extends RouteController {
 
 
 		return /*html*/`
-			<div class="flex flex-col grow w-full">
-				<div class="grow grid grid-cols-5">
-					<div class="flex flex-col text-center col-span-1 items-center">
-						<div class="border-b border-b-white/15 flex flex-col gap-8 p-4 w-full items-center">
-							<img src="${authManager.userImageUrl}" alt="User image" class="rounded-full w-48 h-48">
-							<div class="text-xl font-bold">${userData?.username}</div>
+			<div class="flex flex-col w-full grow">
+				<div class="flex flex-col items-center w-full grow lg:grid lg:grid-cols-5">
+					<div class="flex flex-col items-center w-full text-center lg:h-full lg:col-span-1">
+						<div class="flex flex-col items-center w-full gap-8 p-4 border-b border-b-white/15">
+								<img src="${authManager.userImageUrl}" alt="User image" class="w-48 h-48 rounded-full aspect-square shrink-0">
+								<div class="text-xl font-bold">${userData?.username}</div>
 						</div>
-						<div class="grow flex flex-col justify-end w-full">
+						<div class="flex flex-col justify-end w-full grow">
 							<button data-route="/" class="route-link bg-blue-500 hover:!bg-blue-700 text-white font-bold py-2 px-4 w-full">
 								Go to landing page
 							</button>
 						</div>
 					</div>
-					<div class="flex flex-col text-center col-span-4 border-l gap-8 border-l-white/30 p-4">
-						<h2 class="font-mono uppercase font-bold text-2xl">Match History</h2>
+					<div class="flex flex-col w-full gap-8 p-4 text-center  lg:h-full lg:col-span-4 lg:border-l lg:border-l-white/30">
+						<h2 class="font-mono text-2xl font-bold uppercase">Match History</h2>
 						<div class="flex flex-col gap-2">
-							<span class="animate-bounce text-xl">WIP...</span>
+							<span class="text-xl animate-bounce">WIP...</span>
 						</div>
 					</div>
 				</div>
