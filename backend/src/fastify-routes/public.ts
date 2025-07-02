@@ -5,7 +5,7 @@ import {env} from "../../env";
 export const publicRoutes: FastifyPluginAsync = async (fastify) => {
 	// Authentication----------------------------------------------------------
 
-	fastify.get("/auth/login/google", {
+	fastify.get("/auth/login", {
 		preHandler: async (req, reply) => {
 			const { redirect } = req.query as { redirect?: string };
 			if (redirect) {
