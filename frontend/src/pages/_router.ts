@@ -1,6 +1,7 @@
 import {Route, ViewController} from "../types/pages";
 import { HomeController } from "./HomeController";
 import { LandingPageController } from "./LandingPageController";
+import { NotFoundController } from "./NotFoundController";
 import {BaseLayout} from "../layouts/BaseLayout";
 import {authManager} from "../tools/AuthManager";
 import toast from "../tools/Toast";
@@ -22,6 +23,11 @@ const routes: Route[] = [
 	{
 		path: '/',
 		newController: () => new LandingPageController(),
+		newLayout: () => new BaseLayout(),
+	},
+	{
+		path: '/404',
+		newController: () => new NotFoundController(),
 		newLayout: () => new BaseLayout(),
 	}
 ];
@@ -58,17 +64,21 @@ export class AppRouter {
 	}
 
 	private initRouteLinks(){
+
+		console.debug('Initializing route links...');
 		document.querySelectorAll(`.route-link`).forEach(el => {
 			const dataRoute = el.getAttribute('data-route');
 			if (!dataRoute?.trim()?.length){
 				console.error(`Route link has no data-route attribute`, el);
 				toast.error('Error', 'Route link has no data-route attribute.<br/> Check console for more details.');
-				// TODO popup error
 				return;
 			}
-			el.addEventListener('click', ()=>{
-				router.navigate(dataRoute);
-			})
+			console.debug(`Adding click listener to route link: ${dataRoute}`);
+			// Remove any existing click listeners to prevent duplicates
+			const onClickCb = (ev: Event) => router.navigate(dataRoute);
+
+			el.removeEventListener('click', onClickCb);
+			el.addEventListener('click', onClickCb);
 		});
 	}
 
@@ -77,11 +87,7 @@ export class AppRouter {
 			const pathWithoutHashOrQuery = location.pathname.split('#')[0].split('?')[0];
 			const route = routes.find(r => r.path === pathWithoutHashOrQuery);
 			if (!route){
-			// 	TODO navigate to 404 page
-				this.currentRoute = null;
-				this.currentController = null;
-				this.currentLayout = null;
-				this.renderNotFound();
+				this.navigate('/404');
 				return;
 			}
 
@@ -89,6 +95,8 @@ export class AppRouter {
 				console.debug(`Route is unchanged: ${route.path}`);
 				return;
 			}
+
+
 
 			this.changeLoadingState(true);
 
@@ -122,7 +130,7 @@ export class AppRouter {
 
 			if (route.newLayout) {
 				parentContainerID = CONSTANTS.APP_LAYOUT_CONTENT_ID;
-				if (prevRoute?.newLayout !== route.newLayout) {
+				if (prevRoute?.newLayout?.constructor?.name !== route.newLayout?.constructor.name) {
 					console.debug(`Loading new ${route.newLayout} layout...`);
 					await this.currentLayout?.destroyIfNotDestroyed?.();
 
@@ -138,6 +146,7 @@ export class AppRouter {
 
 			document.querySelectorAll(`.route-link`).forEach(el => el.classList.remove('active'));
 			document.querySelector(`.route-link[data-route="${this.currentLocation}"]`)?.classList.add('active');
+			this.initRouteLinks();
 
 		} catch (error) {
 			console.error('Routing error:', error);
@@ -147,8 +156,9 @@ export class AppRouter {
 				toast.error('Routing Error', 'An unknown error occurred. Check console for details.');
 			}
 			this.renderGenericError(error);
-		} finally {
 			this.initRouteLinks();
+
+		} finally {
 			this.changeLoadingState(false);
 		}
 	}
