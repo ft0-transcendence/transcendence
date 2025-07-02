@@ -3,13 +3,14 @@
 	"version": "1.0.0",
 	"scripts": {
 		"build:frontend": "vite build",
-		"build": "npm run build:frontend",
+		"build:backend": "tsc --project backend/tsconfig.json",
+		"build": "npm run build:frontend && npm run build:backend",
 		"prebuild": "npm run db:generate",
 		"prestart:frontend": "npm run db:generate",
 		"start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
 		"start:frontend": "vite --host 0.0.0.0",
 		"prestart:backend": "npm run build",
-		"start:backend": "ts-node --project backend/tsconfig.json --transpile-only backend/main.ts",
+		"start:backend": "node dist/backend/main.js",
 		"dev": "concurrently \"npm run dev:backend\" \"vite dev\"",
 		"dev:expose": "concurrently \"npm run dev:backend\" \"npm run dev:frontend:expose\"",
 		"dev:backend": "ts-node-dev --project backend/tsconfig.json --ignore-watch frontend --ignore-watch node_modules --respawn --transpile-only backend/main.ts",
@@ -61,8 +62,7 @@
 		"vite": "^6.3.5",
 		"zod": "^3.24.4"
 	},
-	"packageManager": "npm@10.9.2",
 	"engines": {
-		"node": "23.11.1"
+		"node": ">=22.0.0"
 	}
 }

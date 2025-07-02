@@ -1,16 +1,21 @@
 {
 	"extends": "../tsconfig.base.json",
-
 	"compilerOptions": {
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
 		"esModuleInterop": true,
-//		"skipLibCheck": true,
-		// other options ...
-
+		"outDir": "../dist/backend",
+		"noEmit": false,
+		"target": "ES2022",
+		"lib": [
+			"ES2020",
+			"DOM"
+		],
 	},
 	"include": [
-		"./**/*.ts"
-
+		"./main.ts",
+		"./env.ts",
+		"./types/fastify.d.ts",
+		"./src/**/*.ts"
 	]
 }
