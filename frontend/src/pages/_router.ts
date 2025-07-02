@@ -2,6 +2,7 @@ import {Route, ViewController} from "../types/pages";
 import { HomeController } from "./HomeController";
 import { LandingPageController } from "./LandingPageController";
 import {BaseLayout} from "../layouts/BaseLayout";
+import {authManager} from "../tools/AuthManager";
 
 export const CONSTANTS = {
 	APP_CONTAINER_ID: 'app',
@@ -15,6 +16,7 @@ const routes: Route[] = [
 		path: '/home',
 		newController: () => new HomeController(),
 		authRequired: true,
+		newLayout: () => new BaseLayout(),
 	},
 	{
 		path: '/',
@@ -34,6 +36,12 @@ export class AppRouter {
 	private activeTrueLoadingRequests: true[] = [];
 	private isLoading = false;
 
+	private isFirstRoute = true;
+
+	get currentLocation(){
+		return this.currentRoute?.path ?? '/404';
+	};
+
 
 	constructor() {
 		const container = document.getElementById(CONSTANTS.APP_CONTAINER_ID);
@@ -48,12 +56,32 @@ export class AppRouter {
 		this.route();
 	}
 
+	private initRouteLinks(){
+		document.querySelectorAll(`.route-link`).forEach(el => {
+			const dataRoute = el.getAttribute('data-route');
+			if (!dataRoute?.trim()?.length){
+				console.error(`Route link has no data-route attribute`, el);
+				// TODO popup error
+				return;
+			}
+			el.addEventListener('click', ()=>{
+				router.navigate(dataRoute);
+			})
+		});
+	}
 
 	private async route() {
 		try {
 			const pathWithoutHashOrQuery = location.pathname.split('#')[0].split('?')[0];
 			const route = routes.find(r => r.path === pathWithoutHashOrQuery);
-			if (!route) return this.renderNotFound();
+			if (!route){
+			// 	TODO navigate to 404 page
+				this.currentRoute = null;
+				this.currentController = null;
+				this.currentLayout = null;
+				this.renderNotFound();
+				return;
+			}
 
 			if (route.path === this.currentRoute?.path) {
 				console.debug(`Route is unchanged: ${route.path}`);
@@ -61,6 +89,24 @@ export class AppRouter {
 			}
 
 			this.changeLoadingState(true);
+
+			const isUserLoggedIn = await authManager.isUserLoggedIn();
+
+			if (this.isFirstRoute && route.path === '/' && isUserLoggedIn) {
+				console.debug('Redirecting to home page...');
+				this.navigate('/home');
+				this.isFirstRoute = false;
+				return;
+			}
+			this.isFirstRoute = false;
+
+			if (route.authRequired && !isUserLoggedIn) {
+				console.debug('Route requires authentication. Redirecting to login...');
+				authManager.login();
+				return;
+			}
+
+
 
 			// Cleanup previous controller
 			const prevRoute = this.currentRoute;
@@ -83,13 +129,19 @@ export class AppRouter {
 				}
 			}
 
+
+
 			this.currentRoute = route;
 			await this.currentController.renderView(parentContainerID);
+
+			document.querySelectorAll(`.route-link`).forEach(el => el.classList.remove('active'));
+			document.querySelector(`.route-link[data-route="${this.currentLocation}"]`)?.classList.add('active');
 
 		} catch (error) {
 			console.error('Routing error:', error);
 			this.renderGenericError(error);
 		} finally {
+			this.initRouteLinks();
 			this.changeLoadingState(false);
 		}
 	}

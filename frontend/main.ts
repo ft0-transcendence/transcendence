@@ -28,6 +28,6 @@ if (process.env.NODE_ENV !== 'development') {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+	authManager.init()
 	router.init();
-	authManager.init();
 });

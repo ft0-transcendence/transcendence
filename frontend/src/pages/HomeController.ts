@@ -1,6 +1,7 @@
 import {api} from "../../main";
 import {RouteController, ViewController} from "../types/pages";
 import {router} from "./_router";
+import {authManager} from "../tools/AuthManager";
 
 export class HomeController extends RouteController {
 	constructor() {
@@ -10,17 +11,33 @@ export class HomeController extends RouteController {
 
 	async preRender(){
 		console.log('Home controller pre-render');
-		window.router.changeLoadingState(true);
 	}
 
 	async render(){
+		const userData = authManager.user;
+
+
+
 		return /*html*/`
-			<div class="text-xl font-mono">
-				home view works! ${this.suffix}
+			<div class="flex flex-col grow w-full">
+				<button id="landing_page" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4">
+					Go to landing page
+				</button>
+				<div class="grow grid grid-cols-5">
+					<div class="flex flex-col text-center col-span-1 items-center">
+						<div class="border-b border-b-white/15 flex flex-col gap-8 p-4 w-full items-center">
+							<img src="${authManager.userImageUrl}" alt="User image" class="rounded-full w-48 h-48">
+							<div class="text-xl font-bold">${userData?.username}</div>
+						</div>
+					</div>
+					<div class="flex flex-col text-center col-span-4 border-l gap-8 border-l-white/30 p-4">
+						<h2 class="font-mono uppercase font-bold text-2xl">Match History</h2>
+						<div class="flex flex-col gap-2">
+							<span class="animate-bounce text-xl">WIP...</span>
+						</div>
+					</div>
+				</div>
 			</div>
-			<button id="landing_page" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-				Go to landing page
-			</button>
 		`;
 	}
 

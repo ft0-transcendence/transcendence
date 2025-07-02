@@ -66,8 +66,17 @@ export class AuthManager {
 		return !!this.#user;
 	}
 
-	init() {
+	async init() {
 		this.#lastCall = this.refreshUser();
+		return this.#lastCall;
+	}
+
+	async login(){
+		window.location.href = '/api/auth/login';
+	}
+
+	async logout(){
+		window.location.href = '/api/auth/logout';
 	}
 
 

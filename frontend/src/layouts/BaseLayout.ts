@@ -9,7 +9,7 @@ export class BaseLayout extends LayoutController {
 		const isLoggedIn = await authManager.isUserLoggedIn();
 
 		let userMenuButtons: string = '';
-		if (isLoggedIn && authManager.user) {
+		if (isLoggedIn) {
 			userMenuButtons =  /*html*/`
 				<div class="hover:text-emerald-400 cursor-pointer">
 					<i class="fa fa-cog"></i>
@@ -22,7 +22,7 @@ export class BaseLayout extends LayoutController {
 			`;
 		} else {
 			userMenuButtons =  /*html*/`
-			<a href="/api/auth/login/google" class="hover:text-emerald-400">
+			<a onclick="window.authManager.login()" class="hover:text-emerald-400">
 				<i class="fa fa-sign-in"></i>
 				Login
 			</a>
@@ -31,17 +31,33 @@ export class BaseLayout extends LayoutController {
 
 		return /*html*/`
 			<div class="flex flex-col grow w-full bg-neutral-900 text-white">
-				<header class="flex items-center h-20 px-4 shadow-xl bg-neutral-950">
-					<div class="grow"></div>
-					<div class="text-xl relative">
-						<div id="${AUTH_DOM_IDS.userMenuButton}" class="flex items-center p-2 cursor-pointer ">
-							${isLoggedIn && authManager.user
+				<div id="app_layout_content" class="flex grow flex-col w-full"></div>
+
+				<footer class="grid grid-cols-5 items-center h-20 shadow-xl bg-neutral-950">
+					<div class="col-span-1 flex items-center gap-2 font-mono font-bold">
+						<button data-route="/home" class="route-link">
+							<i class="fa fa-2x fa-home" aria-hidden="true"></i>
+							<div class="hidden sm:flex uppercase">HOME</div>
+						</button>
+
+					</div>
+
+					<div class="flex items-center justify-center col-span-3 gap-2 font-mono font-bold">
+						<button data-route="/play" class="route-link">
+							<i class="fa fa-2x fa-gamepad" aria-hidden="true"></i>
+							<div class="hidden sm:flex uppercase">PLAY</div>
+						</button>
+					</div>
+
+					<div class="text-xl relative col-span-1 flex items-center justify-end">
+						<div id="${AUTH_DOM_IDS.userMenuButton}" class="flex items-center cursor-pointer w-10 h-10 mx-4 shrink-0">
+							${isLoggedIn
 								? /*html*/`<img src="${authManager.userImageUrl}" alt="Logged in user image" class="rounded-full w-10 h-10">`
 								: /*html*/`<i class="fa fa-2x fa-user-circle hover:text-emerald-100"></i>`
 							}
 						</div>
 
-						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute top-full right-0 hidden w-40 bg-black rounded px-3 py-1 text-base items-center">
+						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute bottom-full right-0 hidden w-40 bg-black rounded px-3 py-1 text-base items-center">
 							<div class="flex flex-col gap-1 w-full select-none">
 								${isLoggedIn
 									? /*html*/`
@@ -53,10 +69,11 @@ export class BaseLayout extends LayoutController {
 
 								${userMenuButtons}
 							</div>
+							<!-- triangle at bottom right of the div -->
+							<div class="absolute top-full right-[18px] w-0 h-0 border-l-[10px] border-l-transparent border-t-[10px] border-t-black border-r-[10px] border-r-transparent"></div>
 						</div>
 					</div>
-				</header>
-				<div id="app_layout_content" class="flex grow flex-col w-full"></div>
+				</footer>
 			</div>`;
 	}
 
@@ -82,7 +99,7 @@ export class BaseLayout extends LayoutController {
 		if (authManager.user) {
 			this.#toggleUserMenu();
 		} else {
-			window.location.href = '/api/auth/login/google';
+			authManager.login();
 		}
 	}
 
