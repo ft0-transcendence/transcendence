@@ -5,7 +5,7 @@ import { env } from "../../env";
 import { User } from "@prisma/client";
 
 export const passportPlugin = fp(async (fastify) => {
-	const googleCallbackUrl = "/api/auth/google/callback";
+	const googleCallbackUrl = env.BACKEND_URL + "/api/auth/google/callback";
 
 	fastify.register(fastifyPassport.initialize());
 	fastify.register(fastifyPassport.secureSession());
