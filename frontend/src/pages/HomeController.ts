@@ -20,14 +20,16 @@ export class HomeController extends RouteController {
 
 		return /*html*/`
 			<div class="flex flex-col grow w-full">
-				<button id="landing_page" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4">
-					Go to landing page
-				</button>
 				<div class="grow grid grid-cols-5">
 					<div class="flex flex-col text-center col-span-1 items-center">
 						<div class="border-b border-b-white/15 flex flex-col gap-8 p-4 w-full items-center">
 							<img src="${authManager.userImageUrl}" alt="User image" class="rounded-full w-48 h-48">
 							<div class="text-xl font-bold">${userData?.username}</div>
+						</div>
+						<div class="grow flex flex-col justify-end w-full">
+							<button data-route="/" class="route-link bg-blue-500 hover:!bg-blue-700 text-white font-bold py-2 px-4 w-full">
+								Go to landing page
+							</button>
 						</div>
 					</div>
 					<div class="flex flex-col text-center col-span-4 border-l gap-8 border-l-white/30 p-4">
