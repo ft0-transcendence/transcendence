@@ -56,10 +56,11 @@ fastify.register(fastifyTRPCPlugin, {
 
 fastify.register(publicRoutes, {prefix: "/api"});
 
-if (fs.existsSync(path.join(__dirname, "..", "dist", "frontend"))) {
+if (fs.existsSync(path.join(__dirname, "..", "frontend"))) {
+	console.log("Serving static files from dist/frontend");
 
 	fastify.register(fastifyStatic, {
-		root: path.join(__dirname, '../dist/frontend'),
+		root: path.join(__dirname, '../frontend'),
 		prefix: '/', // serve frontend from root
 		index: 'index.html',
 	});
