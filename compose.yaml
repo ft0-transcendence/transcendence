@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: transcendence
     restart: unless-stopped
+    ports:
+      - "${PORT}:${PORT}"
     env_file:
       - ./.env
 
