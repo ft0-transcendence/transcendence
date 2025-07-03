@@ -19,14 +19,14 @@ export class NotFoundController extends RouteController {
 				<div class="text-5xl font-bold relative z-10 h-24">
 					<h1>404</h1>
 
-					<div class="opacity-50 hidden_easter w-60 h-60 absolute pointer-events-none z-20 hidden items-center justify-center bottom-full left-1/2 -translate-x-1/2">
+					<div class="opacity-20 hidden_easter w-48 h-48 absolute pointer-events-none z-20 hidden items-center justify-center bottom-full left-1/2 -translate-x-1/2">
 						${notSuspiciousSvg}
 					</div>
 				</div>
 
 				<p class="mt-4 text-lg">The page you are looking for does not exist.</p>
 				<button data-route="/" class="route-link mt-6 rounded text-gray-600 hover:underline">Go back to Home</button>
-				<div id="circle" class="mouse_circle fixed top-full left-full w-40 h-40 rounded-full bg-black/15 pointer-events-none"></div>
+				<div id="circle" class="mouse_circle fixed top-full left-full w-40 h-40 rounded-full bg-black/10 pointer-events-none"></div>
 			</div>
 		`;
 	}
@@ -47,12 +47,13 @@ export class NotFoundController extends RouteController {
 		}
 		document.addEventListener('mousemove', this.#handleMouseMove.bind(this));
 		document.addEventListener('touchmove', this.#handleTouchMove.bind(this));
+		document.addEventListener('touchend', this.#handleTouchEnd.bind(this));
 	}
 
 	protected async destroy() {
-
 		document.removeEventListener('mousemove', this.#handleMouseMove.bind(this));
 		document.removeEventListener('touchmove', this.#handleTouchMove.bind(this));
+		document.removeEventListener('touchend', this.#handleTouchEnd.bind(this));
 	}
 
 	#handleTouchMove = (event: TouchEvent) => {
@@ -67,10 +68,31 @@ export class NotFoundController extends RouteController {
 		event.preventDefault();
 		event.stopPropagation();
 	}
+	#handleTouchEnd(event: TouchEvent) {
+		if (!this.#circle) return;
+		if (!this.#easterDiv) return;
+		this.#circle.classList.add('hidden');
+		this.#easterDiv.classList.add('hidden');
+	}
 
+
+	#hideMouseCircleTimeout: NodeJS.Timeout
+		| null = null;
 	#handleMouseMove(event: MouseEvent) {
 		if (!this.#circle) return;
 		if (!this.#easterDiv) return;
+
+		if (this.#hideMouseCircleTimeout) {
+			clearTimeout(this.#hideMouseCircleTimeout);
+		}
+
+		this.#hideMouseCircleTimeout = setTimeout(() => {
+			if (!this.#circle) return;
+			if (!this.#easterDiv) return;
+
+			this.#circle.classList.add('hidden');
+			this.#easterDiv.classList.add('hidden');
+		}, 5000);
 
 		const x = event.clientX;
 		const y = event.clientY;
@@ -85,6 +107,7 @@ export class NotFoundController extends RouteController {
 
 		const circleSize = this.#circle.clientWidth / 2;
 
+		this.#circle.classList.remove('hidden');
 		// Move the visual circle
 		this.#circle.style.top = `${y}px`;
 		this.#circle.style.left = `${x}px`;
