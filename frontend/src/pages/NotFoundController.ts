@@ -3,6 +3,7 @@ import { notSuspiciousSvg } from '../assets/good_soup';
 import toast from '../tools/Toast';
 
 export class NotFoundController extends RouteController {
+	#removeCircleTimeoutMS = 5000;
 	constructor() {
 		super();
 		this.titleSuffix = 'Page Not Found';
@@ -68,11 +69,21 @@ export class NotFoundController extends RouteController {
 		event.preventDefault();
 		event.stopPropagation();
 	}
+
+	#hideTouchCircleTimeout: NodeJS.Timeout | null = null;
 	#handleTouchEnd(event: TouchEvent) {
 		if (!this.#circle) return;
 		if (!this.#easterDiv) return;
-		this.#circle.classList.add('hidden');
-		this.#easterDiv.classList.add('hidden');
+		if (this.#hideTouchCircleTimeout) {
+			clearTimeout(this.#hideTouchCircleTimeout);
+		}
+		this.#hideTouchCircleTimeout = setTimeout(() => {
+			if (!this.#circle) return;
+			if (!this.#easterDiv) return;
+
+			this.#circle.classList.add('hidden');
+			this.#easterDiv.classList.add('hidden');
+		}, this.#removeCircleTimeoutMS);
 	}
 
 
@@ -92,7 +103,7 @@ export class NotFoundController extends RouteController {
 
 			this.#circle.classList.add('hidden');
 			this.#easterDiv.classList.add('hidden');
-		}, 5000);
+		}, this.#removeCircleTimeoutMS);
 
 		const x = event.clientX;
 		const y = event.clientY;
