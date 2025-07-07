@@ -3,6 +3,7 @@ import { notSuspiciousSvg } from '../assets/good_soup';
 import toast from '../tools/Toast';
 
 export class NotFoundController extends RouteController {
+	#removeCircleTimeoutMS = 5000;
 	constructor() {
 		super();
 		this.titleSuffix = 'Page Not Found';
@@ -47,12 +48,13 @@ export class NotFoundController extends RouteController {
 		}
 		document.addEventListener('mousemove', this.#handleMouseMove.bind(this));
 		document.addEventListener('touchmove', this.#handleTouchMove.bind(this));
+		document.addEventListener('touchend', this.#handleTouchEnd.bind(this));
 	}
 
 	protected async destroy() {
-
 		document.removeEventListener('mousemove', this.#handleMouseMove.bind(this));
 		document.removeEventListener('touchmove', this.#handleTouchMove.bind(this));
+		document.removeEventListener('touchend', this.#handleTouchEnd.bind(this));
 	}
 
 	#handleTouchMove = (event: TouchEvent) => {
@@ -68,9 +70,40 @@ export class NotFoundController extends RouteController {
 		event.stopPropagation();
 	}
 
+	#hideTouchCircleTimeout: NodeJS.Timeout | null = null;
+	#handleTouchEnd(event: TouchEvent) {
+		if (!this.#circle) return;
+		if (!this.#easterDiv) return;
+		if (this.#hideTouchCircleTimeout) {
+			clearTimeout(this.#hideTouchCircleTimeout);
+		}
+		this.#hideTouchCircleTimeout = setTimeout(() => {
+			if (!this.#circle) return;
+			if (!this.#easterDiv) return;
+
+			this.#circle.classList.add('hidden');
+			this.#easterDiv.classList.add('hidden');
+		}, this.#removeCircleTimeoutMS);
+	}
+
+
+	#hideMouseCircleTimeout: NodeJS.Timeout
+		| null = null;
 	#handleMouseMove(event: MouseEvent) {
 		if (!this.#circle) return;
 		if (!this.#easterDiv) return;
+
+		if (this.#hideMouseCircleTimeout) {
+			clearTimeout(this.#hideMouseCircleTimeout);
+		}
+
+		this.#hideMouseCircleTimeout = setTimeout(() => {
+			if (!this.#circle) return;
+			if (!this.#easterDiv) return;
+
+			this.#circle.classList.add('hidden');
+			this.#easterDiv.classList.add('hidden');
+		}, this.#removeCircleTimeoutMS);
 
 		const x = event.clientX;
 		const y = event.clientY;
@@ -85,6 +118,7 @@ export class NotFoundController extends RouteController {
 
 		const circleSize = this.#circle.clientWidth / 2;
 
+		this.#circle.classList.remove('hidden');
 		// Move the visual circle
 		this.#circle.style.top = `${y}px`;
 		this.#circle.style.left = `${x}px`;
