@@ -104,7 +104,10 @@ export abstract class ViewController {
 			}
 		}
 
+
 		await this.postRender();
+
+		this.titleSuffix = this.suffix ?? "";
 
 		return view;
 	}

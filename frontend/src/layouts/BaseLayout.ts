@@ -9,66 +9,62 @@ export class BaseLayout extends LayoutController {
 	async render() {
 		const isLoggedIn = await authManager.isUserLoggedIn();
 
-		let userMenuButtons: string = '';
-		if (isLoggedIn) {
-			userMenuButtons =  /*html*/`
-				<div class="cursor-pointer hover:text-emerald-400">
-					<i class="fa fa-cog"></i>
-					Settings
-				</div>
-				<a href="/api/auth/logout" class="hover:text-emerald-400">
-					<i class="fa fa-sign-out"></i>
-					Logout
-				</a>
-			`;
-		} else {
-			userMenuButtons =  /*html*/`
-			<a onclick="window.authManager.login()" class="hover:text-emerald-400">
-				<i class="fa fa-sign-in"></i>
-				Login
-			</a>
-			`;
-		}
-
 		return /*html*/`
 			<div class="flex flex-col w-full text-white grow bg-neutral-900">
 				<div id="${CONSTANTS.APP_LAYOUT_CONTENT_ID}" class="flex flex-col w-full grow"></div>
 
 				<footer class="grid items-center h-20 grid-cols-5 shadow-xl bg-neutral-950">
-					<div class="flex items-center col-span-1 gap-2 font-mono font-bold">
-						<button data-route="/home" class="route-link">
-							<i class="fa fa-2x fa-home" aria-hidden="true"></i>
+					<div class="flex items-center col-span-1 gap-2 font-mono font-bold h-full">
+						<button data-route="/home" class="route-link nav-route h-full">
+							<i class="fa !text-xl sm:!text-2xl fa-home" aria-hidden="true"></i>
 							<div class="hidden uppercase sm:flex">HOME</div>
 						</button>
 
 					</div>
 
-					<div class="flex items-center justify-center col-span-3 gap-2 font-mono font-bold">
-						<button data-route="/play" class="route-link">
-							<i class="fa fa-2x fa-gamepad" aria-hidden="true"></i>
-							<div class="hidden uppercase sm:flex">PLAY</div>
+					<div class="flex items-center justify-center col-span-3 gap-2 font-mono font-bold h-full">
+						<button data-route="/play" class="route-link nav-route h-full">
+							<i class="fa !text-xl sm:!text-2xl fa-gamepad" aria-hidden="true"></i>
+							<div class="hidden uppercase sm:flex">VS GAME</div>
+						</button>
+						<button data-route="/tournaments" class="route-link nav-route h-full">
+							<i class="fa !text-xl sm:!text-2xl fa-users" aria-hidden="true"></i>
+							<div class="hidden uppercase sm:flex">TOURNAMENTS</div>
 						</button>
 					</div>
 
-					<div class="relative flex items-center justify-end col-span-1 text-xl">
-						<div id="${AUTH_DOM_IDS.userMenuButton}" class="flex items-center w-10 h-10 mx-4 cursor-pointer shrink-0">
+					<div class="relative flex items-center justify-end gap-2 col-span-1 h-full">
+						<button id="${AUTH_DOM_IDS.userMenuButton}" class="cursor-pointer fake-route-link nav-route h-full">
 							${isLoggedIn
-								? /*html*/`<img src="${authManager.userImageUrl}" alt="Logged in user image" class="w-10 h-10 rounded-full">`
-								: /*html*/`<i class="fa fa-2x fa-user-circle hover:text-emerald-100"></i>`
+								? /*html*/`<img src="${authManager.userImageUrl}" alt="Logged in user image" class=" rounded-full object-scale-down h-8 w-8">
+											<div class="hidden sm:flex text-nowrap">
+											${authManager.user?.username}
+										</div>`
+								: /*html*/`<i class="fa !text-xl sm:!text-2xl fa-user-circle hover:text-emerald-100"></i>
+									<div class="hidden uppercase sm:flex">Login</div>`
 							}
-						</div>
+						</button>
 
-						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute right-0 items-center hidden w-40 px-3 py-1 text-base bg-black rounded bottom-full">
-							<div class="flex flex-col w-full gap-1 select-none">
+						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute right-0 items-center hidden w-40 px-3 py-2 text-base bg-black rounded bottom-full">
+							<div class="flex flex-col w-full gap-4 select-none ">
 								${isLoggedIn
-									? /*html*/`
-										<h3 class="text-center">${authManager.user?.username}</h3>
-										<hr class="text-white/10"/>
+							? /*html*/`
+									<div data-route="/settings" class="cursor-pointer hover:text-emerald-400 route-link no-hover-bg !flex-row !justify-start">
+										<i class="fa fa-cog"></i>
+										Settings
+									</div>
+									<a href="/api/auth/logout" class="hover:text-emerald-400">
+										<i class="fa fa-sign-out"></i>
+										Logout
+									</a>
 									`
-									: ''
-								}
-
-								${userMenuButtons}
+							:  /*html*/`
+									<a onclick="window.authManager.login()" class="hover:text-emerald-400">
+										<i class="fa fa-sign-in"></i>
+										Login
+									</a>
+									`
+							}
 							</div>
 							<!-- triangle at bottom right of the div -->
 							<div class="absolute top-full right-[18px] w-0 h-0 border-l-[10px] border-l-transparent border-t-[10px] border-t-black border-r-[10px] border-r-transparent"></div>

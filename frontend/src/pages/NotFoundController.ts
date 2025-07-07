@@ -19,14 +19,14 @@ export class NotFoundController extends RouteController {
 				<div class="text-5xl font-bold relative z-10 h-24">
 					<h1>404</h1>
 
-					<div class="opacity-50 hidden_easter w-60 h-60 absolute pointer-events-none z-20 hidden items-center justify-center bottom-full left-1/2 -translate-x-1/2">
+					<div class="opacity-10 hidden_easter w-60 h-60 absolute pointer-events-none z-20 hidden items-center justify-center bottom-full left-1/2 -translate-x-1/2">
 						${notSuspiciousSvg}
 					</div>
 				</div>
 
-				<p class="mt-4 text-lg">The page you are looking for does not exist.</p>
-				<button data-route="/" class="route-link mt-6 rounded text-gray-600 hover:underline">Go back to Home</button>
-				<div id="circle" class="mouse_circle fixed top-full left-full w-40 h-40 rounded-full bg-black/15 pointer-events-none"></div>
+				<p class="mt-4 text-lg italic">The page you are <span class="font-bold font-serif">looking</span> for does not exist.</p>
+				<button data-route="/" class="route-link mt-6 rounded text-gray-400 hover:underline">Go back to Home</button>
+				<div id="circle" class="mouse_circle fixed top-full left-full w-40 h-40 rounded-full  pointer-events-none"></div>
 			</div>
 		`;
 	}

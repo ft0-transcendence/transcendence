@@ -5,6 +5,9 @@ import { NotFoundController } from "./NotFoundController";
 import {BaseLayout} from "../layouts/BaseLayout";
 import {authManager} from "../tools/AuthManager";
 import toast from "../tools/Toast";
+import {TournamentsController} from "./TournamentsController";
+import {MatchController} from "./MatchController";
+import {SettingsController} from "./SettingsController";
 
 export const CONSTANTS = {
 	APP_CONTAINER_ID: 'app',
@@ -28,6 +31,27 @@ const routes: Route[] = [
 	{
 		path: '/404',
 		newController: () => new NotFoundController(),
+		newLayout: () => new BaseLayout(),
+	},
+	{
+		path: '/tournaments',
+		newController: () => new TournamentsController(),
+		newLayout: () => new BaseLayout(),
+	},
+	// {
+	// 	path: '/tournament/:id',
+	// 	newController: () => new TournamentController(),
+	// 	newLayout: () => new BaseLayout(),
+	// },
+	{
+		path: '/play',
+		newController: () => new MatchController(),
+		newLayout: () => new BaseLayout(),
+	},
+
+	{
+		path: '/settings',
+		newController: () => new SettingsController(),
 		newLayout: () => new BaseLayout(),
 	}
 ];
@@ -73,7 +97,6 @@ export class AppRouter {
 				toast.error('Error', 'Route link has no data-route attribute.<br/> Check console for more details.');
 				return;
 			}
-			console.debug(`Adding click listener to route link: ${dataRoute}`);
 			// Remove any existing click listeners to prevent duplicates
 			const onClickCb = (ev: Event) => router.navigate(dataRoute);
 

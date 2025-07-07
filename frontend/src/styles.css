@@ -6,8 +6,15 @@ img {
 	max-width: unset;
 }
 
-.route-link {
-	@apply flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-neutral-800;
+.route-link, .fake-route-link {
+	@apply gap-1 flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-800;
+}
+.route-link.nav-route, .fake-route-link.nav-route {
+	@apply min-w-10 sm:min-w-32 p-4;
+}
+
+.route-link.no-hover-bg:hover, .fake-route-link.no-hover-bg:hover {
+	@apply bg-transparent;
 }
 
 .route-link.active {
