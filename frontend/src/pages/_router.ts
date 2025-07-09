@@ -47,6 +47,7 @@ const routes: Route[] = [
 		path: '/play',
 		newController: () => new MatchController(),
 		newLayout: () => new BaseLayout(),
+
 	},
 
 	{
@@ -85,23 +86,15 @@ export class AppRouter {
 	init() {
 		window.addEventListener('popstate', this.route.bind(this));
 		this.route();
-	}
-
-	private initRouteLinks(){
-
-		console.debug('Initializing route links...');
-		document.querySelectorAll(`.route-link`).forEach(el => {
-			const dataRoute = el.getAttribute('data-route');
-			if (!dataRoute?.trim()?.length){
-				console.error(`Route link has no data-route attribute`, el);
-				toast.error('Error', 'Route link has no data-route attribute.<br/> Check console for more details.');
-				return;
+		document.body.addEventListener('click', (e) => {
+			const el = (e.target as HTMLElement)?.closest('.route-link');
+			if (el) {
+				const dataRoute = el.getAttribute('data-route');
+				if (dataRoute?.trim()?.length) {
+					e.preventDefault();
+					this.navigate(dataRoute);
+				}
 			}
-			// Remove any existing click listeners to prevent duplicates
-			const onClickCb = (ev: Event) => router.navigate(dataRoute);
-
-			el.removeEventListener('click', onClickCb);
-			el.addEventListener('click', onClickCb);
 		});
 	}
 
@@ -167,10 +160,6 @@ export class AppRouter {
 			this.currentRoute = route;
 			await this.currentController.renderView(parentContainerID);
 
-			document.querySelectorAll(`.route-link`).forEach(el => el.classList.remove('active'));
-			document.querySelector(`.route-link[data-route="${this.currentLocation}"]`)?.classList.add('active');
-			this.initRouteLinks();
-
 		} catch (error) {
 			console.error('Routing error:', error);
 			if (error instanceof Error) {
@@ -179,10 +168,12 @@ export class AppRouter {
 				toast.error('Routing Error', 'An unknown error occurred. Check console for details.');
 			}
 			this.renderGenericError(error);
-			this.initRouteLinks();
 
 		} finally {
 			this.changeLoadingState(false);
+
+			document.querySelectorAll(`.route-link`).forEach(el => el.classList.remove('active'));
+			document.querySelector(`.route-link[data-route="${this.currentLocation}"]`)?.classList.add('active');
 		}
 	}
 

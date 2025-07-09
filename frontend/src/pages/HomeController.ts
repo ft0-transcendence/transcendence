@@ -12,7 +12,6 @@ export class HomeController extends RouteController {
 
 	async preRender(){
 		console.log('Home controller pre-render');
-		window.router.changeLoadingState(true);
 	}
 
 	async render(){
@@ -46,10 +45,6 @@ export class HomeController extends RouteController {
 	async postRender(){
 		console.log('Home controller post-render');
 		this.runTest();
-
-		setTimeout(() => {
-			window.router.changeLoadingState(false);
-		}, 1000);
 	}
 
 	async goToLandingPage() {
