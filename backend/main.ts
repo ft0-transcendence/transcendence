@@ -4,16 +4,16 @@ import {prismaPlugin} from "./src/plugins/prisma";
 import {sessionPlugin} from "./src/plugins/session";
 import {passportPlugin} from "./src/plugins/passport"
 import {corsPlugin} from "./src/plugins/cors";
-import {serializerCompiler, validatorCompiler} from 'fastify-type-provider-zod';
 import fastifyFormbody from "@fastify/formbody";
-import {fastifyTRPCPlugin} from "@trpc/server/adapters/fastify";
-import {appRouter} from "./src/trpc/root";
-import {createTRPCContext} from "./src/trpc/trpc";
 import {publicRoutes} from "./src/fastify-routes/public";
 import pino from "pino-pretty";
+import { setupSocketHandlers } from "./src/socket-io";
+import { trpcPlugin as trpcConfiguredPlugin } from "./src/plugins/trpc-plugin";
+import path from "path";
+import fs from 'fs';
 import fastifyStatic from "@fastify/static";
-import * as path from "node:path";
-import * as fs from "node:fs";
+import fastifySocketIO from "@ericedouard/fastify-socket.io";
+import {socketAuthSessionPlugin} from "./src/plugins/socketAuthSession";
 
 pino;
 
@@ -38,29 +38,33 @@ fastify.register(corsPlugin);
 fastify.register(fastifyFormbody);
 fastify.register(prismaPlugin);
 
-fastify.setValidatorCompiler(validatorCompiler);
-fastify.setSerializerCompiler(serializerCompiler);
-
-
-fastify.register(sessionPlugin);
-fastify.register(passportPlugin);
 
 // API ENDPOINTS
-fastify.register(fastifyTRPCPlugin, {
-	prefix: "/api/trpc",
-	trpcOptions: {
-		router: appRouter,
-		createContext: createTRPCContext
-	}
+fastify.register(publicRoutes, {prefix: "/api"});
+fastify.register(trpcConfiguredPlugin);
+
+fastify.register(sessionPlugin);
+
+// Socket.IO Plugin
+fastify.register(fastifySocketIO, {
+	cors: {
+		origin: "*",
+		methods: ["GET", "POST"],
+		credentials: true,
+	},
 })
 
-fastify.register(publicRoutes, {prefix: "/api"});
 
-if (fs.existsSync(path.join(__dirname, "..", "frontend"))) {
-	console.log("Serving static files from dist/frontend");
+fastify.register(socketAuthSessionPlugin);
+fastify.register(passportPlugin);
+
+const pathToFrontend = path.join(__dirname, "..", "frontend");
+console.log(`Checking if frontend exists at ${pathToFrontend}`);
+if (fs.existsSync(pathToFrontend)) {
+	console.log("✅  Serving static files from " + pathToFrontend);
 
 	fastify.register(fastifyStatic, {
-		root: path.join(__dirname, '../frontend'),
+		root: pathToFrontend,
 		prefix: '/', // serve frontend from root
 		index: 'index.html',
 	});
@@ -73,6 +77,12 @@ if (fs.existsSync(path.join(__dirname, "..", "frontend"))) {
 		}
 	});
 }
+
+
+fastify.ready().then(() => {
+	console.log('Fastify is ready');
+	setupSocketHandlers(fastify.io);
+});
 
 const start = async () => {
 	try {

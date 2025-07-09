@@ -1,10 +1,12 @@
 import fp from "fastify-plugin";
-import fastifySession from "@fastify/session";
+import fastifySession, { MemoryStore, Store } from "@fastify/session";
 import { env } from "../../env";
 import fastifyCookie from "@fastify/cookie";
 
 export const sessionPlugin = fp(async (fastify) => {
 	fastify.register(fastifyCookie);
+
+	const sessionStore = new MemoryStore();
 
 	fastify.register(fastifySession, {
 		secret: env.AUTH_SECRET,
@@ -13,6 +15,8 @@ export const sessionPlugin = fp(async (fastify) => {
 			secure: env.NODE_ENV === "production",
 			maxAge: 60 * 60 * 24 * 7, // 7 days,
 		},
+		cookieName: 'sessionId',
+		store: sessionStore
 	});
 
 	fastify.addHook("onRequest", async (request) => {
@@ -20,4 +24,6 @@ export const sessionPlugin = fp(async (fastify) => {
 		// @ts-ignore
 		request.connection = request.raw.socket;
 	});
+
+	fastify.decorate('sessionStore', sessionStore);
 });
