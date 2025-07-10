@@ -1,5 +1,4 @@
 import { User } from '@prisma/client';
-import '../types/socket'
 
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 
