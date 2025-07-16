@@ -119,14 +119,16 @@ export enum GameState {
   
     public movePaddle(player: "left" | "right", direction: "up" | "down"): void {
       const speed = Game.PADDLE_SPEED * Game.MOVEMENT_SENSITIVITY;
+      const min = Game.PADDLE_HEIGHT / 2;
+      const max = 100 - Game.PADDLE_HEIGHT / 2;
       if (player === "left") {
         if (direction === "up") this.paddles.left -= speed;
         if (direction === "down") this.paddles.left += speed;
-        this.paddles.left = Math.max(0, Math.min(100, this.paddles.left));
+        this.paddles.left = Math.max(min, Math.min(max, this.paddles.left));
       } else if (player === "right") {
         if (direction === "up") this.paddles.right -= speed;
         if (direction === "down") this.paddles.right += speed;
-        this.paddles.right = Math.max(0, Math.min(100, this.paddles.right));
+        this.paddles.right = Math.max(min, Math.min(max, this.paddles.right));
       }
     }
   
