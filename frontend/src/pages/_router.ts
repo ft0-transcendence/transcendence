@@ -8,7 +8,7 @@ import toast from "../tools/Toast";
 import {TournamentsController} from "./TournamentsController";
 import {MatchController} from "./MatchController";
 import {SettingsController} from "./SettingsController";
-
+import { PongController } from "./PongController";
 export const CONSTANTS = {
 	APP_CONTAINER_ID: 'app',
 	APP_LAYOUT_CONTENT_ID: 'app_layout_content',
@@ -54,7 +54,13 @@ const routes: Route[] = [
 		path: '/settings',
 		newController: () => new SettingsController(),
 		newLayout: () => new BaseLayout(),
-	}
+	},
+
+	{
+		path: '/pong',
+		newController: () => new PongController(),
+		newLayout: () => new BaseLayout(),
+	},
 ];
 
 

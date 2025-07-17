@@ -14,6 +14,7 @@ import fs from 'fs';
 import fastifyStatic from "@fastify/static";
 import fastifySocketIO from "@ericedouard/fastify-socket.io";
 import {socketAuthSessionPlugin} from "./src/plugins/socketAuthSession";
+import { pongRoutes } from "./src/fastify-routes/pong";
 
 pino;
 
@@ -38,6 +39,8 @@ fastify.register(corsPlugin);
 fastify.register(fastifyFormbody);
 fastify.register(prismaPlugin);
 
+// GAME ENDPOINTS
+fastify.register(pongRoutes, { prefix: "/api/pong" });
 
 // API ENDPOINTS
 fastify.register(publicRoutes, {prefix: "/api"});
