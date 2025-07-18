@@ -44,6 +44,14 @@ This is a backend for the Transcendence project at 42 Firenze school.
   ```
   pmneo.tsimporter
   ```
+- [HTML CSS Support](https://marketplace.visualstudio.com/items?itemName=ecmel.vscode-html-css)
+  ```
+  ecmel.vscode-html-css
+  ```
+- [Auto Close Tag](https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-close-tag)
+  ```
+  formulahendry.auto-close-tag
+  ```
 
 ## Getting Started
 

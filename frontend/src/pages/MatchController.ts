@@ -25,7 +25,8 @@ export class MatchController extends RouteController {
 	async render() {
 		return /*html*/`
 			<div class="flex flex-col grow w-full items-center justify-center">
-				<h1>match page works!</h1>
+				<div>
+				</div>
 			</div>
 		`;
 	}

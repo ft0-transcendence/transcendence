@@ -44,7 +44,7 @@ const routes: Route[] = [
 	// 	newLayout: () => new BaseLayout(),
 	// },
 	{
-		path: '/play',
+		path: '/game',
 		newController: () => new MatchController(),
 		newLayout: () => new BaseLayout(),
 

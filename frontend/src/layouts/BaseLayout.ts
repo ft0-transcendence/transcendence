@@ -23,7 +23,7 @@ export class BaseLayout extends LayoutController {
 					</div>
 
 					<div class="flex items-center justify-center col-span-3 gap-2 font-mono font-bold h-full">
-						<button data-route="/play" class="route-link nav-route h-full">
+						<button data-route="/match" class="route-link nav-route h-full">
 							<i class="fa !text-xl sm:!text-2xl fa-gamepad" aria-hidden="true"></i>
 							<div class="hidden uppercase sm:flex">VS GAME</div>
 						</button>
