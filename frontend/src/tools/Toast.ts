@@ -40,8 +40,11 @@ class Toast {
 	public error(title: string, message: string, options?: ToastOptions) {
 		return this.createToast('error', title, message, options);
 	}
+	public warn(title: string, message: string, options?: ToastOptions) {
+		return this.createToast('warn', title, message, options);
+	}
 
-	private createToast(type: 'success' | 'error' | 'info', title: string, message: string, options?: ToastOptions) {
+	private createToast(type: 'success' | 'error' | 'info' | 'warn', title: string, message: string, options?: ToastOptions) {
 		const toast = document.createElement('div');
 		toast.className = `pt-2 pb-4 text-white rounded-lg shadow-lg bg-neutral-800 toast-${type} relative opacity-100 overflow-hidden`;
 		toast.innerHTML = `

@@ -1,8 +1,14 @@
-import {router} from './src/pages/_router';
-import {createTRPCProxyClient, httpBatchLink} from '@trpc/client';
+import { router } from './src/pages/_router';
+import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import superjson from 'superjson';
-import type {AppRouter} from '../_shared';
-import {authManager} from "./src/tools/AuthManager";
+import type { AppRouter } from '../_shared';
+import { authManager } from "./src/tools/AuthManager";
+import { initI18n, } from './src/tools/i18n';
+
+// CSS IMPORTS
+import './src/styles.css'
+import 'flag-icons/css/flag-icons.min.css';
+
 
 export const api = createTRPCProxyClient<AppRouter>({
 	links: [
@@ -28,6 +34,8 @@ if (process.env.NODE_ENV !== 'development') {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+	initI18n();
 	authManager.init()
 	router.init();
 });
+

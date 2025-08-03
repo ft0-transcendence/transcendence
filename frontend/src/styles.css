@@ -7,10 +7,10 @@ img {
 }
 
 .route-link, .fake-route-link {
-	@apply gap-1 flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-800;
+	@apply flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-neutral-800;
 }
 .route-link.nav-route, .fake-route-link.nav-route {
-	@apply min-w-10 sm:min-w-32 p-4;
+	@apply p-4 min-w-10 sm:min-w-32;
 }
 
 .route-link.no-hover-bg:hover, .fake-route-link.no-hover-bg:hover {
@@ -31,6 +31,10 @@ img {
 	@apply bg-blue-500;
 }
 
+.toast-warn {
+	@apply text-black bg-yellow-500;
+}
+
 .fade-out {
 	animation: fadeOut var(--fade-out-duration, 0.3s) linear;
 	transition: opacity;
@@ -45,4 +49,13 @@ img {
 	100% {
 		opacity: 0;
 	}
+}
+
+
+.horiz-divider {
+	@apply w-full h-px my-2 bg-white/20;
+}
+
+.vert-divider {
+	@apply w-px h-full mx-2 bg-white/20;
 }
