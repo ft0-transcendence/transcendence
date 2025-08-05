@@ -15,15 +15,14 @@ export class BaseLayout extends LayoutController {
 	async render() {
 		const isLoggedIn = await authManager.isUserLoggedIn();
 
-
 		return /*html*/`
 			<div class="flex flex-col w-full text-white grow bg-neutral-900">
 				<div id="${CONSTANTS.APP_LAYOUT_CONTENT_ID}" class="flex flex-col w-full grow"></div>
 
-				<footer class="grid items-center h-20 grid-cols-5 shadow-xl bg-neutral-950">
+				<footer class="grid items-center h-20 grid-cols-5 shadow-xl bg-neutral-950 py-0.5">
 					<div class="flex items-center col-span-1 gap-2 font-mono font-bold h-full">
 						<button data-route="/home" class="route-link nav-route h-full">
-							<i class="fa !text-xl sm:!text-2xl fa-home" aria-hidden="true"></i>
+							<img src="/ft0-pong.png" alt="FT0 Transendence" class="object-scale-down h-12 aspect-square sm:w-8 sm:h-8">
 							<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.homepage")}">HOME</div>
 						</button>
 
@@ -32,18 +31,18 @@ export class BaseLayout extends LayoutController {
 					<div class="flex items-center justify-center col-span-3 gap-2 font-mono font-bold h-full">
 						${isLoggedIn
 							? /*html*/`
-								<button data-route="/match" class="route-link nav-route h-full">
-									<i class="fa !text-xl sm:!text-2xl fa-gamepad" aria-hidden="true"></i>
+								<button data-route="/play" class="route-link nav-route h-full">
+									<i class="fa !text-5xl sm:!text-3xl fa-gamepad" aria-hidden="true"></i>
 									<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.online_game")}">VS GAME</div>
 								</button>
 								<button data-route="/tournaments" class="route-link nav-route h-full">
-									<i class="fa !text-xl sm:!text-2xl fa-users" aria-hidden="true"></i>
+									<i class="fa !text-5xl sm:!text-3xl fa-users" aria-hidden="true"></i>
 									<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.tournaments")}">TOURNAMENTS</div>
 								</button>
 							`
 							: /*html*/`
 								<button data-route="/home" class="route-link nav-route h-full">
-									<i class="fa !text-xl sm:!text-2xl fa-gamepad" aria-hidden="true"></i>
+									<i class="fa !text-5xl sm:!text-3xl fa-gamepad" aria-hidden="true"></i>
 									<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.start_here")}">START HERE</div>
 								</button>
 							`
@@ -53,7 +52,7 @@ export class BaseLayout extends LayoutController {
 
 					<div class="relative flex items-center justify-end gap-2 col-span-1 h-full">
 						<button id="${AUTH_DOM_IDS.userMenuButton}" class="cursor-pointer fake-route-link nav-route h-full">
-							<i class="fa !text-xl sm:!text-2xl fas fa-bars"></i>
+							<i class="fa !text-5xl sm:!text-3xl fas fa-bars"></i>
 							<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.menu")}">Menu</div>
 						</button>
 
@@ -71,7 +70,7 @@ export class BaseLayout extends LayoutController {
 									`
 									: ``
 								}
-								<div class="px-1 ${isLoggedIn ? 'pb-4' : ''}  pt-2 flex flex-col text-sm">
+								<div class="px-1 pt-2 pb-4 flex flex-col text-base">
 									${isLoggedIn
 										? /*html*/`
 											<div data-route="/settings" class="cursor-pointer w-full hover:text-emerald-400 route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
@@ -87,7 +86,7 @@ export class BaseLayout extends LayoutController {
 											<div onclick="window.authManager.login()" class="hover:text-emerald-400 fake-route-link  no-hover-bg py-1 !flex-row !justify-start !gap-0">
 												<span class="grow text-left font-semibold" data-i18n="${k("navbar.login")}">Login</span>
 													<i class="fa fa-sign-in"></i>
-											</button>
+											</div>
 											`
 									}
 								</div>

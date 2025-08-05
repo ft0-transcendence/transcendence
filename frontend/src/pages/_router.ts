@@ -103,7 +103,8 @@ export class AppRouter {
 			const pathWithoutHashOrQuery = location.pathname.split('#')[0].split('?')[0];
 			const route = routes.find(r => r.path === pathWithoutHashOrQuery);
 			if (!route){
-				this.navigate('/404');
+				window.history.replaceState({}, '', '/404');
+				this.route();
 				return;
 			}
 

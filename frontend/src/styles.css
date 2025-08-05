@@ -7,10 +7,13 @@ img {
 }
 
 .route-link, .fake-route-link {
-	@apply flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-neutral-800;
+	@apply flex flex-col items-center justify-center cursor-pointer hover:bg-black/40;
+}
+:is(.route-link, .fake-route-link) :not(i, img) {
+	@apply grow min-w-0 items-center shrink-0;
 }
 .route-link.nav-route, .fake-route-link.nav-route {
-	@apply p-4 min-w-10 sm:min-w-32;
+	@apply p-4 sm:px-4 py-2 min-w-10 sm:min-w-32;
 }
 
 .route-link.no-hover-bg:hover, .fake-route-link.no-hover-bg:hover {
@@ -18,7 +21,7 @@ img {
 }
 
 .route-link.active {
-	@apply text-emerald-500;
+	@apply text-emerald-400 bg-black/75;
 }
 
 .toast-success {
