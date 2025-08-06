@@ -209,11 +209,6 @@ export class AppRouter {
 		loadingSpinner.classList.toggle('flex', this.isLoading);
 	}
 
-	private renderNotFound() {
-		// TODO: cook a 404 page
-		this.#APP_CONTAINER.innerHTML = '<h1>404 Not Found</h1>';
-	}
-
 	private renderGenericError(error: any) {
 		this.#APP_CONTAINER.innerHTML = `
 			<div class="flex flex-col items-center justify-center w-full h-full">

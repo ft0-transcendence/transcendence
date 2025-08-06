@@ -1,6 +1,6 @@
 import fp from "fastify-plugin";
 import fastifyPassport from "@fastify/passport";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { CustomGoogleStrategy } from "../utils/CustomGoogleStrategy";
 import { env } from "../../env";
 import { User } from "@prisma/client";
 
@@ -12,7 +12,7 @@ export const passportPlugin = fp(async (fastify) => {
 
 	fastifyPassport.use(
 		"google",
-		new GoogleStrategy(
+		new CustomGoogleStrategy(
 			{
 				clientID: env.GOOGLE_CLIENT_ID,
 				clientSecret: env.GOOGLE_CLIENT_SECRET,

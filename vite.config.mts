@@ -47,7 +47,11 @@ export default defineConfig({
 	server: {
 		port: 42000,
 		proxy: {
-			'/api': env.BACKEND_URL, // proxy API to Fastify
+			'/api': {
+				target: env.BACKEND_URL, // proxy API to Fastify
+				changeOrigin: false,
+    			xfwd: true,
+			},
 			'/socket.io': {
 				target: env.BACKEND_URL,
 				ws: true,

@@ -39,6 +39,7 @@ fastify.register(fastifyFormbody);
 fastify.register(prismaPlugin);
 
 
+
 // API ENDPOINTS
 fastify.register(publicRoutes, {prefix: "/api"});
 fastify.register(trpcConfiguredPlugin);
