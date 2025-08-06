@@ -16,7 +16,7 @@ export const passportPlugin = fp(async (fastify) => {
 			{
 				clientID: env.GOOGLE_CLIENT_ID,
 				clientSecret: env.GOOGLE_CLIENT_SECRET,
-				callbackURL: googleCallbackUrl,
+				// callbackURL: googleCallbackUrl,
 				scope: ["profile", "email", "openid"],
 			},
 
