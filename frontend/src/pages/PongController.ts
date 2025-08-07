@@ -1,8 +1,11 @@
 import { RouteController } from "../types/pages";
 import { PongApi } from "../tools/PongApi";
+import { PongResponse } from "../types/pongResponse";
+import { GameStatus } from "../types/pongTypes";
 
-export class PongPageController extends RouteController {
-  state: any = null;
+export class PongController extends RouteController {
+  state: GameStatus | null = null;
+  pollingInterval: any = null;
 
   async preRender() {
     this.state = await PongApi.getState();
@@ -24,5 +27,23 @@ export class PongPageController extends RouteController {
       this.state = await PongApi.getState();
       await this.renderView();
     });
+
+    if (!this.pollingInterval) {
+      this.pollingInterval = setInterval(async () => {
+        try {
+          this.state = await PongApi.getState();
+          await this.renderView();
+        } catch (e) {
+          console.error("Polling error:", e);
+        }
+      }, 500); // 500ms
+    }
+  }
+
+  async destroy() {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
   }
 }
