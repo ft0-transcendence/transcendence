@@ -63,7 +63,3 @@ img {
 .horiz-divider {
 	@apply w-full h-px my-2 bg-white/20;
 }
-
-.vert-divider {
-	@apply w-px h-full mx-2 bg-white/20;
-}
