@@ -1,4 +1,5 @@
 @import "tailwindcss";
+
 :root {
 	--fade-out-duration: 0.25s;
 }
@@ -6,22 +7,26 @@ img {
 	max-width: unset;
 }
 
-.route-link, .fake-route-link {
+.route-link, .fake-route-link, .nav-button {
 	@apply flex flex-col items-center justify-center cursor-pointer hover:bg-black/40;
 }
 :is(.route-link, .fake-route-link) :not(i, img) {
 	@apply grow min-w-0 items-center shrink-0;
 }
-.route-link.nav-route, .fake-route-link.nav-route {
+.route-link.nav-route, .fake-route-link.nav-route, .nav-button.nav-route {
 	@apply p-4 sm:px-4 py-2 min-w-10 sm:min-w-32;
 }
 
-.route-link.no-hover-bg:hover, .fake-route-link.no-hover-bg:hover {
+:is(.route-link, .fake-route-link).no-hover-bgs:hover {
 	@apply bg-transparent;
 }
 
 .route-link.active {
-	@apply text-emerald-400 bg-black/75;
+	@apply text-amber-400 bg-black/75;
+}
+
+:is(.route-link, .fake-route-link):is(:active, .focused) {
+	@apply text-red-500 bg-black;
 }
 
 .toast-success {

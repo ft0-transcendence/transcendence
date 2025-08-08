@@ -19,6 +19,9 @@ export abstract class ViewController {
 		return this.#isDestroyed;
 	}
 
+	updateTitleSuffix(){
+		this.titleSuffix = this.suffix ?? "";
+	}
 
 
 

@@ -56,6 +56,8 @@ export async function initI18n(lang: AppLanguage | null = null) {
 export const setLanguage = (lang: AppLanguage) => {
 	i18next.changeLanguage(lang);
 	localStorage.setItem(CONSTANTS.SELECTED_LANGUAGE_KEY, lang);
+
+	window.router.updateCurrentControllerTitle();
 	updateDOMTranslations();
 }
 
@@ -127,7 +129,12 @@ export const k = <K extends LanguageKeys>(key: K) => {
  * @returns The translation for the given key.
  */
 export const t = <K extends LanguageKeys>(key: K, options?: Record<string, any>) => {
-	return rawT(key, options);
+	const translation = rawT(key, options);
+	if (translation !== key) {
+		return translation;
+	}
+	console.warn(`Translation for key '${key}' not found. returning null.`);
+	return null;
 }
 
 export function updateDOMTranslations(container: HTMLElement | Document = document) {
@@ -145,7 +152,7 @@ export function updateDOMTranslations(container: HTMLElement | Document = docume
 		}
 		const translation = i18next.t(key, vars);
 		if (translation === key) {
-			console.debug(`Translation for key '${key}' not found. Falling to the textContent of the element.`);
+			console.warn(`Translation for key '${key}' not found. Falling to the textContent of the element.`);
 		} else {
 			el.innerHTML = translation;
 		}

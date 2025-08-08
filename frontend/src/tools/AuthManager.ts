@@ -2,20 +2,7 @@ import {TRPCClientError} from "@trpc/client";
 import {RouterOutputs} from "@shared";
 import {api} from "@main";
 
-export type AuthConfig = {
-	domSelectors: {
-		userMenuContainer: string;
-		userMenuButton: string;
-		loggedInUsername: string,
-		loggedInImageUrl: string,
-		loggedInContainer: string,
-		loggedOutContainer: string,
-	},
-}
-
-export const AUTH_DOM_IDS: {
-	[key in keyof AuthConfig['domSelectors']]: AuthConfig['domSelectors'][key]
-} = {
+export const AUTH_DOM_IDS = {
 	userMenuButton: 'user_menu_button',
 	userMenuContainer: 'user_menu_container',
 
@@ -25,8 +12,11 @@ export const AUTH_DOM_IDS: {
 	loggedOutContainer: 'logged_out_container',
 }
 
+export type AuthConfig = typeof AUTH_DOM_IDS;
+
 
 export class AuthManager {
+	// TODO: Remove this. Probably won't be ever used.
 	#config: AuthConfig;
 
 	#user: RouterOutputs['user']['getUser'] = null;
@@ -37,14 +27,12 @@ export class AuthManager {
 
 	constructor(config?: Partial<AuthConfig>) {
 		this.#config = {
-			domSelectors: {
-				userMenuContainer: AUTH_DOM_IDS.userMenuContainer,
-				userMenuButton: AUTH_DOM_IDS.userMenuButton,
-				loggedInUsername: AUTH_DOM_IDS.loggedInUsername,
-				loggedInImageUrl: AUTH_DOM_IDS.loggedInImageUrl,
-				loggedInContainer: AUTH_DOM_IDS.loggedInContainer,
-				loggedOutContainer: AUTH_DOM_IDS.loggedOutContainer,
-			},
+			userMenuContainer: AUTH_DOM_IDS.userMenuContainer,
+			userMenuButton: AUTH_DOM_IDS.userMenuButton,
+			loggedInUsername: AUTH_DOM_IDS.loggedInUsername,
+			loggedInImageUrl: AUTH_DOM_IDS.loggedInImageUrl,
+			loggedInContainer: AUTH_DOM_IDS.loggedInContainer,
+			loggedOutContainer: AUTH_DOM_IDS.loggedOutContainer,
 			...config,
 		};
 	}

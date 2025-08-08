@@ -6,7 +6,7 @@ import {BaseLayout} from "../layouts/BaseLayout";
 import {authManager} from "../tools/AuthManager";
 import toast from "../tools/Toast";
 import {TournamentsController} from "./TournamentsController";
-import {MatchController} from "./MatchController";
+import {GameSelectorController } from "./GameSelectorController";
 import {SettingsController} from "./SettingsController";
 
 export const CONSTANTS = {
@@ -44,16 +44,15 @@ const routes: Route[] = [
 	// 	newLayout: () => new BaseLayout(),
 	// },
 	{
-		path: '/game',
-		newController: () => new MatchController(),
+		path: '/play',
+		newController: () => new GameSelectorController(),
 		newLayout: () => new BaseLayout(),
-
 	},
-
 	{
 		path: '/settings',
 		newController: () => new SettingsController(),
 		newLayout: () => new BaseLayout(),
+		authRequired: true,
 	}
 ];
 
@@ -74,6 +73,11 @@ export class AppRouter {
 		return this.currentRoute?.path ?? '/404';
 	};
 
+	updateCurrentControllerTitle(){
+		if (this.currentController){
+			this.currentController.updateTitleSuffix();
+		}
+	}
 
 	constructor() {
 		const container = document.getElementById(CONSTANTS.APP_CONTAINER_ID);

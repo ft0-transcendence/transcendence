@@ -17,7 +17,7 @@ export class LanguageSelectorComponent extends ComponentController {
 
 	async render() {
 		return /*html*/`
-		<div class="relative w-full hover:bg-emerald-950">
+		<div class="relative w-full hover:bg-amber-950/5">
 			<!-- Trigger Button -->
 			<button id="language-selector" type="button" aria-haspopup="true" aria-expanded="false"
 				class="inline-flex items-center cursor-pointer w-full gap-2 border border-white/20 px-4 py-2 text-sm font-medium text-white uppercase">

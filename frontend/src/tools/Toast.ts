@@ -22,7 +22,7 @@ class Toast {
 			console.debug('Toast container not found. Creating a new one...');
 			this.#container = document.createElement('div');
 			this.#container.id = 'toast_container';
-			this.#container.className = 'fixed top-0 right-0 flex flex-col gap-2 p-4';
+			this.#container.className = 'fixed top-0 right-0 flex flex-col gap-2';
 			document.body.appendChild(this.#container);
 		}
 		else {
@@ -46,7 +46,7 @@ class Toast {
 
 	private createToast(type: 'success' | 'error' | 'info' | 'warn', title: string, message: string, options?: ToastOptions) {
 		const toast = document.createElement('div');
-		toast.className = `pt-2 pb-4 text-white rounded-lg shadow-lg bg-neutral-800 toast-${type} relative opacity-100 overflow-hidden`;
+		toast.className = `m-4 pt-2 pb-4 text-white rounded-lg shadow-lg bg-neutral-800 toast-${type} relative opacity-100 overflow-hidden`;
 		toast.innerHTML = `
 			<div class="px-4 toast-header mb-2 gap-2 flex items-center border-b border-b-white/20">
 				<div class="toast-icon ${options?.titleIcon || ''}"></div>

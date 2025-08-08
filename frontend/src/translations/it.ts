@@ -4,8 +4,11 @@ import { TranslationSchema } from "./en";
  * This is the Italian translation file.
  */
 export const it: TranslationSchema = {
-	common:{
-
+	generic:{
+		or: 'Oppure',
+		choose_game_mode: 'Scegli una modalità di gioco',
+		online: 'ONLINE',
+		offline: 'OFFLINE',
 	},
 	navbar: {
 		menu: 'Menu',
@@ -19,5 +22,6 @@ export const it: TranslationSchema = {
 		homepage: 'Pagina iniziale',
 		online_game: 'Gioca online',
 		tournaments: 'Tornei',
+		start_playing: 'Inizia a giocare',
 	},
 }

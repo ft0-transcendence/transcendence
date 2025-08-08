@@ -3,8 +3,11 @@
  * This is the English translation file.
  */
 export const en = {
-	common: {
-
+	generic: {
+		or: 'OR',
+		choose_game_mode: 'Choose a game mode',
+		online: 'ONLINE',
+		offline: 'OFFLINE',
 	},
 	navbar: {
 		menu: 'Menu',
@@ -18,6 +21,7 @@ export const en = {
 		homepage: 'Homepage',
 		online_game: 'Play Online',
 		tournaments: 'Tournaments',
+		start_playing: 'Start Playing',
 	},
 }
 

@@ -4,12 +4,15 @@ import { TranslationSchema } from "./en";
  * This is the Ukrainian translation file.
  */
 export const ua: TranslationSchema = {
-	common: {
-
+	generic: {
+		or: 'Або',
+		choose_game_mode: 'Виберіть режим гри',
+		online: 'ONLINE',
+		offline: 'OFFLINE',
 	},
 	navbar: {
 		menu: 'Меню',
-		start_here: 'Почніть тут',
+		start_here: 'Почати',
 		login: 'Увійти',
 		logout: 'Вийти',
 		settings: 'Налаштування',
@@ -19,5 +22,6 @@ export const ua: TranslationSchema = {
 		homepage: 'Головна сторінка',
 		online_game: 'Грати онлайн',
 		tournaments: 'Турніри',
+		start_playing: 'Почати грати',
 	},
 }

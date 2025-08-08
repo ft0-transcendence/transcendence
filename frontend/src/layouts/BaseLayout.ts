@@ -20,41 +20,27 @@ export class BaseLayout extends LayoutController {
 				<div id="${CONSTANTS.APP_LAYOUT_CONTENT_ID}" class="flex flex-col w-full grow"></div>
 
 				<footer class="grid items-center h-20 grid-cols-5 shadow-xl bg-neutral-950 py-0.5">
-					<div class="flex items-center col-span-1 gap-2 font-mono font-bold h-full">
-						<button data-route="/${isLoggedIn ? 'home': ''}" class="route-link nav-route h-full">
-							<img src="/ft0-pong.png" alt="FT0 Transendence" class="object-scale-down h-12 aspect-square sm:w-8 sm:h-8">
-							<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.homepage")}">HOME</div>
+					<div class="flex items-center col-span-1 font-mono font-bold size-full">
+						<button data-route="/${isLoggedIn ? 'home': ''}" class="route-link nav-route size-full">
+							<img src="/ft0-pong.png" alt="FT0 Transendence" class="object-scale-down h-12 aspect-square sm:w-7 sm:h-7">
+							<div class="hidden uppercase sm:flex" style="line-height: 1rem;" data-i18n="${k("navbar.homepage")}">HOME</div>
 						</button>
 					</div>
 
-					<div class="flex items-center justify-center col-span-3 gap-2 font-mono font-bold h-full">
-						${isLoggedIn
-							? /*html*/`
-								<button data-route="/play" class="route-link nav-route h-full">
-									<i class="fa !text-4xl sm:!text-2xl fa-gamepad" aria-hidden="true"></i>
-									<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.online_game")}">VS GAME</div>
-								</button>
-								<button data-route="/tournaments" class="route-link nav-route h-full">
-									<i class="fa !text-4xl sm:!text-2xl fa-users" aria-hidden="true"></i>
-									<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.tournaments")}">TOURNAMENTS</div>
-								</button>
-							`
-							: /*html*/`
-								<button data-route="/home" class="route-link nav-route h-full">
-									<i class="fa !text-4xl sm:!text-2xl fa-gamepad" aria-hidden="true"></i>
-									<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.start_here")}">START HERE</div>
-								</button>
-							`
-						}
+					<div class="flex items-center justify-center col-span-3 font-mono font-bold size-full">
+						<button data-route="/play" class="route-link nav-route size-full">
+							<i class="fa !text-4xl sm:!text-2xl fa-gamepad" aria-hidden="true"></i>
+							<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.start_playing")}">START PLAYING</div>
+						</button>
 					</div>
 
-					<div class="relative flex items-center justify-end gap-2 col-span-1 h-full">
-						<button id="${AUTH_DOM_IDS.userMenuButton}" class="cursor-pointer fake-route-link nav-route h-full">
+					<div class="relative flex flex-col items-center justify-center col-span-1 size-full">
+						<button id="${AUTH_DOM_IDS.userMenuButton}" class="cursor-pointer fake-route-link nav-route size-full">
 							<i class="fa !text-4xl sm:!text-2xl fas fa-bars"></i>
 							<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.menu")}">Menu</div>
 						</button>
 
-						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute items-center hidden w-48 px-3 py-2 text-base bg-black rounded bottom-full">
+						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute mb-2 right-0 items-center hidden w-48 px-3 py-2 text-base bg-black rounded bottom-full">
 							<div class="flex flex-col w-full select-none ">
 								${isLoggedIn
 									? /*html*/`
@@ -71,17 +57,17 @@ export class BaseLayout extends LayoutController {
 								<div class="px-1 pt-2 pb-4 flex flex-col text-base">
 									${isLoggedIn
 										? /*html*/`
-											<div data-route="/settings" class="cursor-pointer w-full hover:text-emerald-400 route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
+											<div data-route="/settings" class="cursor-pointer w-full hover:text-amber-400 route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
 												<span class="grow text-left font-semibold" data-i18n="${k("navbar.settings")}">Settings</span>
 													<i class="fa fa-cog"></i>
 											</div>
-											<a href="/api/auth/logout" class="hover:text-emerald-400 fake-route-link no-hover-bg py-1 !flex-row !justify-start !gap-0 w-full">
+											<a href="/api/auth/logout" class="hover:text-amber-400 fake-route-link no-hover-bg py-1 !flex-row !justify-start !gap-0 w-full">
 												<span class="grow text-left font-semibold" data-i18n="${k("navbar.logout")}">Logout</span>
 													<i class="fa fa-sign-out"></i>
 											</a>
 											`
 										:  /*html*/`
-											<div onclick="window.authManager.login()" class="hover:text-emerald-400 fake-route-link  no-hover-bg py-1 !flex-row !justify-start !gap-0">
+											<div onclick="window.authManager.login()" class="hover:text-amber-400 fake-route-link  no-hover-bg py-1 !flex-row !justify-start !gap-0">
 												<span class="grow text-left font-semibold" data-i18n="${k("navbar.login")}">Login</span>
 													<i class="fa fa-sign-in"></i>
 											</div>
@@ -94,8 +80,9 @@ export class BaseLayout extends LayoutController {
 								${await this.registerChildComponent(new LanguageSelectorComponent()).silentRender()}
 
 							</div>
-							<!-- triangle at bottom right of the div -->
-							<div class="absolute top-full right-11 bottom-0 w-0 h-0 border-l-[20px] border-l-transparent border-t-[20px] border-t-black border-r-[20px] border-r-transparent"></div>
+							<!-- triangle at bottom right of the div
+								<div class="absolute top-full right-0 bottom-0 w-0 h-0 border-l-[12px] border-l-transparent border-t-[12px] border-t-black border-r-[12px] border-r-transparent"></div>
+							-->
 						</div>
 					</div>
 				</footer>
@@ -110,6 +97,8 @@ export class BaseLayout extends LayoutController {
 
 		this.#userMenuButton?.addEventListener('click', this.onMenuButtonClick.bind(this));
 		window.addEventListener('click', this.onWindowClick.bind(this));
+
+		// this.#toggleUserMenu(true);
 	}
 
 	async destroy() {
@@ -137,5 +126,8 @@ export class BaseLayout extends LayoutController {
 
 		this.#userMenuContainer.classList.toggle('hidden', !shouldShow);
 		this.#userMenuContainer.classList.toggle('flex', shouldShow);
+		if (this.#userMenuButton){
+			this.#userMenuButton.classList.toggle('focused', shouldShow);
+		}
 	}
 }
