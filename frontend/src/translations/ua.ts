@@ -7,8 +7,8 @@ export const ua: TranslationSchema = {
 	generic: {
 		or: 'Або',
 		choose_game_mode: 'Виберіть режим гри',
-		online: 'ONLINE',
-		offline: 'OFFLINE',
+		online: 'ОНЛАЙН',
+		offline: 'ОФФЛАЙН',
 	},
 	navbar: {
 		menu: 'Меню',
