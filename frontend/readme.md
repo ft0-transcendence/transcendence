@@ -33,7 +33,7 @@ Controllers manage view rendering logic. They extend a base `ViewController` cla
 - `LayoutController`: Handles wrapping layouts (e.g., headers, sidebars).
 - `ComponentController`: Handles components that are not full page views.
 
-See base class implementations in `src/types/pages.ts`.
+See base class implementations in `src/tools/ViewController.ts`.
 
 ### Lifecycle Methods
 

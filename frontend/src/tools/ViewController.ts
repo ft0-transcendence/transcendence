@@ -1,7 +1,10 @@
 import {CONSTANTS} from "../pages/_router";
-import { updateDOMTranslations } from "../tools/i18n";
-import toast from "../tools/Toast";
+import { updateDOMTranslations } from "./i18n";
+import toast from "./Toast";
 
+/**
+ * Base class responsible for rendering a page/component/layout.
+ */
 export abstract class ViewController {
 	#id = `${this.constructor.name}-${Math.random().toString(36).substring(2, 15)}`;
 
@@ -213,11 +216,3 @@ export abstract class ComponentController extends ViewController {
 		this.type = "component";
 	}
 }
-
-export type Route = {
-	path: string;
-	authRequired?: boolean;
-
-	newLayout?: () => ViewController;
-	newController: () => ViewController;
-};

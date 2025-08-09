@@ -16,7 +16,7 @@ export const api = createTRPCProxyClient<AppRouter>({
 			url: '/api/trpc',
 			fetch: async (input, init) => {
 				const res = await fetch(input, {
-					...init,
+					...(init as RequestInit),
 					credentials: 'include',
 				});
 				return res;
@@ -31,6 +31,13 @@ if (process.env.NODE_ENV !== 'development') {
 	console.info(`Debug logs are disabled in production`);
 	console.debug = function () {
 	};
+} else {
+	const oldDebug = console.debug;
+	console.debug = (...args) => {
+		const stack = new Error().stack;
+    	const caller = stack ? stack.split('\n')[2].trim().split(' ')[1] : 'unknown';
+		oldDebug.apply(console, [`[DEBUG] ~ ${caller}\n`, ...args]);
+	}
 }
 
 window.addEventListener('DOMContentLoaded', () => {

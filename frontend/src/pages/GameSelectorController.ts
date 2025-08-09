@@ -1,5 +1,5 @@
 import { k, t } from "../tools/i18n";
-import { RouteController } from "../types/pages";
+import { RouteController } from "../tools/ViewController";
 // import { io, Socket } from 'socket.io-client';
 
 export class GameSelectorController extends RouteController {

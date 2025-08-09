@@ -1,13 +1,21 @@
-import {Route, ViewController} from "../types/pages";
+import { ViewController } from "../tools/ViewController";
 import { HomeController } from "./HomeController";
 import { LandingPageController } from "./LandingPageController";
 import { NotFoundController } from "./NotFoundController";
-import {BaseLayout} from "../layouts/BaseLayout";
-import {authManager} from "../tools/AuthManager";
+import { BaseLayout } from "../layouts/BaseLayout";
+import { authManager } from "../tools/AuthManager";
 import toast from "../tools/Toast";
-import {TournamentsController} from "./TournamentsController";
-import {GameSelectorController } from "./GameSelectorController";
-import {SettingsController} from "./SettingsController";
+import { TournamentsController } from "./TournamentsController";
+import { GameSelectorController } from "./GameSelectorController";
+import { SettingsController } from "./SettingsController";
+
+export type Route = {
+	path: string;
+	authRequired?: boolean;
+
+	newLayout?: () => ViewController;
+	newController: () => ViewController;
+};
 
 export const CONSTANTS = {
 	APP_CONTAINER_ID: 'app',
@@ -69,12 +77,12 @@ export class AppRouter {
 
 	private isFirstRoute = true;
 
-	get currentLocation(){
+	get currentLocation() {
 		return this.currentRoute?.path ?? '/404';
 	};
 
-	updateCurrentControllerTitle(){
-		if (this.currentController){
+	updateCurrentControllerTitle() {
+		if (this.currentController) {
 			this.currentController.updateTitleSuffix();
 		}
 	}
@@ -106,14 +114,14 @@ export class AppRouter {
 		try {
 			const pathWithoutHashOrQuery = location.pathname.split('#')[0].split('?')[0];
 			const route = routes.find(r => r.path === pathWithoutHashOrQuery);
-			if (!route){
+			if (!route) {
 				window.history.replaceState({}, '', '/404');
 				this.route();
 				return;
 			}
 
 			if (route.path === this.currentRoute?.path) {
-				console.debug(`Route is unchanged: ${route.path}`);
+				console.debug(`Unchanged route: ${route.path}`);
 				return;
 			}
 

@@ -1,5 +1,5 @@
 import {api} from "../../main";
-import {RouteController} from "../types/pages";
+import {RouteController} from "../tools/ViewController";
 import {router} from "./_router";
 import {authManager} from "../tools/AuthManager";
 import toast from "../tools/Toast";

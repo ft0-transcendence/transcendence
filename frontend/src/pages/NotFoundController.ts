@@ -1,4 +1,4 @@
-import { RouteController } from '../types/pages';
+import { RouteController } from '../tools/ViewController';
 import { notSuspiciousSvg } from '../assets/good_soup';
 import toast from '../tools/Toast';
 

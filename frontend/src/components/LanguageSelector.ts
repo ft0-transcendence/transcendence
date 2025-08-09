@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import { allLanguagesDefinition, allLocales, AppLanguage, setLanguage } from '../tools/i18n';
 import toast from '../tools/Toast';
-import { ComponentController } from '../types/pages';
+import { ComponentController } from '../tools/ViewController';
 
 export class LanguageSelectorComponent extends ComponentController {
 	#langSelectorTrigger: HTMLElement | null = null;
@@ -90,7 +90,6 @@ export class LanguageSelectorComponent extends ComponentController {
 				const handler = () => {
 					const lang = li.getAttribute('data-lang') as AppLanguage;
 					if (!lang) return;
-					console.debug('Language selected:', lang);
 
 					selectedIcon.className = `fi fis ${allLanguagesDefinition[lang].imageClass}`;
 					selectedName.textContent = allLanguagesDefinition[lang].nativeName;

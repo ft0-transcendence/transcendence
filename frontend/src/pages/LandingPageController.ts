@@ -1,5 +1,5 @@
 import {api} from "../../main";
-import {RouteController, ViewController} from "../types/pages";
+import {RouteController, ViewController} from "../tools/ViewController";
 
 export class LandingPageController extends RouteController {
 
