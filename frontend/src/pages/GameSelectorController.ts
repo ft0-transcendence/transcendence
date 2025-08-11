@@ -102,7 +102,7 @@ export class GameSelectorController extends RouteController {
 
 			<!-- OFFLINE TYPES -->
 			<section class="flex flex-col gap-2 min-h-0 grow sm:px-12 sm:py-5 ">
-				<div class="flex flex-col h-20">
+				<div class="flex flex-col sm:min-h-20">
 					<div class="justify-center items-center flex gap-2 text-xl sm:text-2xl font-bold text-center">
 						<i class="fa fa-chain-broken animate-[spin_4.5s_linear_infinite]" aria-hidden="true"></i>
 						<h2 data-i18n="${k('generic.offline')}">OFFLINE</h2>
@@ -132,7 +132,7 @@ export class GameSelectorController extends RouteController {
 
 			<!-- ONLINE TYPES -->
 			<section class="relative flex flex-col${appendReverse()} sm:flex-col gap-2 min-h-0 grow sm:px-12 sm:py-5">
-				<div class="flex flex-col${appendReverse()} sm:flex-col min-h-20">
+				<div class="flex flex-col${appendReverse()} sm:flex-col sm:min-h-20">
 					<div class="justify-center items-center flex gap-2 text-xl sm:text-2xl font-bold text-center">
 						<i class="fa fa-wheelchair-alt animate-bounce" aria-hidden="true"></i>
 						<h2 data-i18n="${k('generic.online')}">ONLINE</h2>
