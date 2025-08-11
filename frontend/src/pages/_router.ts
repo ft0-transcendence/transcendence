@@ -99,15 +99,36 @@ export class AppRouter {
 		window.removeEventListener('popstate', this.route.bind(this));
 		window.addEventListener('popstate', this.route.bind(this));
 
-		document.body.removeEventListener('click', this.onGenericClick.bind(this));
-		document.body.addEventListener('click', this.onGenericClick.bind(this));
+		document.body.removeEventListener('click', this.#onGenericClick.bind(this));
+		document.body.addEventListener('click', this.#onGenericClick.bind(this));
+
+		document.body.removeEventListener('click', this.#onGenericMenuClick.bind(this));
+		document.body.addEventListener('contextmenu', this.#onGenericMenuClick.bind(this));
 
 		this.route();
 	}
-	private onGenericClick(e: PointerEvent) {
+
+	#onGenericMenuClick(e: PointerEvent) {
 		const el = (e.target as HTMLElement)?.closest('[data-route]');
 		if (el) {
 			const dataRoute = el.getAttribute('data-route');
+			const isDisabled = el.hasAttribute('disabled');
+			if (isDisabled) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		}
+	}
+
+	#onGenericClick(e: PointerEvent) {
+		const el = (e.target as HTMLElement)?.closest('[data-route]');
+		if (el) {
+			const dataRoute = el.getAttribute('data-route');
+			const isDisabled = el.hasAttribute('disabled');
+			if (isDisabled){
+				console.debug(`Skipping disabled data-route`, dataRoute);
+				return;
+			}
 			if (dataRoute?.trim()?.length) {
 				e.preventDefault();
 				this.navigate(dataRoute);
