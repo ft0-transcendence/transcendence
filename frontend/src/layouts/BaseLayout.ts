@@ -115,7 +115,7 @@ export class BaseLayout extends LayoutController {
 		this.#userMenuButton?.addEventListener('click', this.onMenuButtonClick.bind(this));
 		window.addEventListener('click', this.onWindowClick.bind(this));
 
-		this.#toggleUserMenu(true);
+		// this.#toggleUserMenu(true);
 	}
 
 	async destroy() {
