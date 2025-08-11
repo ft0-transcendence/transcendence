@@ -1,4 +1,4 @@
-import {CONSTANTS} from "../pages/_router";
+import {CONSTANTS, router} from "../pages/_router";
 import { updateDOMTranslations } from "./i18n";
 import toast from "./Toast";
 
@@ -6,7 +6,14 @@ import toast from "./Toast";
  * Base class responsible for rendering a page/component/layout.
  */
 export abstract class ViewController {
+	#currentRoute: string;
+
+	protected get currentRoute(){
+		return this.#currentRoute;
+	}
+
 	#id = `${this.constructor.name}-${Math.random().toString(36).substring(2, 15)}`;
+	protected id = this.#id;
 
 	protected type: "page" | "layout" | "component" = "page";
 	// @ts-ignore
@@ -29,6 +36,7 @@ export abstract class ViewController {
 
 
 	constructor() {
+		this.#currentRoute = router.currentLocation;
 	}
 
 	/**
