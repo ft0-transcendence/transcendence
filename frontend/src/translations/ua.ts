@@ -31,5 +31,6 @@ export const ua: TranslationSchema = {
 		online_game: 'Грати онлайн',
 		tournaments: 'Турніри',
 		start_playing: 'Почати грати',
+		fullscreen_mode: 'Повноекранний режим',
 	},
 }

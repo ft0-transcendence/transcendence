@@ -31,5 +31,6 @@ export const it: TranslationSchema = {
 		online_game: 'Gioca online',
 		tournaments: 'Tornei',
 		start_playing: 'Inizia a giocare',
+		fullscreen_mode: 'Schermo intero',
 	},
 }

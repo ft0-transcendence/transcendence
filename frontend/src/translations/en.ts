@@ -30,6 +30,7 @@ export const en = {
 		online_game: 'Play Online',
 		tournaments: 'Tournaments',
 		start_playing: 'Start Playing',
+		fullscreen_mode: 'Fullscreen mode',
 	},
 }
 

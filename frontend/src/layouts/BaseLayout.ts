@@ -8,6 +8,8 @@ export class BaseLayout extends LayoutController {
 	#userMenuContainer: HTMLElement | null = null;
 	#userMenuButton: HTMLElement | null = null;
 
+	#fullscreenToggle: HTMLElement | null = null;
+
 	async preRender(){
 
 	}
@@ -40,7 +42,8 @@ export class BaseLayout extends LayoutController {
 							<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.menu")}">Menu</div>
 						</button>
 
-						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute mb-2 right-0 items-center hidden w-48 px-3 py-2 text-base bg-black rounded bottom-full">
+						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute mb-2 right-0 items-center hidden w-56 px-3 py-2 text-base bg-black rounded bottom-full">
+
 							<div class="flex flex-col w-full select-none ">
 								${isLoggedIn
 									? /*html*/`
@@ -54,7 +57,8 @@ export class BaseLayout extends LayoutController {
 									`
 									: ``
 								}
-								<div class="px-1 pt-2 pb-4 flex flex-col text-base">
+								<div class="px-1 pt-2 pb-2 flex flex-col text-base">
+
 									${isLoggedIn
 										? /*html*/`
 											<div data-route="/settings" class="cursor-pointer w-full hover:text-amber-400 route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
@@ -73,8 +77,18 @@ export class BaseLayout extends LayoutController {
 											</div>
 											`
 									}
+
 								</div>
 
+								<!-- REQUEST FULLSCREEN -->
+								<div class="flex flex-col w-full select-none py-2 overflow-hidden">
+									<div id="${this.id}-fullscreen-toggle" class="overflow-hidden hover:text-amber-400 fake-route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
+										<div class="grow overflow-ellipsis text-left font-semibold line-clamp-1" data-i18n="${k("navbar.fullscreen_mode")}">Fullscreen mode</div>
+
+										<i class="fullscreen-enable-icon fa fa-expand"></i>
+										<i class="fullscreen-disable-icon fa fa-compress !hidden"></i>
+									</div>
+								</div>
 
 								<!-- language selector -->
 								${await this.registerChildComponent(new LanguageSelectorComponent()).silentRender()}
@@ -95,16 +109,37 @@ export class BaseLayout extends LayoutController {
 		this.#userMenuButton = document.getElementById(AUTH_DOM_IDS.userMenuButton);
 		this.#userMenuContainer = document.getElementById(AUTH_DOM_IDS.userMenuContainer);
 
+		this.#fullscreenToggle = document.getElementById(`${this.id}-fullscreen-toggle`);
+		this.#fullscreenToggle?.addEventListener('click', this.onFullscreenToggleClick.bind(this));
+
 		this.#userMenuButton?.addEventListener('click', this.onMenuButtonClick.bind(this));
 		window.addEventListener('click', this.onWindowClick.bind(this));
 
-		// this.#toggleUserMenu(true);
+		this.#toggleUserMenu(true);
 	}
 
 	async destroy() {
 		// User menu events
 		this.#userMenuButton?.removeEventListener('click', this.onMenuButtonClick.bind(this));
+		this.#fullscreenToggle?.removeEventListener('click', this.onFullscreenToggleClick.bind(this));
+
 		window.removeEventListener('click', this.onWindowClick.bind(this));
+	}
+
+	onFullscreenToggleClick() {
+		console.debug('Fullscreen toggle button clicked');
+
+		const newState = !document.fullscreenElement;
+
+		this.#fullscreenToggle?.querySelector('.fullscreen-disable-icon')?.classList.toggle('!hidden', !newState);
+		this.#fullscreenToggle?.querySelector('.fullscreen-enable-icon')?.classList.toggle('!hidden', newState);
+
+
+		if (!document.fullscreenElement) {
+			document.documentElement.requestFullscreen();
+		} else {
+			document.exitFullscreen();
+		}
 	}
 
 	onMenuButtonClick() {
