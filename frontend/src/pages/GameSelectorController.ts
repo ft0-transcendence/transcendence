@@ -1,4 +1,4 @@
-import { GameType } from "@prisma/client";
+import { GameType, GameTypeObj } from "@shared";
 import { k, t } from "../tools/i18n";
 import { RouteController } from "../tools/ViewController";
 import { Route } from '../pages/_router'
@@ -110,9 +110,9 @@ export class GameSelectorController extends RouteController {
 
 				<!-- GAME MODES: 1vAI, 1v1, tournament -->
 				<div class="flex flex-col sm:justify-center sm:items-center gap-7 text-center grow">
-					${this.renderGameMode(GameType.AI, 'local', '/local/ai')}
-					${this.renderGameMode(GameType.VS, 'local', '/local/1v1')}
-					${this.renderGameMode(GameType.TOURNAMENT, 'local', '/local/tournaments', null, 'fa-users')}
+					${this.renderGameMode(GameTypeObj.AI, 'local', '/local/ai')}
+					${this.renderGameMode(GameTypeObj.VS, 'local', '/local/1v1')}
+					${this.renderGameMode(GameTypeObj.TOURNAMENT, 'local', '/local/tournaments', null, 'fa-users')}
 				</div>
 
 				<div class="sm:h-20 spanner"></div>
@@ -139,8 +139,8 @@ export class GameSelectorController extends RouteController {
 
 				<!-- GAME MODES: 1v1, tournament -->
 				<div class="relative flex flex-col sm:justify-center sm:items-center gap-2 text-center grow">
-					${this.renderGameMode(GameType.VS, 'online', '/online/1v1')}
-					${this.renderGameMode(GameType.TOURNAMENT, 'online', '/online/tournaments', null, 'fa-users')}
+					${this.renderGameMode(GameTypeObj.VS, 'online', '/online/1v1')}
+					${this.renderGameMode(GameTypeObj.TOURNAMENT, 'online', '/online/tournaments', null, 'fa-users')}
 				</div>
 
 				<div class="sm:h-20 spanner">

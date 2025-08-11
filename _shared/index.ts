@@ -1,8 +1,14 @@
-import type {AppRouter, RouterInputs, RouterOutputs} from '../backend/src/trpc/root';
+import type { GameType, AppRouter, RouterInputs, RouterOutputs } from '../backend/shared_exports';
+
+import { GameTypeObj } from '../backend/shared_exports';
 
 export type {
 	AppRouter,
 	RouterOutputs,
-	RouterInputs
+	RouterInputs,
+	GameType,
 };
 
+export {
+	GameTypeObj,
+}
