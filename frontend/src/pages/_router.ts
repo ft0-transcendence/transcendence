@@ -1,10 +1,10 @@
-import { ViewController } from "../tools/ViewController";
+import { ViewController } from "@tools/ViewController";
 import { HomeController } from "./HomeController";
 import { LandingPageController } from "./LandingPageController";
 import { NotFoundController } from "./NotFoundController";
 import { BaseLayout } from "../layouts/BaseLayout";
-import { authManager } from "../tools/AuthManager";
-import toast from "../tools/Toast";
+import { authManager } from "@tools/AuthManager";
+import toast from "@tools/Toast";
 import { TournamentsController } from "./TournamentsController";
 import { GameSelectorController } from "./GameSelectorController";
 import { SettingsController } from "./SettingsController";

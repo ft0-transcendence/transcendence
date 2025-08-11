@@ -1,7 +1,7 @@
-import { LayoutController } from "../tools/ViewController";
-import { AUTH_DOM_IDS, authManager } from "../tools/AuthManager";
+import { LayoutController } from "@tools/ViewController";
+import { AUTH_DOM_IDS, authManager } from "@tools/AuthManager";
 import { CONSTANTS } from "../pages/_router";
-import { k } from "../tools/i18n";
+import { k } from "@tools/i18n";
 import { LanguageSelectorComponent } from '../components/LanguageSelector';
 
 export class BaseLayout extends LayoutController {

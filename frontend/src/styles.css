@@ -3,17 +3,24 @@
 :root {
 	--fade-out-duration: 0.25s;
 }
+
 img {
 	max-width: unset;
 }
 
-.route-link, .fake-route-link, .nav-button {
+.route-link,
+.fake-route-link,
+.nav-button {
 	@apply flex flex-col items-center justify-center cursor-pointer hover:bg-black/40;
 }
+
 :is(.route-link, .fake-route-link) :not(i, img) {
 	@apply grow min-w-0 items-center shrink-0;
 }
-.route-link.nav-route, .fake-route-link.nav-route, .nav-button.nav-route {
+
+.route-link.nav-route,
+.fake-route-link.nav-route,
+.nav-button.nav-route {
 	@apply p-4 sm:px-4 py-2 min-w-10 sm:min-w-32;
 }
 
@@ -32,9 +39,11 @@ img {
 .toast-success {
 	@apply bg-emerald-600;
 }
+
 .toast-error {
 	@apply text-white bg-red-500;
 }
+
 .toast-info {
 	@apply bg-blue-500;
 }
@@ -54,6 +63,7 @@ img {
 	0% {
 		opacity: 1;
 	}
+
 	100% {
 		opacity: 0;
 	}
@@ -64,6 +74,7 @@ img {
 	height: 0.5rem;
 	background-color: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
 	background: #fff;
 	border-radius: 0.125rem;

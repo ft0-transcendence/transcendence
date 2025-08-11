@@ -2,8 +2,8 @@ import { router } from './src/pages/_router';
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import superjson from 'superjson';
 import type { AppRouter } from '../_shared';
-import { authManager } from "./src/tools/AuthManager";
-import { initI18n, } from './src/tools/i18n';
+import { authManager } from "@tools/AuthManager";
+import { initI18n, } from '@tools/i18n';
 
 // CSS IMPORTS
 import './src/styles.css'
@@ -35,7 +35,7 @@ if (process.env.NODE_ENV !== 'development') {
 	const oldDebug = console.debug;
 	console.debug = (...args) => {
 		const stack = new Error().stack;
-    	const caller = stack ? stack.split('\n')[2].trim().split(' ')[1] : 'unknown';
+		const caller = stack ? stack.split('\n')[2].trim().split(' ')[1] : 'unknown';
 		oldDebug.apply(console, [`[DEBUG] ~ ${caller}\n`, ...args]);
 	}
 }

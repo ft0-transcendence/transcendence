@@ -1,5 +1,5 @@
-import {api} from "../../main";
-import {RouteController, ViewController} from "../tools/ViewController";
+import { api } from "../../main";
+import { RouteController, ViewController } from "@tools/ViewController";
 
 export class LandingPageController extends RouteController {
 
@@ -11,7 +11,7 @@ export class LandingPageController extends RouteController {
 		`;
 	}
 
-	async postRender(){
+	async postRender() {
 		console.log('Landing page controller loaded');
 		this.runTest();
 
@@ -22,7 +22,7 @@ export class LandingPageController extends RouteController {
 
 
 	async runTest() {
-		const response = await api.test.publicGreeting.query({name: "Sasha"});
+		const response = await api.test.publicGreeting.query({ name: "Sasha" });
 		console.log("Public Greeting Response", response);
 	}
 

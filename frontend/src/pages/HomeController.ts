@@ -1,8 +1,8 @@
-import {api} from "../../main";
-import {RouteController} from "../tools/ViewController";
-import {router} from "./_router";
-import {authManager} from "../tools/AuthManager";
-import toast from "../tools/Toast";
+import { api } from "../../main";
+import { RouteController } from "@tools/ViewController";
+import { router } from "./_router";
+import { authManager } from "@tools/AuthManager";
+import toast from "@tools/Toast";
 
 export class HomeController extends RouteController {
 	constructor() {
@@ -10,11 +10,11 @@ export class HomeController extends RouteController {
 		this.titleSuffix = 'Home';
 	}
 
-	async preRender(){
+	async preRender() {
 		console.log('Home controller pre-render');
 	}
 
-	async render(){
+	async render() {
 		const userData = authManager.user;
 
 
@@ -42,7 +42,7 @@ export class HomeController extends RouteController {
 		`;
 	}
 
-	async postRender(){
+	async postRender() {
 		console.log('Home controller post-render');
 		this.runTest();
 	}
@@ -58,10 +58,10 @@ export class HomeController extends RouteController {
 
 
 	async runTest() {
-		const response = await api.test.publicGreeting.query({name: "Sasha"});
+		const response = await api.test.publicGreeting.query({ name: "Sasha" });
 		console.log("Public Greeting Response", response);
 
-		const response2 = await api.test.secretGreeting.query({name: "Odudniak"});
+		const response2 = await api.test.secretGreeting.query({ name: "Odudniak" });
 		console.log("Secret Greeting Response", response2);
 	}
 

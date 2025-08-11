@@ -1,6 +1,5 @@
 import type { GameType, AppRouter, RouterInputs, RouterOutputs } from '../backend/shared_exports';
 
-import { GameTypeObj } from '../backend/shared_exports';
 
 export type {
 	AppRouter,
@@ -8,7 +7,3 @@ export type {
 	RouterInputs,
 	GameType,
 };
-
-export {
-	GameTypeObj,
-}

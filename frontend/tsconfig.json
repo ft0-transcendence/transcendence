@@ -15,7 +15,13 @@
 			],
 			"@shared": [
 				"../_shared"
-			]
+			],
+			"@src/*": [
+				"./src/*"
+			],
+			"@tools/*": [
+				"./src/tools/*"
+			],
 		},
 	},
 	"include": [

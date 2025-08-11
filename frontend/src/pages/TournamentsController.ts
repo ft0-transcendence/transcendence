@@ -1,4 +1,4 @@
-import {RouteController} from "../tools/ViewController";
+import { RouteController } from "@tools/ViewController";
 
 export class TournamentsController extends RouteController {
 	constructor() {

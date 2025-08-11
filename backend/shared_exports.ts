@@ -1,8 +1,5 @@
-import { GameType } from '@prisma/client';
-import type {AppRouter, RouterInputs, RouterOutputs} from './src/trpc/root';
-
-
-const GameTypeObj = GameType;
+import type { GameType } from '@prisma/client';
+import type { AppRouter, RouterInputs, RouterOutputs } from './src/trpc/root';
 
 
 export type {
@@ -11,7 +8,3 @@ export type {
 	RouterInputs,
 	GameType,
 };
-
-export {
-	GameTypeObj
-}

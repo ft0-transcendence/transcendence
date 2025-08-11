@@ -1,6 +1,6 @@
-import { RouteController } from '../tools/ViewController';
+import { RouteController } from '@tools/ViewController';
 import { notSuspiciousSvg } from '../assets/good_soup';
-import toast from '../tools/Toast';
+import toast from '@tools/Toast';
 
 export class NotFoundController extends RouteController {
 	#removeCircleTimeoutMS = 5000;

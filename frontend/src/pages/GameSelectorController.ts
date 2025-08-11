@@ -1,8 +1,9 @@
-import { GameType, GameTypeObj } from "@shared";
-import { k, t } from "../tools/i18n";
-import { RouteController } from "../tools/ViewController";
+import { GameType } from '@shared';
+import { GameTypeObj } from '@src/prismaEnums';
+import { k, t } from "@tools/i18n";
+import { RouteController } from "@tools/ViewController";
 import { Route } from '../pages/_router'
-import { authManager } from "../tools/AuthManager";
+import { authManager } from "@tools/AuthManager";
 // import { io, Socket } from 'socket.io-client';
 
 export class GameSelectorController extends RouteController {
@@ -17,7 +18,7 @@ export class GameSelectorController extends RouteController {
 	}
 
 
-	override updateTitleSuffix(){
+	override updateTitleSuffix() {
 		this.titleSuffix = t('generic.choose_game_mode') || 'Choose a game mode';
 	}
 
@@ -36,7 +37,7 @@ export class GameSelectorController extends RouteController {
 	}
 
 	private renderGameMode(gameType: GameType, location: 'online' | 'local', route: `/${string}`, description?: string | null, fa_icon?: string | null) {
-		if (!gameType){
+		if (!gameType) {
 			console.error(`Game selector: Invalid game type: ${gameType}`);
 			return '';
 		}
@@ -51,9 +52,9 @@ export class GameSelectorController extends RouteController {
 		const canClick = isLoggedIn || location == 'local';
 
 		return /*html*/`
-			<button ${!canClick? 'disabled' : ''} data-route="${relativeRoute}"
+			<button ${!canClick ? 'disabled' : ''} data-route="${relativeRoute}"
 				class="relative flex flex-col justify-center items-center overflow-hidden w-full rounded-lg
-				${canClick? `hover:drop-shadow-amber-500 cursor-pointer` : 'cursor-not-allowed hover:drop-shadow-red-900'}
+				${canClick ? `hover:drop-shadow-amber-500 cursor-pointer` : 'cursor-not-allowed hover:drop-shadow-red-900'}
 				text-xl sm:text-2xl max-w-2xl gap-2 text-center px-2 py-7 bg-stone-800 drop-shadow-md drop-shadow-black transition-all duration-200"
 			>
 				<div class="flex items-center gap-2">
@@ -144,7 +145,7 @@ export class GameSelectorController extends RouteController {
 				</div>
 
 				<div class="sm:h-20 spanner">
-					${!this.#isUserLoggedIn ? this.renderLoginButton(): ''}
+					${!this.#isUserLoggedIn ? this.renderLoginButton() : ''}
 				</div>
 			</section>
 		</div>
@@ -154,7 +155,7 @@ export class GameSelectorController extends RouteController {
 	async postRender() {
 		if (!this.#isUserLoggedIn) {
 			this.#onlineModeLoginButton = document.querySelector(`.${this.id}-login-button`);
-			if (this.#onlineModeLoginButton){
+			if (this.#onlineModeLoginButton) {
 				this.#onlineModeLoginButton.addEventListener('click', this.onLoginButtonClick.bind(this));
 			}
 		}
@@ -166,7 +167,7 @@ export class GameSelectorController extends RouteController {
 
 
 	protected async destroy() {
-		if (this.#onlineModeLoginButton){
+		if (this.#onlineModeLoginButton) {
 			this.#onlineModeLoginButton.removeEventListener('click', this.onLoginButtonClick.bind(this));
 			this.#onlineModeLoginButton = null;
 		}

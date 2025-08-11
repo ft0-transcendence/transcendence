@@ -1,5 +1,5 @@
-import {api} from "../../main";
-import {RouteController, ViewController} from "../tools/ViewController";
+import { api } from "@main";
+import { RouteController } from "@tools/ViewController";
 
 export class SettingsController extends RouteController {
 
@@ -16,7 +16,7 @@ export class SettingsController extends RouteController {
 		`;
 	}
 
-	async postRender(){
+	async postRender() {
 	}
 
 

@@ -1,7 +1,7 @@
 import i18next from 'i18next';
-import { allLanguagesDefinition, allLocales, AppLanguage, setLanguage } from '../tools/i18n';
-import toast from '../tools/Toast';
-import { ComponentController } from '../tools/ViewController';
+import { allLanguagesDefinition, allLocales, AppLanguage, setLanguage } from '@tools/i18n';
+import toast from '@tools/Toast';
+import { ComponentController } from '@tools/ViewController';
 
 export class LanguageSelectorComponent extends ComponentController {
 	#langSelectorTrigger: HTMLElement | null = null;

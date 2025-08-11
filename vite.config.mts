@@ -12,12 +12,13 @@ export default defineConfig({
 		outDir: '../dist/frontend',
 		emptyOutDir: true,
 		assetsDir: 'public',
-
 	},
 	resolve: {
 		alias: {
-			'@shared': resolve(__dirname, '_shared'),
 			'@main': resolve(__dirname, 'frontend/main.ts'),
+			'@shared': resolve(__dirname, '_shared'),
+			'@src': resolve(__dirname, 'frontend/src'),
+			'@tools': resolve(__dirname, 'frontend/src/tools'),
 		},
 	},
 	plugins: [
