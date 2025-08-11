@@ -54,8 +54,8 @@ export class GameSelectorController extends RouteController {
 		return /*html*/`
 			<button ${!canClick ? 'disabled' : ''} data-route="${relativeRoute}"
 				class="relative flex flex-col justify-center items-center overflow-hidden w-full rounded-lg
-				${canClick ? `hover:drop-shadow-amber-500 cursor-pointer` : 'cursor-not-allowed hover:drop-shadow-red-900'}
-				text-xl sm:text-2xl max-w-2xl gap-2 text-center px-2 py-7 bg-stone-800 drop-shadow-md drop-shadow-black transition-all duration-200"
+				${canClick ? `hover:drop-shadow-amber-500 active:drop-shadow-amber-500 cursor-pointer` : 'cursor-not-allowed hover:drop-shadow-red-900 active:drop-shadow-red-900'}
+				text-xl sm:text-2xl max-w-2xl gap-2 text-center px-2 py-3 sm:py-7 bg-stone-800 drop-shadow-md drop-shadow-black transition-all duration-200"
 			>
 				<div class="flex items-center gap-2">
 					${fa_icon ? /*html*/`<i class="fa ${fa_icon}" aria-hidden="true"></i>` : ''}
@@ -68,23 +68,29 @@ export class GameSelectorController extends RouteController {
 
 	}
 
-	private renderLoginButton() {
+	private renderOnlineNeededLoginButton() {
 		return /*html*/`
-			<div class="flex flex-col items-center justify-center py-2">
-				<h3 class="text-base font-mono animate-pulse text-red-500 text-center" data-i18n="${k('generic.online_mode_login_needed')}">
-					You need to login to play online.
-				</h3>
+			<div class="flex flex-col items-center justify-center my-2 gap-1">
 
-				<div class="${this.id}-login-button mt-2 py-3 px-8 border rounded-sm border-white/25 cursor-pointer hover:bg-neutral-800 max-w-md">
+				<div class="${this.id}-login-button py-2 px-6 sm:px-7 sm:py-3 border rounded-sm border-white/25 cursor-pointer hover:bg-neutral-800 max-w-md">
 					<i class="fa fa-sign-in"></i>
 					<span class="grow text-left font-semibold" data-i18n="${k('navbar.login')}">Login</span>
 				</div>
+				<h3 class="text-base font-mono animate-pulse text-red-500 text-center whitespace-nowrap" data-i18n="${k('generic.online_mode_login_needed')}">
+					You need to login to play online.
+				</h3>
+
 			</div>
 		`;
 	}
 
 
 	async render() {
+		const initialHeight = window.outerHeight;
+		const shouldReverse = initialHeight > 900;
+
+		const appendReverse = () => shouldReverse ? '-reverse' : '';
+
 		return /*html*/`
 		<!--<div class="flex flex-col gap-2 text-center mb-4">
 			<h1 class="text-3xl sm:text-4xl font-bold text-center">
@@ -97,20 +103,20 @@ export class GameSelectorController extends RouteController {
 			<!-- OFFLINE TYPES -->
 			<section class="flex flex-col gap-2 min-h-0 grow sm:px-12 sm:py-5 ">
 				<div class="flex flex-col h-20">
-					<div class="justify-center items-center flex gap-2 text-2xl sm:text-3xl font-bold text-center">
+					<div class="justify-center items-center flex gap-2 text-xl sm:text-2xl font-bold text-center">
 						<i class="fa fa-chain-broken animate-[spin_4.5s_linear_infinite]" aria-hidden="true"></i>
 						<h2 data-i18n="${k('generic.offline')}">OFFLINE</h2>
 					</div>
 
 					<div class="flex flex-col text-center">
-						<h2 class="text-xs sm text-gray-400" data-i18n="${k('generic.offline_mode_explanation')}">
+						<h2 class="text-xs text-gray-400" data-i18n="${k('generic.offline_mode_explanation')}">
 							Play on the same computer, without tracking the matches.
 						</h2>
 					</div>
 				</div>
 
 				<!-- GAME MODES: 1vAI, 1v1, tournament -->
-				<div class="flex flex-col sm:justify-center sm:items-center gap-7 text-center grow">
+				<div class="flex flex-col sm:justify-center sm:items-center gap-2 text-center grow">
 					${this.renderGameMode(GameTypeObj.AI, 'local', '/local/ai')}
 					${this.renderGameMode(GameTypeObj.VS, 'local', '/local/1v1')}
 					${this.renderGameMode(GameTypeObj.TOURNAMENT, 'local', '/local/tournaments', null, 'fa-users')}
@@ -125,9 +131,9 @@ export class GameSelectorController extends RouteController {
 			</div>
 
 			<!-- ONLINE TYPES -->
-			<section class="relative flex flex-col-reverse sm:flex-col gap-2 min-h-0 grow sm:px-12 sm:py-5">
-				<div class="flex flex-col-reverse sm:flex-col h-20">
-					<div class="justify-center items-center flex gap-2 text-2xl sm:text-3xl font-bold text-center">
+			<section class="relative flex flex-col${appendReverse()} sm:flex-col gap-2 min-h-0 grow sm:px-12 sm:py-5">
+				<div class="flex flex-col${appendReverse()} sm:flex-col min-h-20">
+					<div class="justify-center items-center flex gap-2 text-xl sm:text-2xl font-bold text-center">
 						<i class="fa fa-wheelchair-alt animate-bounce" aria-hidden="true"></i>
 						<h2 data-i18n="${k('generic.online')}">ONLINE</h2>
 					</div>
@@ -136,6 +142,14 @@ export class GameSelectorController extends RouteController {
 							Play on a server, with a matchmaking system and history tracking.
 						</h2>
 					</div>
+					${!this.#isUserLoggedIn
+						? /*html*/`
+						<div class="${shouldReverse ? 'hidden' : 'sm:hidden'}">
+							${this.renderOnlineNeededLoginButton()}
+						</div>
+						`
+						: ''
+					}
 				</div>
 
 				<!-- GAME MODES: 1v1, tournament -->
@@ -144,8 +158,15 @@ export class GameSelectorController extends RouteController {
 					${this.renderGameMode(GameTypeObj.TOURNAMENT, 'online', '/online/tournaments', null, 'fa-users')}
 				</div>
 
-				<div class="sm:h-20 spanner">
-					${!this.#isUserLoggedIn ? this.renderLoginButton() : ''}
+				<div class="sm:h-20">
+						${!this.#isUserLoggedIn
+							? /*html*/`
+							<div class="${!shouldReverse ? 'hidden sm:block' : ''}">
+								${this.renderOnlineNeededLoginButton()}
+							</div>
+							`
+							: ''
+						}
 				</div>
 			</section>
 		</div>

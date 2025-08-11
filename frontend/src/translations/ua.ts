@@ -14,8 +14,8 @@ export const ua: TranslationSchema = {
 		online_mode_login_needed: 'Вам потрібно увійти, щоб грати онлайн.',
 	},
 	game_modes: {
-		ai: '1vAI',
-		vs: '1v1',
+		ai: '1 vs AI',
+		vs: '1 vs 1',
 		tournament: 'Турнір',
 	},
 	navbar: {
