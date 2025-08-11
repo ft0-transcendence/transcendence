@@ -43,7 +43,8 @@ export class AuthManager {
 	get userImageUrl() {
 		if (!this.#user) return null;
 		if (!this.#user.imageBlob) return this.#user.imageUrl;
-		const blob = new Blob([this.#user.imageBlob], { type: "image/png" });
+		const uint8Array = new Uint8Array(this.#user.imageBlob) as unknown as ArrayBuffer;
+		const blob = new Blob([uint8Array], { type: this.#user.imageBlobMimeType ?? "image/png" });
 		return URL.createObjectURL(blob)
 	}
 
