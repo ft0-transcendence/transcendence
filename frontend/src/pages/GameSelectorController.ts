@@ -43,7 +43,7 @@ export class GameSelectorController extends RouteController {
 		}
 		const lowercaseGameType: Lowercase<GameType> = gameType.toLowerCase() as Lowercase<GameType>;
 
-		const relativeRoute = `${this.currentRoute}/${lowercaseGameType}` satisfies Route['path'];
+		const targetRoute = `${this.currentRoute}${route}`;
 
 		const key = `game_modes.${lowercaseGameType}`;
 
@@ -52,18 +52,17 @@ export class GameSelectorController extends RouteController {
 		const canClick = isLoggedIn || location == 'local';
 
 		return /*html*/`
-			<button ${!canClick ? 'disabled' : ''} data-route="${relativeRoute}"
-				class="relative flex flex-col justify-center items-center overflow-hidden w-full rounded-lg
-				${canClick ? `hover:drop-shadow-amber-500 active:drop-shadow-amber-500 cursor-pointer` : 'cursor-not-allowed hover:drop-shadow-red-900 active:drop-shadow-red-900'}
-				text-xl sm:text-2xl max-w-2xl gap-2 text-center px-2 py-3 sm:py-7 bg-stone-800 drop-shadow-md drop-shadow-black transition-all duration-200"
+			<a href="${targetRoute}" ${!canClick ? 'disabled' : ''} data-route="${targetRoute}"
+				class="game-mode-button relative flex flex-col justify-center items-center overflow-hidden w-full rounded-lg
+				${canClick ? `hover:drop-shadow-amber-500 active:drop-shadow-amber-500 cursor-pointer bg-stone-800` : 'cursor-not-allowed hover:drop-shadow-red-900 active:drop-shadow-red-900 bg-stone-900 text-neutral-400'}
+				flex flex-col w-full text-xl sm:text-2xl max-w-2xl gap-2 text-center px-2 py-3 sm:py-7 drop-shadow-md drop-shadow-black transition-all duration-200"
 			>
 				<div class="flex items-center gap-2">
 					${fa_icon ? /*html*/`<i class="fa ${fa_icon}" aria-hidden="true"></i>` : ''}
 					<div class="font-semibold" data-i18n="${key}">${lowercaseGameType}</div>
 				</div>
 				${description ? /*html*/`<div class="text-sm text-neutral-400">${description}</div>` : ''}
-				${!canClick ? /*html*/`<div class="absolute top-0 left-0 w-full h-full bg-black/50 flex items-center justify-center">` : ''}
-			</button>
+			</a>
 		`;
 
 	}
@@ -88,8 +87,6 @@ export class GameSelectorController extends RouteController {
 	async render() {
 		const initialHeight = window.outerHeight;
 		const shouldReverse = initialHeight > 900;
-
-		const appendReverse = () => shouldReverse ? '-reverse' : '';
 
 		return /*html*/`
 		<!--<div class="flex flex-col gap-2 text-center mb-4">
@@ -122,7 +119,7 @@ export class GameSelectorController extends RouteController {
 					${this.renderGameMode(GameTypeObj.TOURNAMENT, 'local', '/local/tournaments', null, 'fa-users')}
 				</div>
 
-				<div class="sm:h-20 spanner"></div>
+				<div class="sm:h-20"></div>
 			</section>
 
 			<div class="flex z-10 justify-center items-center sm:absolute sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 font-mono sm:h-full sm:grow">
@@ -131,8 +128,8 @@ export class GameSelectorController extends RouteController {
 			</div>
 
 			<!-- ONLINE TYPES -->
-			<section class="relative flex flex-col${appendReverse()} sm:flex-col gap-2 min-h-0 grow sm:px-12 sm:py-5">
-				<div class="flex flex-col${appendReverse()} sm:flex-col sm:min-h-20">
+			<section class="relative flex ${shouldReverse ? 'flex-col-reverse' : 'flex-col'} sm:flex-col gap-2 min-h-0 grow sm:px-12 sm:py-5">
+				<div class="flex ${shouldReverse ? 'flex-col-reverse' : 'flex-col'} sm:flex-col sm:min-h-20">
 					<div class="justify-center items-center flex gap-2 text-xl sm:text-2xl font-bold text-center">
 						<i class="fa fa-wheelchair-alt animate-bounce" aria-hidden="true"></i>
 						<h2 data-i18n="${k('generic.online')}">ONLINE</h2>
@@ -180,6 +177,15 @@ export class GameSelectorController extends RouteController {
 				this.#onlineModeLoginButton.addEventListener('click', this.onLoginButtonClick.bind(this));
 			}
 		}
+		document.querySelectorAll('.game-mode-button')?.forEach(el => {
+			const htmlEl = el as HTMLElement;
+			htmlEl.addEventListener('click', this.onGameModeButtonClick.bind(this));
+		});
+	}
+
+
+	private onGameModeButtonClick(ev: MouseEvent | TouchEvent) {
+		ev.preventDefault();
 	}
 
 	private async onLoginButtonClick() {
@@ -192,6 +198,10 @@ export class GameSelectorController extends RouteController {
 			this.#onlineModeLoginButton.removeEventListener('click', this.onLoginButtonClick.bind(this));
 			this.#onlineModeLoginButton = null;
 		}
+		document.querySelectorAll('.game-mode-button')?.forEach(el => {
+			const htmlEl = el as HTMLElement;
+			htmlEl.removeEventListener('click', this.onGameModeButtonClick.bind(this));
+		});
 		// if (this.#socket) {
 		// 	console.debug('Cleaning up socket.io connection');
 		// 	// If already connected or connecting, try to disconnect safely
