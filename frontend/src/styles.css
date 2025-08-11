@@ -59,6 +59,15 @@ img {
 	}
 }
 
+::-webkit-scrollbar {
+	width: 0.5rem;
+	height: 0.5rem;
+	background-color: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: #fff;
+	border-radius: 0.125rem;
+}
 
 .horiz-divider {
 	@apply w-full h-px my-2 bg-white/20;

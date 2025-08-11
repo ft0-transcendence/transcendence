@@ -16,8 +16,8 @@ export class BaseLayout extends LayoutController {
 		const isLoggedIn = await authManager.isUserLoggedIn();
 
 		return /*html*/`
-			<div class="flex flex-col w-full text-white grow bg-neutral-900">
-				<div id="${CONSTANTS.APP_LAYOUT_CONTENT_ID}" class="flex flex-col w-full grow"></div>
+			<div class="flex flex-col w-full text-white grow bg-neutral-900 overflow-hidden">
+				<div id="${CONSTANTS.APP_LAYOUT_CONTENT_ID}" class="flex flex-col w-full grow overflow-y-auto"></div>
 
 				<footer class="grid items-center h-20 grid-cols-5 shadow-xl bg-neutral-950 py-0.5">
 					<div class="flex items-center col-span-1 font-mono font-bold size-full">
