@@ -96,25 +96,32 @@ export class AppRouter {
 	}
 
 	init() {
+		window.removeEventListener('popstate', this.route.bind(this));
 		window.addEventListener('popstate', this.route.bind(this));
+
+		document.body.removeEventListener('click', this.onGenericClick.bind(this));
+		document.body.addEventListener('click', this.onGenericClick.bind(this));
+
 		this.route();
-		document.body.addEventListener('click', (e) => {
-			const el = (e.target as HTMLElement)?.closest('.route-link');
-			if (el) {
-				const dataRoute = el.getAttribute('data-route');
-				if (dataRoute?.trim()?.length) {
-					e.preventDefault();
-					this.navigate(dataRoute);
-				}
-			}
-		});
 	}
+	private onGenericClick(e: PointerEvent) {
+		const el = (e.target as HTMLElement)?.closest('[data-route]');
+		if (el) {
+			const dataRoute = el.getAttribute('data-route');
+			if (dataRoute?.trim()?.length) {
+				e.preventDefault();
+				this.navigate(dataRoute);
+			}
+		}
+	}
+
 
 	private async route() {
 		try {
-			const pathWithoutHashOrQuery = location.pathname.split('#')[0].split('?')[0];
+			const pathWithoutHashOrQuery = location.pathname.split('#')[0].split('?')[0]?.replace(/.+\/$/, '').replace(/\/\//g, '/');
 			const route = routes.find(r => r.path === pathWithoutHashOrQuery);
 			if (!route) {
+				console.debug(`Route not found: ${pathWithoutHashOrQuery}`);
 				window.history.replaceState({}, '', '/404');
 				this.route();
 				return;
@@ -152,6 +159,7 @@ export class AppRouter {
 			this.currentController?.destroyIfNotDestroyed?.();
 			this.currentRoute = null;
 
+			this.currentRoute = route;
 			this.currentController = route.newController();
 
 
@@ -168,9 +176,6 @@ export class AppRouter {
 				}
 			}
 
-
-
-			this.currentRoute = route;
 			await this.currentController.renderView(parentContainerID);
 
 		} catch (error) {
