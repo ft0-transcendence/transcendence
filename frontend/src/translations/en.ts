@@ -8,6 +8,14 @@ export const en = {
 		choose_game_mode: 'Choose a game mode',
 		online: 'ONLINE',
 		offline: 'OFFLINE',
+		online_mode_explanation: 'Play on a server, with a matchmaking system and match history tracking.',
+		offline_mode_explanation: 'Play on the same computer, without tracking the matches.',
+		online_mode_login_needed: 'You need to login to play online.',
+	},
+	game_modes: {
+		ai: '1 vs AI',
+		vs: '1 vs 1',
+		tournament: 'Tournament',
 	},
 	navbar: {
 		menu: 'Menu',
