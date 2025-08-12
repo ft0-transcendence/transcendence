@@ -1,5 +1,5 @@
 {
-	"extends": "../tsconfig.base.json",
+	"extends": "../tsconfig.json",
 	"compilerOptions": {
 		"module": "ES2022",
 		"moduleResolution": "node",
@@ -22,13 +22,15 @@
 			"@tools/*": [
 				"./src/tools/*"
 			],
-		},
+		}
 	},
 	"include": [
 		"./types.d.ts",
-		"./**/*.{ts,js,html}",
+		"./**/*.ts",
+		"./**/*.js",
+		"./**/*.html",
 		"./index.html",
 		"./main.ts",
-		"vite.config.mts",
+		"vite.config.mts"
 	],
 }

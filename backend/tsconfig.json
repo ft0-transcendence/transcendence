@@ -1,8 +1,8 @@
 {
-	"extends": "../tsconfig.base.json",
+	"extends": "../tsconfig.json",
 	"compilerOptions": {
 		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
+		"moduleResolution": "nodenext",
 		"esModuleInterop": true,
 		"outDir": "../dist/backend",
 		"noEmit": false,
@@ -16,6 +16,6 @@
 		"./main.ts",
 		"./env.ts",
 		"./types/fastify.d.ts",
-		"./src/**/*.ts"
+		"./**/*.ts"
 	]
 }
