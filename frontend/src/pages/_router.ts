@@ -6,7 +6,7 @@ import { BaseLayout } from "../layouts/BaseLayout";
 import { authManager } from "@tools/AuthManager";
 import toast from "@tools/Toast";
 import { TournamentsController } from "./TournamentsController";
-import { GameSelectorController } from "./GameSelectorController";
+import { GameSelectorController } from "./play/GameSelectorController";
 import { SettingsController } from "./SettingsController";
 
 export type Route = {
@@ -108,7 +108,7 @@ export class AppRouter {
 		this.route();
 	}
 
-	#onGenericMenuClick(e: PointerEvent) {
+	#onGenericMenuClick(e: PointerEvent | MouseEvent) {
 		const el = (e.target as HTMLElement)?.closest('[data-route]');
 		if (el) {
 			const dataRoute = el.getAttribute('data-route');
@@ -120,7 +120,7 @@ export class AppRouter {
 		}
 	}
 
-	#onGenericClick(e: PointerEvent) {
+	#onGenericClick(e: PointerEvent | MouseEvent) {
 		const el = (e.target as HTMLElement)?.closest('[data-route]');
 		if (el) {
 			const dataRoute = el.getAttribute('data-route');

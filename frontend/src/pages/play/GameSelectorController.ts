@@ -2,7 +2,6 @@ import { GameType } from '@shared';
 import { GameTypeObj } from '@src/prismaEnums';
 import { k, t } from "@tools/i18n";
 import { RouteController } from "@tools/ViewController";
-import { Route } from '../pages/_router'
 import { authManager } from "@tools/AuthManager";
 // import { io, Socket } from 'socket.io-client';
 
