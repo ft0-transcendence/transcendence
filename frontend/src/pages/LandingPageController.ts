@@ -19,7 +19,7 @@ export class LandingPageController extends RouteController {
 		return /*html*/`
 			<div class="relative flex flex-col grow w-full items-center justify-center">
 				<canvas id="pong-canvas" class="absolute top-0 left-0 w-full h-full opacity-25"></canvas>
-				<div class="flex flex-col items-center gap-8 z-10 justify-center text-center">
+				<div class="flex flex-col items-center gap-8 justify-center text-center">
 					<h1 class="text-6xl font-bold mb-4">Pong Game</h1>
 					<p class="text-xl text-center max-w-2xl mb-8" data-i18n="${k('landing_page.description')}">
 						Welcome to the classic Pong experience! Challenge your friends or improve your skills

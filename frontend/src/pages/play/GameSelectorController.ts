@@ -74,7 +74,7 @@ export class GameSelectorController extends RouteController {
 					<i class="fa fa-sign-in"></i>
 					<span class="grow text-left font-semibold" data-i18n="${k('navbar.login')}">Login</span>
 				</div>
-				<h3 class="text-base font-mono animate-pulse text-red-500 text-center whitespace-nowrap" data-i18n="${k('generic.online_mode_login_needed')}">
+				<h3 class="text-base font-mono animate-pulse text-red-500 text-center" data-i18n="${k('generic.online_mode_login_needed')}">
 					You need to login to play online.
 				</h3>
 

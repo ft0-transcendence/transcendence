@@ -42,7 +42,7 @@ export class BaseLayout extends LayoutController {
 							<div class="hidden uppercase sm:flex" data-i18n="${k("navbar.menu")}">Menu</div>
 						</button>
 
-						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute mb-2 right-0 items-center hidden w-56 px-3 py-2 text-base bg-black rounded bottom-full">
+						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute mb-2 right-0 items-center hidden w-56 px-3 py-2 text-base bg-black rounded bottom-full z-50">
 
 							<div class="flex flex-col w-full select-none ">
 								${isLoggedIn
