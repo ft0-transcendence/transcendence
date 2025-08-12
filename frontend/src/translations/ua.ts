@@ -18,6 +18,9 @@ export const ua: TranslationSchema = {
 		vs: '1 vs 1',
 		tournament: 'Турнір',
 	},
+	landing_page: {
+		description: 'Ласкаво просимо до класичної екранної гри Pong! Змагайтеся з друзями або покращуйте свої навички в цій незабутній грі. Гра проста, але складна.',
+	},
 	navbar: {
 		menu: 'Меню',
 		start_here: 'Почати',

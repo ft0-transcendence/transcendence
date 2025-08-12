@@ -17,6 +17,9 @@ export const en = {
 		vs: '1 vs 1',
 		tournament: 'Tournament',
 	},
+	landing_page: {
+		description: 'Welcome to the classic Pong experience! Challenge your friends or improve your skills in this timeless game of digital table tennis. Simple to learn, hard to master.',
+	},
 	navbar: {
 		menu: 'Menu',
 		start_here: 'Start Here',

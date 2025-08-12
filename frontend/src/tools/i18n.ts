@@ -118,6 +118,7 @@ async render() {
 export const k = <K extends LanguageKeys>(key: K) => {
 	return key;
 }
+export const getTranslationKey = k;
 
 /**
  * Translates a key using i18next. This function is a wrapper around i18next.t with some additional features:
@@ -137,6 +138,7 @@ export const t = <K extends LanguageKeys>(key: K, options?: Record<string, any>)
 	console.warn(`Translation for key '${key}' not found. returning null.`);
 	return null;
 }
+export const getTranslation = t;
 
 export function updateDOMTranslations(container: HTMLElement | Document = document) {
 	container.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => {

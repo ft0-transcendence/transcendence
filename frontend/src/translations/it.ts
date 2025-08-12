@@ -18,6 +18,9 @@ export const it: TranslationSchema = {
 		vs: '1 vs 1',
 		tournament: 'Torneo',
 	},
+	landing_page: {
+		description: 'Benvenuto nell\'esperienza classica di Pong! Sfida i tuoi amici o migliora le tue abilità in questo gioco di table tennis. Semplice da imparare, difficile da imparare.',
+	},
 	navbar: {
 		menu: 'Menu',
 		start_here: 'Inizia qui',
