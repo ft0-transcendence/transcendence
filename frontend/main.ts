@@ -35,7 +35,8 @@ if (process.env.NODE_ENV !== 'development') {
 	const oldDebug = console.debug;
 	console.debug = (...args) => {
 		const stack = new Error().stack;
-		const caller = stack ? stack.split('\n')[2].trim().split(' ')[1] : 'unknown';
+		const caller_x = stack ? stack?.split('\n') : [];
+		const caller = caller_x?.length ? caller_x[caller_x.length - 1]?.trim()?.split(' ')[1] : 'unknown';
 		oldDebug.apply(console, [`[DEBUG] ~ ${caller}\n`, ...args]);
 	}
 }
