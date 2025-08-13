@@ -10,7 +10,7 @@ export class BaseLayout extends LayoutController {
 
 	#fullscreenToggle: HTMLElement | null = null;
 
-	async preRender(){
+	async preRender() {
 
 	}
 
@@ -23,7 +23,7 @@ export class BaseLayout extends LayoutController {
 
 				<footer class="grid items-center h-20 grid-cols-5 shadow-xl bg-neutral-950 py-0.5">
 					<div class="flex items-center col-span-1 font-mono font-bold size-full">
-						<button data-route="/${isLoggedIn ? 'home': ''}" class="route-link nav-route size-full">
+						<button data-route="/${isLoggedIn ? 'home' : ''}" class="route-link nav-route size-full">
 							<img src="/ft0-pong.png" alt="FT0 Transendence" class="object-scale-down h-12 aspect-square sm:w-7 sm:h-7">
 							<div class="hidden uppercase sm:flex" style="line-height: 1rem;" data-i18n="${k("navbar.homepage")}">HOME</div>
 						</button>
@@ -46,7 +46,7 @@ export class BaseLayout extends LayoutController {
 
 							<div class="flex flex-col w-full select-none ">
 								${isLoggedIn
-									? /*html*/`
+				? /*html*/`
 										<div class="flex gap-1 items-center justify-center flex-col">
 											<img src="${authManager.userImageUrl}" alt="Logged in user image" class=" rounded-full object-scale-down h-8 w-8">
 											<div class="text-xs italic text-white/50">
@@ -55,12 +55,12 @@ export class BaseLayout extends LayoutController {
 										</div>
 										<div class="horiz-divider"></div>
 									`
-									: ``
-								}
+				: ``
+			}
 								<div class="px-1 pt-2 pb-2 flex flex-col text-base">
 
 									${isLoggedIn
-										? /*html*/`
+				? /*html*/`
 											<div data-route="/settings" class="cursor-pointer w-full hover:text-amber-400 route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
 												<span class="grow text-left font-semibold" data-i18n="${k("navbar.settings")}">Settings</span>
 													<i class="fa fa-cog"></i>
@@ -70,13 +70,13 @@ export class BaseLayout extends LayoutController {
 													<i class="fa fa-sign-out"></i>
 											</a>
 											`
-										:  /*html*/`
+				:  /*html*/`
 											<div onclick="window.authManager.login()" class="hover:text-amber-400 fake-route-link  no-hover-bg py-1 !flex-row !justify-start !gap-0">
 												<span class="grow text-left font-semibold" data-i18n="${k("navbar.login")}">Login</span>
 													<i class="fa fa-sign-in"></i>
 											</div>
 											`
-									}
+			}
 
 								</div>
 
@@ -134,11 +134,21 @@ export class BaseLayout extends LayoutController {
 		this.#fullscreenToggle?.querySelector('.fullscreen-disable-icon')?.classList.toggle('!hidden', !newState);
 		this.#fullscreenToggle?.querySelector('.fullscreen-enable-icon')?.classList.toggle('!hidden', newState);
 
+		const docAsAny = document as any;
 
-		if (!document.fullscreenElement) {
-			document.documentElement.requestFullscreen();
+		if (!document.fullscreenElement &&
+			!docAsAny.webkitFullscreenElement) {
+			if (document.documentElement.requestFullscreen) {
+				document.documentElement.requestFullscreen();
+			} else if (docAsAny.documentElement.webkitRequestFullscreen) {
+				docAsAny.documentElement.webkitRequestFullscreen();
+			}
 		} else {
-			document.exitFullscreen();
+			if (document.exitFullscreen) {
+				document.exitFullscreen();
+			} else if (docAsAny.webkitExitFullscreen) {
+				docAsAny.webkitExitFullscreen();
+			}
 		}
 	}
 
@@ -161,7 +171,7 @@ export class BaseLayout extends LayoutController {
 
 		this.#userMenuContainer.classList.toggle('hidden', !shouldShow);
 		this.#userMenuContainer.classList.toggle('flex', shouldShow);
-		if (this.#userMenuButton){
+		if (this.#userMenuButton) {
 			this.#userMenuButton.classList.toggle('focused', shouldShow);
 		}
 	}
