@@ -128,27 +128,25 @@ export class BaseLayout extends LayoutController {
 
 	onFullscreenToggleClick() {
 		console.debug('Fullscreen toggle button clicked');
+		const docAsAny = document as any;
 
-		const newState = !document.fullscreenElement;
+		const newState = !docAsAny.fullscreenElement && !docAsAny.webkitFullscreenElement;
 
 		this.#fullscreenToggle?.querySelector('.fullscreen-disable-icon')?.classList.toggle('!hidden', !newState);
 		this.#fullscreenToggle?.querySelector('.fullscreen-enable-icon')?.classList.toggle('!hidden', newState);
 
-		const docAsAny = document as any;
 
 		if (!document.fullscreenElement &&
 			!docAsAny.webkitFullscreenElement) {
-			if (document.documentElement.requestFullscreen) {
-				document.documentElement.requestFullscreen();
-			} else if (docAsAny.documentElement.webkitRequestFullscreen) {
+			if (docAsAny.documentElement.requestFullscreen) {
+				docAsAny.documentElement.requestFullscreen();
+			} else if (docAsAny.documentElement.webkitRequestFullscreen) { // Safari
 				docAsAny.documentElement.webkitRequestFullscreen();
+			} else if (docAsAny.documentElement.msRequestFullscreen) { // IE/Edge
+				docAsAny.documentElement.msRequestFullscreen();
 			}
 		} else {
-			if (document.exitFullscreen) {
-				document.exitFullscreen();
-			} else if (docAsAny.webkitExitFullscreen) {
-				docAsAny.webkitExitFullscreen();
-			}
+			document.exitFullscreen();
 		}
 	}
 
