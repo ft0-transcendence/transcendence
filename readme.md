@@ -8,50 +8,93 @@ This is a backend for the Transcendence project at 42 Firenze school.
 
 ## Suggested extensions for VSCode
 
-- [EditorConfig for VSCode](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)
-  ```
-  EditorConfig.EditorConfig
-  ```
-- [es6-string-html](https://marketplace.visualstudio.com/items?itemName=Tobermory.es6-string-html)
-  ```
-  Tobermory.es6-string-html
-  ```
-- [Git Graph](https://marketplace.visualstudio.com/items?itemName=mhutchie.git-graph)
-  ```
-  mhutchie.git-graph
-  ```
-- [Headwind](https://marketplace.visualstudio.com/items?itemName=heybourn.headwind)
-  ```
-  heybourn.headwind
-  ```
-- [Pretty TypeScript Errors](https://marketplace.visualstudio.com/items?itemName=yoavbls.pretty-ts-errors)
-  ```
-  yoavbls.pretty-ts-errors
-  ```
-- [Prisma](https://marketplace.visualstudio.com/items?itemName=Prisma.prisma)
-  ```
-  Prisma.prisma
-  ```
-- [Prisma Import](https://marketplace.visualstudio.com/items?itemName=ajmnz.prisma-import)
-  ```
-  ajmnz.prisma-import
-  ```
-- [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss)
-  ```
-  bradlc.vscode-tailwindcss
-  ```
-- [TypeScript Importer](https://marketplace.visualstudio.com/items?itemName=pmneo.tsimporter)
-  ```
-  pmneo.tsimporter
-  ```
-- [HTML CSS Support](https://marketplace.visualstudio.com/items?itemName=ecmel.vscode-html-css)
-  ```
-  ecmel.vscode-html-css
-  ```
-- [Auto Close Tag](https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-close-tag)
-  ```
-  formulahendry.auto-close-tag
-  ```
+You can either install the extensions from this [link](https://vscode.dev/profile/github/14c11ec940c0fdffb7ef44ccdb4c087b) or install them manually:
+
+- adrianwilczynski.format-selection-as-html
+- ajmnz.prisma-import
+- arcanis.vscode-zipfs
+- bierner.markdown-checkbox
+- bradlc.vscode-tailwindcss
+- cesium.gltf-vscode
+- christian-kohler.npm-intellisense
+- ctcuff.font-preview
+- dbaeumer.vscode-eslint
+- ecmel.vscode-html-css
+- editorconfig.editorconfig
+- formulahendry.auto-close-tag
+- formulahendry.auto-rename-tag
+- github.copilot
+- github.copilot-chat
+- gruntfuggly.todo-tree
+- jock.svg
+- johnpapa.vscode-cloak
+- kisstkondoros.vscode-gutter-preview
+- lightyen.tailwindcss-intellisense-twin
+- mhutchie.git-graph
+- mikestead.dotenv
+- ms-vscode-remote.remote-ssh
+- ms-vscode-remote.remote-ssh-edit
+- ms-vscode-remote.remote-wsl
+- ms-vscode.remote-explorer
+- nutshellheadwear.oscuro-theme
+- orta.vscode-twoslash
+- pkief.material-icon-theme
+- pmneo.tsimporter
+- prisma.prisma
+- raczzalan.webgl-glsl-editor
+- supermaven.supermaven
+- tobermory.es6-string-html
+- usernamehw.errorlens
+- vadimcn.vscode-lldb
+- yoavbls.pretty-ts-errors
+- yzhang.markdown-all-in-one
+
+Oneliner to install all extensions:
+
+Linux:
+```bash
+#!/bin/bash
+cat << EOF | xargs -L 1 code --install-extension
+adrianwilczynski.format-selection-as-html
+ajmnz.prisma-import
+arcanis.vscode-zipfs
+bierner.markdown-checkbox
+bradlc.vscode-tailwindcss
+cesium.gltf-vscode
+christian-kohler.npm-intellisense
+ctcuff.font-preview
+dbaeumer.vscode-eslint
+ecmel.vscode-html-css
+editorconfig.editorconfig
+formulahendry.auto-close-tag
+formulahendry.auto-rename-tag
+github.copilot
+github.copilot-chat
+gruntfuggly.todo-tree
+jock.svg
+johnpapa.vscode-cloak
+kisstkondoros.vscode-gutter-preview
+lightyen.tailwindcss-intellisense-twin
+mhutchie.git-graph
+mikestead.dotenv
+ms-vscode-remote.remote-ssh
+ms-vscode-remote.remote-ssh-edit
+ms-vscode-remote.remote-wsl
+ms-vscode.remote-explorer
+nutshellheadwear.oscuro-theme
+orta.vscode-twoslash
+pkief.material-icon-theme
+pmneo.tsimporter
+prisma.prisma
+raczzalan.webgl-glsl-editor
+supermaven.supermaven
+tobermory.es6-string-html
+usernamehw.errorlens
+vadimcn.vscode-lldb
+yoavbls.pretty-ts-errors
+yzhang.markdown-all-in-one
+EOF
+```
 
 ## Getting Started
 
