@@ -57,7 +57,12 @@ export default defineConfig({
 				target: env.BACKEND_URL,
 				ws: true,
 				changeOrigin: true,
-			}
+			},
+			'/socket.io/*': {
+				target: env.BACKEND_URL,
+				ws: true,
+				changeOrigin: true,
+			},
 		},
 		cors: true,
 		hmr: true,

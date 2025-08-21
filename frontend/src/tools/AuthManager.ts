@@ -1,6 +1,8 @@
 import {TRPCClientError} from "@trpc/client";
 import {RouterOutputs} from "@shared";
 import {api} from "@main";
+import { io, Socket } from 'socket.io-client';
+import { router } from "@src/pages/_router";
 
 export const AUTH_DOM_IDS = {
 	userMenuButton: 'user_menu_button',
@@ -24,6 +26,8 @@ export class AuthManager {
 	#userRefreshInterval: NodeJS.Timeout | null = null;
 	#userRefreshIntervalMs = 1000 * 30;
 	#lastCall: Promise<void> | null = null;
+
+	#baseSocketConnection: Socket | null = null;
 
 	constructor(config?: Partial<AuthConfig>) {
 		this.#config = {
@@ -71,19 +75,56 @@ export class AuthManager {
 		window.location.href = '/api/auth/logout';
 	}
 
+	#initSocketConnection() {
+		if (this.#baseSocketConnection) {
+			this.#baseSocketConnection.close();
+			this.#baseSocketConnection = null;
+		}
+		this.#baseSocketConnection = io({
+			withCredentials: true,
+		});
+
+		this.#baseSocketConnection.on('connect', () => {
+			console.debug('Socket connected to server');
+		});
+		this.#baseSocketConnection.on('disconnect', () => {
+			console.debug('Socket disconnected from server. Trying to reconnect...');
+			if (router.currentRouteNeedsAuth){
+				router.navigate('/');
+				this.#baseSocketConnection = null;
+			} else {
+				setTimeout(() => {
+					this.#initSocketConnection();
+				}, 1000);
+			}
+		});
+	}
+	public getBaseSocketConnection() {
+		if (!this.#baseSocketConnection) {
+			this.#initSocketConnection();
+		}
+		return this.#baseSocketConnection;
+	}
+
 
 	async refreshUser() {
 		if (this.#userRefreshInterval) {
-			clearInterval(this.#userRefreshInterval);
+			clearTimeout(this.#userRefreshInterval);
 		}
 		try {
 			this.#user = await api.user.getUser.query();
 			console.debug('User Refreshed', this.#user);
+			if (this.#user && !this.#baseSocketConnection){
+				this.#initSocketConnection();
+			}
 		} catch (err) {
 			this.#user = null;
 			if (err instanceof TRPCClientError) {
 				if (err.data?.code === 'UNAUTHORIZED') {
 					console.warn('User not logged in...');
+					if (router.currentRouteNeedsAuth){
+						router.navigate('/');
+					}
 				}
 			} else {
 				console.error('Error refreshing user', err);
@@ -91,7 +132,7 @@ export class AuthManager {
 			}
 		}
 		if (this.#user) {
-			this.#userRefreshInterval = setInterval(() => {
+			this.#userRefreshInterval = setTimeout(() => {
 				this.#lastCall = this.refreshUser();
 			}, this.#userRefreshIntervalMs);
 		}

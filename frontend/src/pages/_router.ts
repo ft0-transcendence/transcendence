@@ -8,6 +8,7 @@ import toast from "@tools/Toast";
 import { TournamentsController } from "./TournamentsController";
 import { GameSelectorController } from "./play/GameSelectorController";
 import { SettingsController } from "./SettingsController";
+import { OnlineMatchmakingController } from "./play/online/OnlineMatchmakingController";
 
 export type Route = {
 	path: string;
@@ -57,6 +58,12 @@ const routes: Route[] = [
 		newLayout: () => new BaseLayout(),
 	},
 	{
+		path: '/play/online/1v1',
+		newController: () => new OnlineMatchmakingController(),
+		newLayout: () => new BaseLayout(),
+		authRequired: true,
+	},
+	{
 		path: '/settings',
 		newController: () => new SettingsController(),
 		newLayout: () => new BaseLayout(),
@@ -80,6 +87,9 @@ export class AppRouter {
 	get currentLocation() {
 		return this.currentRoute?.path ?? '/404';
 	};
+	get currentRouteNeedsAuth() {
+		return this.currentRoute?.authRequired ?? false;
+	}
 
 	updateCurrentControllerTitle() {
 		if (this.currentController) {
