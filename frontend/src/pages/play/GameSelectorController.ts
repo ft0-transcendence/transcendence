@@ -50,8 +50,9 @@ export class GameSelectorController extends RouteController {
 
 		const canClick = isLoggedIn || location == 'local';
 
+		//  ${!canClick ? 'disabled' : ''}
 		return /*html*/`
-			<a href="${targetRoute}" ${!canClick ? 'disabled' : ''} data-route="${targetRoute}"
+			<a href="${targetRoute}" data-route="${targetRoute}"
 				class="game-mode-button relative flex flex-col justify-center items-center overflow-hidden w-full rounded-lg
 				${canClick ? `hover:drop-shadow-amber-500 active:drop-shadow-amber-500 cursor-pointer bg-stone-800` : 'cursor-not-allowed hover:drop-shadow-red-900 active:drop-shadow-red-900 bg-stone-900 text-neutral-400'}
 				flex flex-col w-full text-xl sm:text-2xl max-w-2xl gap-2 text-center px-2 py-3 sm:py-7 drop-shadow-md drop-shadow-black transition-all duration-200"
