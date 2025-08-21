@@ -2,7 +2,7 @@
 	"name": "transcendence-backend",
 	"version": "1.0.0",
 	"scripts": {
-		"start": "node dist/backend/backend/main.js",
+		"start": "node dist/backend/main.js",
 		"dev": "concurrently \"npm run dev:backend\" \"vite dev\"",
 		"build": "npm run build:frontend && npm run build:backend",
 		"prestart": "npm run build",

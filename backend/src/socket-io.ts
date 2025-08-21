@@ -2,7 +2,7 @@ import { User } from '@prisma/client';
 
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 import { cache } from './cache';
-import { Game } from '../../_shared/game';
+import { Game } from '../game';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';

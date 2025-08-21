@@ -1,6 +1,6 @@
 import { authManager } from "@src/tools/AuthManager";
 import { k } from "@src/tools/i18n";
-import { Game, GameUserInfo } from "../../../_shared/game";
+import { Game, GameUserInfo } from "@shared";
 import { RouteController } from "@tools/ViewController";
 
 export class LandingPageController extends RouteController {
