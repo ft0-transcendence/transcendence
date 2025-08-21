@@ -10,12 +10,15 @@
 		"lib": [
 			"ES2020",
 			"DOM"
-		]
+		],
+		"paths": {
+			"@backend/*": ["./*"]
+		}
 	},
+
 	"include": [
-		"./main.ts",
-		"./env.ts",
 		"./types/fastify.d.ts",
-		"./**/*.ts"
+		"./**/*.ts",
+		"../_shared/**/*.ts"
 	]
 }

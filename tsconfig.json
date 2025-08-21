@@ -17,9 +17,6 @@
 		"checkJs": true,
 		"noEmit": true,
 		"paths": {
-			"@backend/*": [
-				"./backend/*"
-			],
 			"@frontend/*": [
 				"./frontend/*"
 			],
