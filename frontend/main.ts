@@ -43,7 +43,8 @@ if (process.env.NODE_ENV !== 'development') {
 
 window.addEventListener('DOMContentLoaded', () => {
 	initI18n();
-	authManager.init()
+	authManager.init();
+
 	router.init();
 });
 

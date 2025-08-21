@@ -105,7 +105,7 @@ export class AppRouter {
 		this.#APP_CONTAINER = container;
 	}
 
-	init() {
+	async init() {
 		window.removeEventListener('popstate', this.route.bind(this));
 		window.addEventListener('popstate', this.route.bind(this));
 
@@ -115,7 +115,16 @@ export class AppRouter {
 		document.body.removeEventListener('click', this.#onGenericMenuClick.bind(this));
 		document.body.addEventListener('contextmenu', this.#onGenericMenuClick.bind(this));
 
-		this.route();
+		// TODO: find a better way to redirect back to the last route after login
+		const lastRoute = localStorage.getItem('lastRoute');
+		const isUserLoggedIn = await authManager.isUserLoggedIn();
+		if (isUserLoggedIn && lastRoute) {
+			this.navigate(lastRoute)
+		}
+		else {
+			this.route();
+		}
+
 	}
 
 	#onGenericMenuClick(e: PointerEvent | MouseEvent) {
@@ -229,6 +238,7 @@ export class AppRouter {
 
 	public navigate(path: Route['path']) {
 		history.pushState({}, '', path);
+		localStorage.setItem('lastRoute', path);
 		this.route();
 	}
 
