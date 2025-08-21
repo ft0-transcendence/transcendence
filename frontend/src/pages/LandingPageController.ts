@@ -1,6 +1,6 @@
 import { authManager } from "@src/tools/AuthManager";
 import { k } from "@src/tools/i18n";
-import { Game } from "@tools/Game";
+import { Game, GameUserInfo } from "../../../_shared/game";
 import { RouteController } from "@tools/ViewController";
 
 export class LandingPageController extends RouteController {
@@ -10,9 +10,28 @@ export class LandingPageController extends RouteController {
 	private game: Game;
 	private lastTime: number = 0;
 
+	#user1: GameUserInfo;
+	#user2: GameUserInfo;
+
 	constructor() {
 		super();
-		this.game = new Game();
+
+		this.#user1 = { id: '1', username: 'Trife' };
+		this.#user2 = { id: '2', username: 'Pasquale' };
+		this.game = new Game({
+			gameStartCountdown: 3000,
+
+			initialVelocity: 0.025,
+			velocityIncrease: 0.000005,
+			maxVelocity: 0.15,
+			paddleSpeed: 0.75,
+			movementSensitivity: .75,
+			maxScore: 10,
+
+			paddleHeightPercentage: 20,
+		});
+
+		this.game.setPlayers(this.#user1, this.#user2);
 	}
 
 	async render() {
@@ -40,14 +59,16 @@ export class LandingPageController extends RouteController {
 
 	async postRender() {
 		this.#setupCanvas();
-		this.game.start();
+
+		this.game.playerReady(this.#user1);
+		this.game.playerReady(this.#user2);
 
 		this.startAnimation();
 		this.simulateAIMovement();
 
 		document.querySelector(`#${this.id}-login-btn`)?.addEventListener('click', () => {
 			authManager.login();
-		}, {once: true});
+		}, { once: true });
 
 		window.addEventListener('resize', this.#updateCanvasSize.bind(this));
 	}
@@ -131,7 +152,7 @@ export class LandingPageController extends RouteController {
 
 		this.roundedRect(
 			this.ctx,
-			5,
+			3,
 			state.paddles.left - paddleHeight / 2,
 			paddleWidth,
 			paddleHeight,
@@ -140,7 +161,7 @@ export class LandingPageController extends RouteController {
 
 		this.roundedRect(
 			this.ctx,
-			95 - paddleWidth,
+			95,
 			state.paddles.right - paddleHeight / 2,
 			paddleWidth,
 			paddleHeight,

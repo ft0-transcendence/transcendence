@@ -46,6 +46,11 @@ export type GameConfig = {
 	paddleHeightPercentage: number;
 }
 
+export type GameUserInfo = {
+	id: string;
+	username: string;
+}
+
 export class Game {
 	#config: GameConfig = {
 		gameStartCountdown: 3000,
@@ -59,6 +64,15 @@ export class Game {
 
 		paddleHeightPercentage: 20,
 	}
+
+	#playerLeft: GameUserInfo | null = null;
+	#playerRight: GameUserInfo | null = null;
+
+
+	#playerLeftReady = false;
+	#playerRightReady = false;
+
+	#bothPlayersReady = () => this.#playerLeftReady && this.#playerRightReady;
 
 	get currentConfig() {
 		return this.#config;
@@ -99,6 +113,23 @@ export class Game {
 		};
 
 		this.lastUpdate = null;
+	}
+
+	public setPlayers(player1: GameUserInfo, player2: GameUserInfo) {
+		const randomPos = Math.random() > .5;
+		this.#playerLeft = randomPos ? player1 : player2;
+		this.#playerRight = randomPos ? player2 : player1;
+	}
+
+	public playerReady(player: GameUserInfo) {
+		if (player.id === this.#playerLeft?.id) {
+			this.#playerLeftReady = true;
+		} else if (player.id === this.#playerRight?.id) {
+			this.#playerRightReady = true;
+		}
+		if (this.#bothPlayersReady()) {
+			this.start();
+		}
 	}
 
 	public start(): void {
