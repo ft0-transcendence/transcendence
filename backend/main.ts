@@ -14,6 +14,7 @@ import fs from 'fs';
 import fastifyStatic from "@fastify/static";
 import fastifySocketIO from "@ericedouard/fastify-socket.io";
 import { socketAuthSessionPlugin } from "./src/plugins/socketAuthSession";
+import { loadActiveGamesIntoCache } from "./src/cache";
 
 pino;
 
@@ -107,6 +108,7 @@ if (fs.existsSync(pathToFrontend)) {
 fastify.ready().then(() => {
 	console.log('Fastify is ready');
 	setupSocketHandlers(fastify.io);
+	loadActiveGamesIntoCache(fastify.prisma, fastify);
 });
 
 const start = async () => {
