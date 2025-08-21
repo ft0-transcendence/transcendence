@@ -8,7 +8,7 @@ import { authManager } from "@tools/AuthManager";
 export class GameSelectorController extends RouteController {
 	#isUserLoggedIn = false;
 
-	#onlineModeLoginButton: HTMLElement | null = null;
+	#onlineModeLoginButtons: NodeListOf<HTMLElement> | null = null;
 	// #socket: Socket | null = null;
 
 	constructor() {
@@ -69,8 +69,7 @@ export class GameSelectorController extends RouteController {
 	private renderOnlineNeededLoginButton() {
 		return /*html*/`
 			<div class="flex flex-col items-center justify-center my-2 gap-1">
-
-				<div class="${this.id}-login-button py-2 px-6 sm:px-7 sm:py-3 border rounded-sm border-white/25 cursor-pointer hover:bg-neutral-800 max-w-md">
+				<div class="${this.id}_login_button py-2 px-6 sm:px-7 sm:py-3 border rounded-sm border-white/25 cursor-pointer hover:bg-neutral-800 max-w-md">
 					<i class="fa fa-sign-in"></i>
 					<span class="grow text-left font-semibold" data-i18n="${k('navbar.login')}">Login</span>
 				</div>
@@ -170,12 +169,11 @@ export class GameSelectorController extends RouteController {
 	}
 
 	async postRender() {
-		if (!this.#isUserLoggedIn) {
-			this.#onlineModeLoginButton = document.querySelector(`.${this.id}-login-button`);
-			if (this.#onlineModeLoginButton) {
-				this.#onlineModeLoginButton.addEventListener('click', this.onLoginButtonClick.bind(this));
-			}
-		}
+		this.#onlineModeLoginButtons = document.querySelectorAll(`.${this.id}_login_button`);
+		this.#onlineModeLoginButtons.forEach(el=>{
+			el.addEventListener('click', this.onLoginButtonClick.bind(this));
+		})
+
 		document.querySelectorAll('.game-mode-button')?.forEach(el => {
 			const htmlEl = el as HTMLElement;
 			htmlEl.addEventListener('click', this.onGameModeButtonClick.bind(this));
@@ -187,16 +185,16 @@ export class GameSelectorController extends RouteController {
 		ev.preventDefault();
 	}
 
-	private async onLoginButtonClick() {
-		await authManager.login();
+	private onLoginButtonClick() {
+		authManager.login();
 	}
 
 
 	protected async destroy() {
-		if (this.#onlineModeLoginButton) {
-			this.#onlineModeLoginButton.removeEventListener('click', this.onLoginButtonClick.bind(this));
-			this.#onlineModeLoginButton = null;
-		}
+		this.#onlineModeLoginButtons?.forEach(el=>{
+			el.removeEventListener('click', this.onLoginButtonClick.bind(this));
+		});
+
 		document.querySelectorAll('.game-mode-button')?.forEach(el => {
 			const htmlEl = el as HTMLElement;
 			htmlEl.removeEventListener('click', this.onGameModeButtonClick.bind(this));

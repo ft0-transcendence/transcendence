@@ -12,7 +12,7 @@ export abstract class ViewController {
 		return this.#currentRoute;
 	}
 
-	#id = `${this.constructor.name}-${Math.random().toString(36).substring(2, 15)}`;
+	#id = `${this.constructor.name}_${Math.random().toString(36).substring(2, 15)}`;
 	protected id = this.#id;
 
 	protected type: "page" | "layout" | "component" = "page";

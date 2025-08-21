@@ -64,7 +64,6 @@ export class AuthManager {
 		// SETTING THE REDIRECT URL BACK TO THE REQUESTOR ORIGIN
 		// const redirectUrl = `${window.location.origin}${window.location.pathname}`;
 		const apiLoginUrl = `/api/auth/login`;
-
 		window.location.href = apiLoginUrl;
 	}
 
@@ -98,7 +97,6 @@ export class AuthManager {
 		}
 	}
 }
-
 
 export const authManager = new AuthManager();
 window.authManager = authManager;
