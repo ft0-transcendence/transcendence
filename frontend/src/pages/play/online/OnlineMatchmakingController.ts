@@ -8,9 +8,8 @@ export class OnlineMatchmakingController extends RouteController {
 
 	constructor(){
 		super();
-		this.#matchmakingSocket = io({
+		this.#matchmakingSocket = io('/matchmaking', {
 			withCredentials: true,
-			path: '/socket.io/matchmaking',
 		});
 		this.#matchmakingSocket.on('connect', () => {
 			console.debug('Matchmaking Socket connected to server');
@@ -49,6 +48,13 @@ export class OnlineMatchmakingController extends RouteController {
 			matchFoundContainer.classList.remove('hidden');
 			gameIdSpan.innerText = data.gameId;
 		});
+	}
+
+	protected async destroy() {
+		if (this.#matchmakingSocket.connected){
+			this.#matchmakingSocket.close();
+			console.debug('Cleaning up matchmaking socket');
+		}
 	}
 
 }
