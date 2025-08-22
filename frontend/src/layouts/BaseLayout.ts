@@ -81,7 +81,7 @@ export class BaseLayout extends LayoutController {
 								</div>
 
 								<!-- REQUEST FULLSCREEN -->
-								<div class="flex flex-col w-full select-none py-2 overflow-hidden">
+								<div id="${this.id}-fullscreen-toggle-container" class="flex flex-col w-full select-none py-2 overflow-hidden">
 									<div id="${this.id}-fullscreen-toggle" class="overflow-hidden hover:text-amber-400 fake-route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
 										<div class="grow overflow-ellipsis text-left font-semibold line-clamp-1" data-i18n="${k("navbar.fullscreen_mode")}">Fullscreen mode</div>
 
@@ -103,12 +103,23 @@ export class BaseLayout extends LayoutController {
 			</div>`;
 	}
 
+	#isIos() {
+		var isIOS = /ipad|iphone|ipod/.test(navigator.userAgent?.toLowerCase()) && !(window as any).MSStream;
+		return isIOS;
+	}
+
+
 	#onFullscreenToggleClickBind = this.#onFullscreenToggleClick.bind(this);
 	#onMenuButtonClickBind = this.#onMenuButtonClick.bind(this);
 	#onWindowClickBind = this.#onWindowClick.bind(this);
 
 	async postRender() {
 		console.log('Base layout loaded');
+
+		if (this.#isIos()) {
+			const fullscreenToggleContainer = document.getElementById(`${this.id}-fullscreen-toggle-container`);
+			fullscreenToggleContainer?.classList.add('!hidden');
+		}
 
 		this.#userMenuButton = document.getElementById(AUTH_DOM_IDS.userMenuButton);
 		this.#userMenuContainer = document.getElementById(AUTH_DOM_IDS.userMenuContainer);
