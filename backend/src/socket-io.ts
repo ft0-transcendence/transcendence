@@ -107,6 +107,7 @@ function setupMatchmakingNamespace(io: Server) {
 
 					const game = await db.game.create({
 						data: {
+							id: gameId,
 							startDate: new Date(),
 							type: 'VS',
 							leftPlayerId: player1.data.user.id,

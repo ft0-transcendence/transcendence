@@ -6,38 +6,37 @@ import toast from "./Toast";
  * Base class responsible for rendering a page/component/layout.
  */
 export abstract class ViewController {
-	#currentRoute: string;
-
-	protected get currentRoute(){
-		return this.#currentRoute;
-	}
+	protected type: "page" | "layout" | "component" = "page";
 
 	#id = `${this.constructor.name}_${Math.random().toString(36).substring(2, 15)}`;
-	protected id = this.#id;
+	#currentRoute: string;
 
-	protected type: "page" | "layout" | "component" = "page";
-	// @ts-ignore
 	#isDestroyed = false;
+	#postRenderCalled = false;
+
 	protected suffix: string | null = null;
+	protected params: Record<string, string> = {};
 
 	#childComponents: ViewController[] = [];
 
-	#postRenderCalled = false;
-
-
-	protected get isDestroyed() {
-		return this.#isDestroyed;
+	constructor(params: Record<string, string> = {}) {
+		this.#currentRoute = router.currentLocation;
+		this.params = params;
 	}
 
-	updateTitleSuffix(){
+	get id() { return this.#id; }
+	protected get currentRoute(){ return this.#currentRoute; }
+	protected get isDestroyed() { return this.#isDestroyed; }
+
+	public updateTitleSuffix(){
 		this.titleSuffix = this.suffix ?? "";
 	}
 
-
-
-	constructor() {
-		this.#currentRoute = router.currentLocation;
+	public compareParams(otherParams: Record<string, string>): "same" | "different" {
+		const someDifferent = Object.entries(this.params).some(([key, value]) => otherParams[key] !== value);
+		return someDifferent ? "different" : "same";
 	}
+
 
 	/**
 	 * Sets the title suffix of the page. This is used to set the title of the page to include the BASE APP TITLE and the current page's title suffix.
@@ -188,6 +187,9 @@ export abstract class ViewController {
 		}
 	}
 
+	/**
+	 * @returns the `render()` method's html output which is not attached to the DOM.
+	 */
 	public async silentRender() {
 		return this.render();
 	}
@@ -205,22 +207,22 @@ export abstract class ViewController {
 }
 
 export abstract class RouteController extends ViewController {
-	constructor() {
-		super();
+	constructor(params: Record<string, string> = {}) {
+		super(params);
 		this.type = "page";
 	}
 }
 
 export abstract class LayoutController extends ViewController {
-	constructor() {
-		super();
+	constructor(params: Record<string, string> = {}) {
+		super(params);
 		this.type = "layout";
 	}
 }
 
 export abstract class ComponentController extends ViewController {
-	constructor() {
-		super();
+	constructor(params: Record<string, string> = {}) {
+		super(params);
 		this.type = "component";
 	}
 }
