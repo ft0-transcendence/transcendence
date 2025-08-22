@@ -111,17 +111,21 @@ export class AppRouter {
 		}
 	}
 
+	#routeBind = this.#route.bind(this);
+	#onGenericClickBind = this.#onGenericClick.bind(this);
+	#onGenericMenuClickBind = this.#onGenericMenuClick.bind(this);
+
 	async init() {
-		window.removeEventListener('popstate', this.#route.bind(this));
-		window.addEventListener('popstate', this.#route.bind(this));
+		window.removeEventListener('popstate', this.#routeBind);
+		window.addEventListener('popstate', this.#routeBind);
 
-		document.body.removeEventListener('click', this.#onGenericClick.bind(this));
-		document.body.addEventListener('click', this.#onGenericClick.bind(this));
+		document.body.removeEventListener('click', this.#onGenericClickBind);
+		document.body.addEventListener('click', this.#onGenericClickBind);
 
-		document.body.removeEventListener('click', this.#onGenericMenuClick.bind(this));
-		document.body.addEventListener('contextmenu', this.#onGenericMenuClick.bind(this));
+		document.body.removeEventListener('click', this.#onGenericMenuClickBind);
+		document.body.addEventListener('contextmenu', this.#onGenericMenuClickBind);
 
-		// TODO: find a better way to redirect back to the last route after login
+		// TODO: maybe (?) find a better way to redirect back to the last route after login
 		const lastRoute = localStorage.getItem('lastRoute');
 		const isUserLoggedIn = await authManager.isUserLoggedIn();
 		if (isUserLoggedIn && lastRoute) {

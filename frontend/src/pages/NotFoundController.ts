@@ -32,6 +32,10 @@ export class NotFoundController extends RouteController {
 		`;
 	}
 
+	#handleMouseMoveBind = this.#handleMouseMove.bind(this);
+	#handleTouchMoveBind = this.#handleTouchMove.bind(this);
+	#handleTouchEndBind = this.#handleTouchEnd.bind(this);
+
 	async postRender() {
 		this.#circle = document.getElementById('circle') as HTMLDivElement | null;
 		this.#easterDiv = document.querySelector('.hidden_easter') as HTMLDivElement | null;
@@ -46,19 +50,18 @@ export class NotFoundController extends RouteController {
 			}
 			return;
 		}
-		document.addEventListener('mousemove', this.#handleMouseMove.bind(this));
-		document.addEventListener('touchmove', this.#handleTouchMove.bind(this));
-		document.addEventListener('touchend', this.#handleTouchEnd.bind(this));
+		document.addEventListener('mousemove', this.#handleMouseMoveBind);
+		document.addEventListener('touchmove', this.#handleTouchMoveBind);
+		document.addEventListener('touchend', this.#handleTouchEndBind);
 	}
 
 	protected async destroy() {
-		document.removeEventListener('mousemove', this.#handleMouseMove.bind(this));
-		document.removeEventListener('touchmove', this.#handleTouchMove.bind(this));
-		document.removeEventListener('touchend', this.#handleTouchEnd.bind(this));
+		document.removeEventListener('mousemove', this.#handleMouseMoveBind);
+		document.removeEventListener('touchmove', this.#handleTouchMoveBind);
+		document.removeEventListener('touchend', this.#handleTouchEndBind);
 	}
 
-	#handleTouchMove = (event: TouchEvent) => {
-
+	#handleTouchMove(event: TouchEvent) {
 		const touch = event.touches[0];
 		if (!touch || !this.#circle || !this.#easterDiv) return;
 
@@ -87,8 +90,7 @@ export class NotFoundController extends RouteController {
 	}
 
 
-	#hideMouseCircleTimeout: NodeJS.Timeout
-		| null = null;
+	#hideMouseCircleTimeout: NodeJS.Timeout | null = null;
 	#handleMouseMove(event: MouseEvent) {
 		if (!this.#circle) return;
 		if (!this.#easterDiv) return;

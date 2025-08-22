@@ -88,14 +88,7 @@ export class GameSelectorController extends RouteController {
 		const shouldReverse = initialHeight > 900;
 
 		return /*html*/`
-		<!--<div class="flex flex-col gap-2 text-center mb-4">
-			<h1 class="text-3xl sm:text-4xl font-bold text-center">
-				<span data-i18n="${k('generic.choose_game_mode')}">Choose a game mode</span>
-			</h1>
-		</div>-->
 		<div class="relative flex flex-col sm:grid sm:grid-cols-2 grow w-full px-3 py-2 sm:px-0 sm:py-0">
-
-
 			<!-- OFFLINE TYPES -->
 			<section class="flex flex-col gap-2 min-h-0 grow sm:px-12 sm:py-5 ">
 				<div class="flex flex-col sm:min-h-20">
@@ -169,51 +162,40 @@ export class GameSelectorController extends RouteController {
 		`;
 	}
 
+	#onLoginButtonClickBind = this.#onLoginButtonClick.bind(this);
+	#onGameModeButtonClickBind = this.#onGameModeButtonClick.bind(this);
+
 	async postRender() {
 		this.#onlineModeLoginButtons = document.querySelectorAll(`.${this.id}_login_button`);
 		this.#onlineModeLoginButtons.forEach(el=>{
-			el.addEventListener('click', this.onLoginButtonClick.bind(this));
+			el.addEventListener('click', this.#onLoginButtonClickBind);
 		})
 
 		document.querySelectorAll('.game-mode-button')?.forEach(el => {
 			const htmlEl = el as HTMLElement;
-			htmlEl.addEventListener('click', this.onGameModeButtonClick.bind(this));
+			htmlEl.addEventListener('click', this.#onGameModeButtonClickBind);
 		});
 	}
 
 
-	private onGameModeButtonClick(ev: MouseEvent | TouchEvent) {
+	#onGameModeButtonClick(ev: MouseEvent | TouchEvent) {
 		ev.preventDefault();
 	}
 
-	private onLoginButtonClick() {
+	#onLoginButtonClick() {
 		authManager.login();
 	}
 
 
 	protected async destroy() {
 		this.#onlineModeLoginButtons?.forEach(el=>{
-			el.removeEventListener('click', this.onLoginButtonClick.bind(this));
+			el.removeEventListener('click', this.#onLoginButtonClickBind);
 		});
 
 		document.querySelectorAll('.game-mode-button')?.forEach(el => {
 			const htmlEl = el as HTMLElement;
-			htmlEl.removeEventListener('click', this.onGameModeButtonClick.bind(this));
+			htmlEl.removeEventListener('click', this.#onGameModeButtonClickBind);
 		});
-		// if (this.#socket) {
-		// 	console.debug('Cleaning up socket.io connection');
-		// 	// If already connected or connecting, try to disconnect safely
-		// 	console.debug('Socket connecting=', this.#socket.connected);
-
-		// 	if (this.#socket.connected) {
-		// 		this.#socket.removeAllListeners();
-		// 		this.#socket.disconnect();
-		// 	} else {
-		// 		console.debug('Socket was not connected (yet), forcing close');
-		// 		this.#socket.close(); // Force close (does not emit disconnect events)
-		// 	}
-		// 	this.#socket = null;
-		// }
 	}
 
 }

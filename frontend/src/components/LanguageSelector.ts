@@ -6,6 +6,7 @@ import { ComponentController } from '@tools/ViewController';
 export class LanguageSelectorComponent extends ComponentController {
 	#langSelectorTrigger: HTMLElement | null = null;
 	#langSelectorDropdown: HTMLElement | null = null;
+
 	#langSelectorClickHandler = this.#onLangSelectorClick.bind(this);
 	#langOutsideClickHandler = this.#onLangOutsideClick.bind(this);
 	#langItemHandlers: (() => void)[] = [];

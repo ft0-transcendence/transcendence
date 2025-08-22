@@ -103,6 +103,10 @@ export class BaseLayout extends LayoutController {
 			</div>`;
 	}
 
+	#onFullscreenToggleClickBind = this.#onFullscreenToggleClick.bind(this);
+	#onMenuButtonClickBind = this.#onMenuButtonClick.bind(this);
+	#onWindowClickBind = this.#onWindowClick.bind(this);
+
 	async postRender() {
 		console.log('Base layout loaded');
 
@@ -110,23 +114,23 @@ export class BaseLayout extends LayoutController {
 		this.#userMenuContainer = document.getElementById(AUTH_DOM_IDS.userMenuContainer);
 
 		this.#fullscreenToggle = document.getElementById(`${this.id}-fullscreen-toggle`);
-		this.#fullscreenToggle?.addEventListener('click', this.onFullscreenToggleClick.bind(this));
+		this.#fullscreenToggle?.addEventListener('click', this.#onFullscreenToggleClickBind);
 
-		this.#userMenuButton?.addEventListener('click', this.onMenuButtonClick.bind(this));
-		window.addEventListener('click', this.onWindowClick.bind(this));
+		this.#userMenuButton?.addEventListener('click', this.#onMenuButtonClickBind);
+		window.addEventListener('click', this.#onWindowClickBind);
 
 		// this.#toggleUserMenu(true);
 	}
 
 	async destroy() {
 		// User menu events
-		this.#userMenuButton?.removeEventListener('click', this.onMenuButtonClick.bind(this));
-		this.#fullscreenToggle?.removeEventListener('click', this.onFullscreenToggleClick.bind(this));
+		this.#userMenuButton?.removeEventListener('click', this.#onMenuButtonClickBind);
+		this.#fullscreenToggle?.removeEventListener('click', this.#onFullscreenToggleClickBind);
 
-		window.removeEventListener('click', this.onWindowClick.bind(this));
+		window.removeEventListener('click', this.#onWindowClickBind);
 	}
 
-	onFullscreenToggleClick() {
+	#onFullscreenToggleClick() {
 		console.debug('Fullscreen toggle button clicked');
 		const docAsAny = document as any;
 
@@ -150,13 +154,13 @@ export class BaseLayout extends LayoutController {
 		}
 	}
 
-	onMenuButtonClick() {
+	#onMenuButtonClick() {
 		console.debug('User menu button clicked');
 		this.#toggleUserMenu();
 	}
 
 
-	onWindowClick(event: MouseEvent) {
+	#onWindowClick(event: MouseEvent) {
 		if (!this.#userMenuContainer?.contains(event.target as Node) && !this.#userMenuButton?.contains(event.target as Node)) {
 			this.#toggleUserMenu(false);
 		}

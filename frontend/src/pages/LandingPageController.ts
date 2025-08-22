@@ -57,6 +57,7 @@ export class LandingPageController extends RouteController {
         `;
 	}
 
+	#updateCanvasSizeBind = this.#updateCanvasSize.bind(this);
 	async postRender() {
 		this.#setupCanvas();
 
@@ -70,7 +71,7 @@ export class LandingPageController extends RouteController {
 			authManager.login();
 		}, { once: true });
 
-		window.addEventListener('resize', this.#updateCanvasSize.bind(this));
+		window.addEventListener('resize', this.#updateCanvasSizeBind);
 	}
 
 	#setupCanvas() {
@@ -212,7 +213,7 @@ export class LandingPageController extends RouteController {
 	// CHATGPT END=================================================================================
 
 	onDestroy() {
-		window.removeEventListener('resize', this.#updateCanvasSize.bind(this));
+		window.removeEventListener('resize', this.#updateCanvasSizeBind);
 		cancelAnimationFrame(this.animationFrameId);
 	}
 }
