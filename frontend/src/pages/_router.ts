@@ -128,7 +128,8 @@ export class AppRouter {
 		// TODO: maybe (?) find a better way to redirect back to the last route after login
 		const lastRoute = localStorage.getItem('lastRoute');
 		const isUserLoggedIn = await authManager.isUserLoggedIn();
-		if (isUserLoggedIn && lastRoute) {
+		const currentPath = this.#cleanPath(location.pathname);
+		if (isUserLoggedIn && lastRoute && currentPath === '/') {
 			this.navigate(lastRoute)
 		}
 		else {
@@ -171,7 +172,9 @@ export class AppRouter {
 	async #route() {
 		try {
 			const cleanedPath = this.#cleanPath(location.pathname);
+			console.debug("Cleaned path:", cleanedPath);
 			const { route, params } = this.#findRoute(cleanedPath);
+			console.debug("Route:", route?.path);
 
 			if (!route) {
 				console.debug(`Route not found: ${cleanedPath}`);
