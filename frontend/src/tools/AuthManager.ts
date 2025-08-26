@@ -1,21 +1,10 @@
 import {TRPCClientError} from "@trpc/client";
 import {RouterOutputs} from "@shared";
 import {api} from "@main";
+import { io, Socket } from 'socket.io-client';
+import { router } from "@src/pages/_router";
 
-export type AuthConfig = {
-	domSelectors: {
-		userMenuContainer: string;
-		userMenuButton: string;
-		loggedInUsername: string,
-		loggedInImageUrl: string,
-		loggedInContainer: string,
-		loggedOutContainer: string,
-	},
-}
-
-export const AUTH_DOM_IDS: {
-	[key in keyof AuthConfig['domSelectors']]: AuthConfig['domSelectors'][key]
-} = {
+export const AUTH_DOM_IDS = {
 	userMenuButton: 'user_menu_button',
 	userMenuContainer: 'user_menu_container',
 
@@ -25,8 +14,11 @@ export const AUTH_DOM_IDS: {
 	loggedOutContainer: 'logged_out_container',
 }
 
+export type AuthConfig = typeof AUTH_DOM_IDS;
+
 
 export class AuthManager {
+	// TODO: Remove this. Probably won't be ever used.
 	#config: AuthConfig;
 
 	#user: RouterOutputs['user']['getUser'] = null;
@@ -35,16 +27,16 @@ export class AuthManager {
 	#userRefreshIntervalMs = 1000 * 30;
 	#lastCall: Promise<void> | null = null;
 
+	#baseSocketConnection: Socket | null = null;
+
 	constructor(config?: Partial<AuthConfig>) {
 		this.#config = {
-			domSelectors: {
-				userMenuContainer: AUTH_DOM_IDS.userMenuContainer,
-				userMenuButton: AUTH_DOM_IDS.userMenuButton,
-				loggedInUsername: AUTH_DOM_IDS.loggedInUsername,
-				loggedInImageUrl: AUTH_DOM_IDS.loggedInImageUrl,
-				loggedInContainer: AUTH_DOM_IDS.loggedInContainer,
-				loggedOutContainer: AUTH_DOM_IDS.loggedOutContainer,
-			},
+			userMenuContainer: AUTH_DOM_IDS.userMenuContainer,
+			userMenuButton: AUTH_DOM_IDS.userMenuButton,
+			loggedInUsername: AUTH_DOM_IDS.loggedInUsername,
+			loggedInImageUrl: AUTH_DOM_IDS.loggedInImageUrl,
+			loggedInContainer: AUTH_DOM_IDS.loggedInContainer,
+			loggedOutContainer: AUTH_DOM_IDS.loggedOutContainer,
 			...config,
 		};
 	}
@@ -55,7 +47,8 @@ export class AuthManager {
 	get userImageUrl() {
 		if (!this.#user) return null;
 		if (!this.#user.imageBlob) return this.#user.imageUrl;
-		const blob = new Blob([this.#user.imageBlob], { type: "image/png" });
+		const uint8Array = new Uint8Array(this.#user.imageBlob) as unknown as ArrayBuffer;
+		const blob = new Blob([uint8Array], { type: this.#user.imageBlobMimeType ?? "image/png" });
 		return URL.createObjectURL(blob)
 	}
 
@@ -72,26 +65,66 @@ export class AuthManager {
 	}
 
 	async login(){
-		window.location.href = '/api/auth/login';
+		// SETTING THE REDIRECT URL BACK TO THE REQUESTOR ORIGIN
+		// const redirectUrl = `${window.location.origin}${window.location.pathname}`;
+		const apiLoginUrl = `/api/auth/login`;
+		window.location.href = apiLoginUrl;
 	}
 
 	async logout(){
 		window.location.href = '/api/auth/logout';
 	}
 
+	#initSocketConnection() {
+		if (this.#baseSocketConnection) {
+			this.#baseSocketConnection.close();
+			this.#baseSocketConnection = null;
+		}
+		this.#baseSocketConnection = io({
+			withCredentials: true,
+		});
+
+		this.#baseSocketConnection.on('connect', () => {
+			console.debug('Socket connected to server');
+		});
+		this.#baseSocketConnection.on('disconnect', () => {
+			console.debug('Socket disconnected from server. Trying to reconnect...');
+			if (router.currentRouteNeedsAuth){
+				router.navigate('/');
+				this.#baseSocketConnection = null;
+			} else {
+				setTimeout(() => {
+					this.#initSocketConnection();
+				}, 1000);
+			}
+		});
+	}
+	public getBaseSocketConnection() {
+		if (!this.#baseSocketConnection) {
+			this.#initSocketConnection();
+		}
+		return this.#baseSocketConnection;
+	}
+
 
 	async refreshUser() {
 		if (this.#userRefreshInterval) {
-			clearInterval(this.#userRefreshInterval);
+			clearTimeout(this.#userRefreshInterval);
 		}
 		try {
 			this.#user = await api.user.getUser.query();
 			console.debug('User Refreshed', this.#user);
+			if (this.#user && !this.#baseSocketConnection){
+				this.#initSocketConnection();
+			}
 		} catch (err) {
 			this.#user = null;
 			if (err instanceof TRPCClientError) {
 				if (err.data?.code === 'UNAUTHORIZED') {
 					console.warn('User not logged in...');
+					if (router.currentRouteNeedsAuth){
+						router.navigate('/');
+					}
 				}
 			} else {
 				console.error('Error refreshing user', err);
@@ -99,13 +132,12 @@ export class AuthManager {
 			}
 		}
 		if (this.#user) {
-			this.#userRefreshInterval = setInterval(() => {
+			this.#userRefreshInterval = setTimeout(() => {
 				this.#lastCall = this.refreshUser();
 			}, this.#userRefreshIntervalMs);
 		}
 	}
 }
-
 
 export const authManager = new AuthManager();
 window.authManager = authManager;

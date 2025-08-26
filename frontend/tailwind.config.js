@@ -2,7 +2,10 @@
 module.exports = {
 	content: ['./src/frontend/index.html', './src/frontend/**/*.{js,ts,html}'],
 	theme: {
-		extend: {},
+		extend: {
+			colors: {
+			},
+		},
 	},
 	plugins: [],
 }
