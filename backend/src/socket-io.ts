@@ -21,7 +21,7 @@ export type TypedSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEven
 export function setupSocketHandlers(io: Server) {
 
 	setupMatchmakingNamespace(io);
-
+	setupOnlineVersusGameNamespace(io);
 
 
 	fastify.log.info("Setting up Socket.IO handlers");
