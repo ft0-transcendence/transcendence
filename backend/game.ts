@@ -7,6 +7,8 @@ export enum GameState {
 	FINISH = "FINISH"
 }
 
+export type MovePaddleAction = "up" | "down";
+
 export interface Ball {
 	x: number;
 	y: number;
@@ -132,6 +134,18 @@ export class Game {
 		}
 	}
 
+	public isPlayerInGame(id: GameUserInfo['id']){
+		return id === this.#playerLeft?.id || id === this.#playerRight?.id;
+	}
+
+	public movePlayerPaddle(playerId: GameUserInfo['id'], direction: MovePaddleAction) {
+		if (playerId === this.#playerLeft?.id) {
+			this.movePaddle("left", direction);
+		} else if (playerId === this.#playerRight?.id) {
+			this.movePaddle("right", direction);
+		}
+	}
+
 	public start(): void {
 		if (this.state === GameState.TOSTART || this.state === GameState.FINISH) {
 			this.state = GameState.RUNNING;
@@ -180,7 +194,7 @@ export class Game {
 		this.countdown = Date.now() + this.#config.gameStartCountdown;
 	}
 
-	public movePaddle(player: "left" | "right", direction: "up" | "down"): void {
+	public movePaddle(player: "left" | "right", direction: MovePaddleAction): void {
 		const speed = this.#config.paddleSpeed * this.#config.movementSensitivity;
 		const min = this.#config.paddleHeightPercentage / 2;
 		const max = 100 - this.#config.paddleHeightPercentage / 2;

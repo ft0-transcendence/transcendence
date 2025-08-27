@@ -2,7 +2,7 @@ import { User } from '@prisma/client';
 
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 import { cache } from './cache';
-import { Game } from '../game';
+import { Game, MovePaddleAction } from '../game';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
@@ -38,6 +38,88 @@ export function setupSocketHandlers(io: Server) {
 	});
 }
 
+function setupOnlineVersusGameNamespace(io: Server){
+	const onlineVersusGameNamespace = io.of("/vs-game");
+	applySocketAuth(onlineVersusGameNamespace);
+
+	onlineVersusGameNamespace.on("connection", (socket: TypedSocket) => {
+		fastify.log.info("Online Versus Game socket connected. id=%s, username=%s", socket.id, socket.data.user.username);
+
+
+		const { user } = socket.data;
+
+		socket.on("join-game", (gameId: string)=>{
+			// maybe add to the game (OnlineGame class) the instance of this socket namespace, so it can call the socket to emit the game's state.
+			const game = cache.activeGames.get(gameId);
+
+			if (!game) {
+				socket.emit('error', 'Game not found');
+				return;
+			}
+
+			const isPlayerInGame = game.isPlayerInGame(user.id);
+			// README: do we want to allow spectators?
+			// if (!isPlayerInGame) {
+			// 	socket.emit('error', 'You are not a player in this game');
+			// 	return;
+			// }
+			(async ()=>{
+				// Create and join a "label" (not a real room, just a way to group sockets) to which we can broadcast the game state
+				await socket.join(gameId);
+				fastify.log.debug("Socket joined game. id=%s, gameId=%s. is_a_player=%s", socket.id, gameId, isPlayerInGame);
+
+				// Notify other players in the game
+				socket.to(gameId).emit('player-joined', {
+					id: user.id,
+					username: user.username,
+					isPlayer: isPlayerInGame,
+				});
+
+				// socket.emit('game-state', game.getState());
+			})();
+		});
+
+
+		socket.on("player-action", (gameId: string, action: MovePaddleAction)=>{
+			const game = cache.activeGames.get(gameId);
+			if (!game){
+				socket.emit('error', 'Game not found');
+				return;
+			}
+
+			const isPlayerInGame = game.isPlayerInGame(user.id);
+
+			if (!isPlayerInGame) {
+				socket.emit('error', 'You are not a player in this game');
+				return;
+			}
+
+			game.movePlayerPaddle(user.id, action);
+
+			socket.to(gameId).emit("game-state", game.getState());
+		})
+
+
+		socket.on("leave-game", (gameId: string) => {
+			(async ()=>{
+				await socket.leave(gameId);
+				fastify.log.info(`User ${user.username} left game room ${gameId}`);
+				socket.to(gameId).emit("player-left", { userId: user.id });
+
+				// check if the user was in game and handle that situation
+			})();
+		});
+
+		socket.on("disconnect", () => {
+			fastify.log.info("Online Versus Game socket disconnected %s", socket.id);
+
+			// do something with the disconnected user, check if he was in a game and handle that situation.
+		});
+
+	});
+
+}
+
 
 function setupMatchmakingNamespace(io: Server) {
 	const matchmakingNamespace = io.of("/matchmaking");
@@ -60,6 +142,7 @@ function setupMatchmakingNamespace(io: Server) {
 		cache.matchmaking.connectedUsers.add(user.id);
 
 		socket.on("join-matchmaking", () => {
+			// Wrapping async is necessary because ^ the second parameter of `join-matchmaking` can take only a synchronous function, and here i need to use async/await
 			(async () => {
 				const activeGameWithCurrentUser = await db.game.findFirst({
 					where: {
