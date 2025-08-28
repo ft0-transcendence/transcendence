@@ -1,4 +1,4 @@
-import { User } from '@prisma/client';
+import { User, GameType } from '@prisma/client';
 
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 import { cache } from './cache';
@@ -38,7 +38,7 @@ export function setupSocketHandlers(io: Server) {
 	});
 }
 
-function setupOnlineVersusGameNamespace(io: Server){
+function setupOnlineVersusGameNamespace(io: Server) {
 	const onlineVersusGameNamespace = io.of("/vs-game");
 	applySocketAuth(onlineVersusGameNamespace);
 
@@ -48,7 +48,7 @@ function setupOnlineVersusGameNamespace(io: Server){
 
 		const { user } = socket.data;
 
-		socket.on("join-game", (gameId: string)=>{
+		socket.on("join-game", (gameId: string) => {
 			// maybe add to the game (OnlineGame class) the instance of this socket namespace, so it can call the socket to emit the game's state.
 			const game = cache.activeGames.get(gameId);
 
@@ -63,7 +63,7 @@ function setupOnlineVersusGameNamespace(io: Server){
 			// 	socket.emit('error', 'You are not a player in this game');
 			// 	return;
 			// }
-			(async ()=>{
+			(async () => {
 				// Create and join a "label" (not a real room, just a way to group sockets) to which we can broadcast the game state
 				await socket.join(gameId);
 				fastify.log.debug("Socket joined game. id=%s, gameId=%s. is_a_player=%s", socket.id, gameId, isPlayerInGame);
@@ -80,9 +80,9 @@ function setupOnlineVersusGameNamespace(io: Server){
 		});
 
 
-		socket.on("player-action", (gameId: string, action: MovePaddleAction)=>{
+		socket.on("player-action", (gameId: string, action: MovePaddleAction) => {
 			const game = cache.activeGames.get(gameId);
-			if (!game){
+			if (!game) {
 				socket.emit('error', 'Game not found');
 				return;
 			}
@@ -101,7 +101,7 @@ function setupOnlineVersusGameNamespace(io: Server){
 
 
 		socket.on("leave-game", (gameId: string) => {
-			(async ()=>{
+			(async () => {
 				await socket.leave(gameId);
 				fastify.log.info(`User ${user.username} left game room ${gameId}`);
 				socket.to(gameId).emit("player-left", { userId: user.id });
@@ -192,7 +192,7 @@ function setupMatchmakingNamespace(io: Server) {
 						data: {
 							id: gameId,
 							startDate: new Date(),
-							type: 'VS',
+							type: GameType.ONLINE,
 							leftPlayerId: player1.data.user.id,
 							rightPlayerId: player2.data.user.id,
 							scoreGoal: newGame.currentConfig.maxScore,
