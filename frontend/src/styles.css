@@ -83,3 +83,7 @@ img {
 .horiz-divider {
 	@apply w-full h-px my-2 bg-white/20;
 }
+
+.skeletonize * {
+	@apply !bg-white/10 outline outline-black/50 hover:!outline-amber-500/30;
+}

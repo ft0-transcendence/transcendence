@@ -80,17 +80,19 @@ export class AuthManager {
 			this.#baseSocketConnection.close();
 			this.#baseSocketConnection = null;
 		}
-		this.#baseSocketConnection = io({
+		this.#baseSocketConnection = io("/", {
 			withCredentials: true,
 		});
 
 		this.#baseSocketConnection.on('connect', () => {
 			console.debug('Socket connected to server');
 		});
-		this.#baseSocketConnection.on('disconnect', () => {
-			console.debug('Socket disconnected from server. Trying to reconnect...');
+		this.#baseSocketConnection.on('disconnect', (reason) => {
+			console.debug('Socket disconnected from server.');
 			if (router.currentRouteNeedsAuth){
-				router.navigate('/');
+				console.warn("Socket disconnected, supposedly user logged out");
+				this.#user = null;
+				window.location.href = '/';
 				this.#baseSocketConnection = null;
 			} else {
 				setTimeout(() => {

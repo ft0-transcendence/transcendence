@@ -1,4 +1,5 @@
 import { router } from "@src/pages/_router";
+import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
 import { io, Socket } from "socket.io-client";
 
@@ -85,6 +86,13 @@ export class OnlineMatchmakingController extends RouteController {
 			this.#animateRedirectTimer(timeLeft, () => {
 				router.navigate(`/play/online/1v1/${data.gameId}`);
 			});
+		});
+
+		this.#matchmakingSocket.on('error', (data) => {
+			console.debug('Error', data);
+			toast.error('Error', data);
+
+			router.navigate('/play');
 		});
 	}
 
