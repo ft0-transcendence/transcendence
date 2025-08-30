@@ -35,7 +35,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 	const gameInstance = new Game({
 		maxScore: game.scoreGoal,
 	});
-	gameInstance.setPlayers({...game.leftPlayer}, {...game.rightPlayer});
+	gameInstance.setPlayers({...game.leftPlayer, isPlayer: true}, {...game.rightPlayer, isPlayer: true});
 	gameInstance.scores.left = game.leftPlayerScore;
 	gameInstance.scores.right = game.rightPlayerScore;
 
