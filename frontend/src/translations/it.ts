@@ -12,6 +12,7 @@ export const it: TranslationSchema = {
 		online_mode_explanation: 'Gioca online, con un sistema di matchmaking e tracciamento delle partite.',
 		offline_mode_explanation: 'Gioca sullo stesso computer, senza tracciare le partite.',
 		online_mode_login_needed: 'Devi effettuare il login per giocare online.',
+		go_back: 'Torna indietro',
 	},
 	game_modes: {
 		ai: '1 vs IA',

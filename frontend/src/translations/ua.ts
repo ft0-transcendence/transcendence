@@ -12,6 +12,7 @@ export const ua: TranslationSchema = {
 		online_mode_explanation: 'Грати онлайн, з системою матчемплей та відстеженням ігор.',
 		offline_mode_explanation: 'Грати на одному комп’ютері, без відстеження ігор.',
 		online_mode_login_needed: 'Вам потрібно увійти, щоб грати онлайн.',
+		go_back: 'Повернутись назад',
 	},
 	game_modes: {
 		ai: '1 vs AI',

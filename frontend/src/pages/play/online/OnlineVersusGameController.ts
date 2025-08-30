@@ -1,4 +1,5 @@
 import { Game, GameUserInfo } from "@shared";
+import { GameComponent } from "@src/components/GameComponent";
 import { authManager } from "@src/tools/AuthManager";
 import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
@@ -19,6 +20,9 @@ export class OnlineVersusGameController extends RouteController {
 
 	#errors: string[] = [];
 
+	#gameComponent: GameComponent;
+
+
 	constructor(params: Record<string, string>) {
 		super(params);
 
@@ -32,14 +36,25 @@ export class OnlineVersusGameController extends RouteController {
 			this.#gameSocket.emit('join-game', this.#gameId);
 		});
 		this.#setupSocketEvents();
+
+		this.#gameComponent = new GameComponent({
+			gameId: this.#gameId,
+			gameType: 'VS',
+			isLocalGame: false,
+		});
+		this.registerChildComponent(this.#gameComponent);
+
 	}
 
 	#setupSocketEvents() {
-		this.#gameSocket.on('game-found', (data: { connectedUsers: GameUserInfo[], leftPlayer: GameUserInfo, rightPlayer: GameUserInfo, ableToPlay: boolean }) => {
+		this.#gameSocket.on('game-found', (data: { connectedUsers: GameUserInfo[], leftPlayer: GameUserInfo, rightPlayer: GameUserInfo, ableToPlay: boolean, state: Game['state'] }) => {
 			console.debug('Game found', data);
 			this.#isGameValidated = true;
 			this.#connectedUsers = data.connectedUsers;
 			this.#isPlayer = data.ableToPlay;
+			this.#gameState = data.state;
+
+			this.#gameComponent.updateGameState(data.state);
 
 			if (data.ableToPlay) {
 				const myId = authManager.user?.id;
@@ -64,6 +79,7 @@ export class OnlineVersusGameController extends RouteController {
 		this.#gameSocket.on('game-state', (data: Game['state']) => {
 			console.debug('Game state', data);
 			this.#gameState = data;
+			this.#gameComponent.updateGameState(data);
 		});
 
 		this.#gameSocket.on('error', (data) => {
@@ -74,7 +90,7 @@ export class OnlineVersusGameController extends RouteController {
 				toast.error('Error', data);
 			} else {
 				console.debug('Game not found');
-				this.#errors.push(data);
+				this.#gameComponent.showError(data);
 			}
 		});
 	}
@@ -84,7 +100,7 @@ export class OnlineVersusGameController extends RouteController {
 	}
 
 	async render() {
-		return /*html*/`<div class="flex flex-col grow skeletonize">
+		return /*html*/`<div class="flex flex-col grow">
 
 			<div id="${this.id}-game-container" class="flex flex-col grow sm:flex-row sm:justify-center w-full">
 
@@ -94,9 +110,7 @@ export class OnlineVersusGameController extends RouteController {
 				<section class="flex flex-col grow sm:items-center sm:w-full max-w-2xl">
 					<div class="grow flex flex-col w-full">
 						<!-- GAME COMPONENT -->
-						<p>
-						GAME COMPONENT
-						</p>
+						${await this.#gameComponent!.render()}
 					</div>
 
 					<!-- CONTROLS CONTAINER (for mobile) -->
@@ -116,36 +130,13 @@ export class OnlineVersusGameController extends RouteController {
 		</div>`;
 	}
 
-	#errorsTimeout: NodeJS.Timeout | null = null;
 	protected async postRender() {
 		console.debug('Listening for errors');
-		this.#listenForErrors();
 	}
-
-	#listenForErrors() {
-		if (this.#errorsTimeout) {
-			clearTimeout(this.#errorsTimeout);
-		}
-		this.#errorsTimeout = setTimeout(() => {
-			this.#errorsTimeout = null;
-			const errorContainer = document.getElementById(`${this.id}-error-container`)!;
-			const errorMessage = document.getElementById(`${this.id}-error-message`)!;
-			if (this.#errors.length === 0) {
-				errorContainer.classList.add('hidden');
-				return;
-			}
-			errorContainer.classList.remove('hidden');
-			errorMessage.innerHTML = this.#errors.join('<br>');
-		}, 5000);
-	}
-
 	protected async destroy() {
 		if (this.#gameSocket.connected) {
 			this.#gameSocket.close();
 			console.debug('Cleaning up game socket');
-		}
-		if (this.#errorsTimeout) {
-			clearTimeout(this.#errorsTimeout);
 		}
 	}
 }

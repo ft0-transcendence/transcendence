@@ -71,6 +71,8 @@ function setupOnlineVersusGameNamespace(io: Server) {
 
 				leftPlayer: game.leftPlayer,
 				rightPlayer: game.rightPlayer,
+
+				state: game.getState(),
 			});
 
 			// README: do we want to allow spectators?
