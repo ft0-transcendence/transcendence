@@ -51,9 +51,13 @@ export type GameConfig = {
 export type GameUserInfo = {
 	id: string;
 	username: string;
+	isPlayer: boolean,
 }
 
 export class Game {
+	#connectedPlayers: GameUserInfo[] = [];
+
+
 	#config: GameConfig = {
 		gameStartCountdown: 3000,
 
@@ -79,6 +83,10 @@ export class Game {
 	get currentConfig() {
 		return this.#config;
 	}
+
+	get leftPlayer(): GameUserInfo { return { id: this.#playerLeft?.id ?? 'n/a', username: this.#playerLeft?.username ?? 'n/a', isPlayer: true } }
+	get rightPlayer(): GameUserInfo { return { id: this.#playerRight?.id ?? 'n/a', username: this.#playerRight?.username ?? 'n/a', isPlayer: true } }
+
 
 
 	public state: GameState;
@@ -115,6 +123,21 @@ export class Game {
 		};
 
 		this.lastUpdate = null;
+	}
+
+	public addConnectedUser(user: GameUserInfo) {
+		if (this.#connectedPlayers.find(p => p.id === user.id)) return;
+		this.#connectedPlayers.push(user);
+	}
+
+	public removeConnectedUser(user: GameUserInfo) {
+		const index = this.#connectedPlayers.findIndex(p => p.id === user.id);
+		if (index === -1) return false;
+		this.#connectedPlayers.splice(index, 1);
+		return true;
+	}
+	public getConnectedPlayers() {
+		return this.#connectedPlayers;
 	}
 
 	public setPlayers(player1: GameUserInfo, player2: GameUserInfo) {

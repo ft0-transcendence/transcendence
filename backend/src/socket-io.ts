@@ -2,7 +2,7 @@ import { User } from '@prisma/client';
 
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 import { cache } from './cache';
-import { Game, MovePaddleAction } from '../game';
+import { Game, GameUserInfo, MovePaddleAction } from '../game';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
@@ -38,7 +38,7 @@ export function setupSocketHandlers(io: Server) {
 	});
 }
 
-function setupOnlineVersusGameNamespace(io: Server){
+function setupOnlineVersusGameNamespace(io: Server) {
 	const onlineVersusGameNamespace = io.of("/vs-game");
 	applySocketAuth(onlineVersusGameNamespace);
 
@@ -48,41 +48,54 @@ function setupOnlineVersusGameNamespace(io: Server){
 
 		const { user } = socket.data;
 
-		socket.on("join-game", (gameId: string)=>{
+		socket.on("join-game", (gameId: string) => {
 			// maybe add to the game (OnlineGame class) the instance of this socket namespace, so it can call the socket to emit the game's state.
 			const game = cache.activeGames.get(gameId);
 
+			let gameUserInfo: GameUserInfo = {
+					id: user.id,
+					username: user.username,
+					isPlayer: false,
+			}
 			if (!game) {
 				socket.emit('error', 'Game not found');
 				return;
 			}
-
 			const isPlayerInGame = game.isPlayerInGame(user.id);
+			gameUserInfo.isPlayer = isPlayerInGame;
+
+			game.addConnectedUser(gameUserInfo);
+			socket.emit('game-found', {
+				connectedUsers: game.getConnectedPlayers(),
+				ableToPlay: isPlayerInGame,
+
+				leftPlayer: game.leftPlayer,
+				rightPlayer: game.rightPlayer,
+			});
+
 			// README: do we want to allow spectators?
 			// if (!isPlayerInGame) {
 			// 	socket.emit('error', 'You are not a player in this game');
 			// 	return;
 			// }
-			(async ()=>{
+
+			(async () => {
 				// Create and join a "label" (not a real room, just a way to group sockets) to which we can broadcast the game state
 				await socket.join(gameId);
 				fastify.log.debug("Socket joined game. id=%s, gameId=%s. is_a_player=%s", socket.id, gameId, isPlayerInGame);
 
 				// Notify other players in the game
-				socket.to(gameId).emit('player-joined', {
-					id: user.id,
-					username: user.username,
-					isPlayer: isPlayerInGame,
-				});
+				socket.to(gameId).emit('player-joined', gameUserInfo);
 
+				// socket.emit('player-list', game.getConnectedPlayers());
 				// socket.emit('game-state', game.getState());
 			})();
 		});
 
 
-		socket.on("player-action", (gameId: string, action: MovePaddleAction)=>{
+		socket.on("player-action", (gameId: string, action: MovePaddleAction) => {
 			const game = cache.activeGames.get(gameId);
-			if (!game){
+			if (!game) {
 				socket.emit('error', 'Game not found');
 				return;
 			}
@@ -101,7 +114,7 @@ function setupOnlineVersusGameNamespace(io: Server){
 
 
 		socket.on("leave-game", (gameId: string) => {
-			(async ()=>{
+			(async () => {
 				await socket.leave(gameId);
 				fastify.log.info(`User ${user.username} left game room ${gameId}`);
 				socket.to(gameId).emit("player-left", { userId: user.id });
@@ -112,7 +125,19 @@ function setupOnlineVersusGameNamespace(io: Server){
 
 		socket.on("disconnect", () => {
 			fastify.log.info("Online Versus Game socket disconnected %s", socket.id);
+			// iterate for each game and remove the user from the connected users list
+			const userGameInfo = {
+				id: user.id,
+				username: user.username,
+				isPlayer: false,
+			}
 
+			cache.activeGames.forEach((game, gameId) => {
+				const removed = game.removeConnectedUser(userGameInfo);
+				if (removed){
+					socket.to(gameId).emit('player-left', userGameInfo);
+				}
+			});
 			// do something with the disconnected user, check if he was in a game and handle that situation.
 		});
 
@@ -129,14 +154,13 @@ function setupMatchmakingNamespace(io: Server) {
 	matchmakingNamespace.on("connection", (socket: TypedSocket) => {
 
 		const { user } = socket.data;
-		// TODO uncomment this
-		// const userInCache = cache.matchmaking.connectedUsers.has(user.id);
-		// if (userInCache) {
-		// 	console.warn('User already in matchmaking cache, ignoring connection');
-		// 	socket.emit('error', 'User already in matchmaking cache');
-		// 	socket.disconnect();
-		// 	return;
-		// }
+
+		const userInCache = cache.matchmaking.connectedUsers.has(user.id);
+		if (userInCache) {
+			console.warn('User already in matchmaking cache, ignoring connection');
+			socket.emit('error', 'You can only join one matchmaking queue at a time');
+			return;
+		}
 
 		fastify.log.info("Matchmaking socket connected %s, username=%s", socket.id, user.username);
 		cache.matchmaking.connectedUsers.add(user.id);
@@ -182,8 +206,11 @@ function setupMatchmakingNamespace(io: Server) {
 					const gameId = crypto.randomUUID();
 					fastify.log.info('Matchmaking two players, id1=%s, id2=%s, gameId=%s', player1.id, player2.id, gameId);
 
-					player1.emit('match-found', { gameId, opponent: player2.data.user });
-					player2.emit('match-found', { gameId, opponent: player1.data.user });
+					const player1Data: GameUserInfo = { id: player1.data.user.id, username: player1.data.user.username, isPlayer: true };
+					const player2Data: GameUserInfo = { id: player2.data.user.id, username: player2.data.user.username, isPlayer: true };
+
+					player1.emit('match-found', { gameId, opponent: player2Data });
+					player2.emit('match-found', { gameId, opponent: player1Data });
 
 					const newGame = new Game();
 
@@ -200,7 +227,7 @@ function setupMatchmakingNamespace(io: Server) {
 						include: { leftPlayer: true, rightPlayer: true },
 					});
 
-					newGame.setPlayers(player1.data.user, player2.data.user);
+					newGame.setPlayers(player1Data, player2Data);
 
 					cache.activeGames.set(gameId, newGame);
 				}
