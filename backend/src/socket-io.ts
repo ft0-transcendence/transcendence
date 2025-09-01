@@ -192,7 +192,7 @@ function setupMatchmakingNamespace(io: Server) {
 						data: {
 							id: gameId,
 							startDate: new Date(),
-							type: GameType.ONLINE,
+							type: GameType.VS,
 							leftPlayerId: player1.data.user.id,
 							rightPlayerId: player2.data.user.id,
 							scoreGoal: newGame.currentConfig.maxScore,
