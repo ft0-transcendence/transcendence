@@ -1,5 +1,5 @@
 import { PrismaClient, User } from "@prisma/client";
-import { Game } from "../game";
+import { Game } from "../../game/game";
 import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
 
@@ -26,21 +26,21 @@ export const cache: Cache = {
 
 
 export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: FastifyInstance) {
-  const activeGames = await db.game.findMany({
-    where: { endDate: null },
-    include: { leftPlayer: true, rightPlayer: true },
-  });
-
-  for (const game of activeGames) {
-	const gameInstance = new Game({
-		maxScore: game.scoreGoal,
+	const activeGames = await db.game.findMany({
+		where: { endDate: null },
+		include: { leftPlayer: true, rightPlayer: true },
 	});
-	gameInstance.setPlayers({...game.leftPlayer}, {...game.rightPlayer});
-	gameInstance.scores.left = game.leftPlayerScore;
-	gameInstance.scores.right = game.rightPlayerScore;
 
-	cache.activeGames.set(game.id, gameInstance);
-  }
+	for (const game of activeGames) {
+		const gameInstance = new Game({
+			maxScore: game.scoreGoal,
+		});
+		gameInstance.setPlayers({ ...game.leftPlayer }, { ...game.rightPlayer });
+		gameInstance.scores.left = game.leftPlayerScore;
+		gameInstance.scores.right = game.rightPlayerScore;
 
-  fastify.log.info(`Loaded ${activeGames.length} active games into cache`);
+		cache.activeGames.set(game.id, gameInstance);
+	}
+
+	fastify.log.info(`Loaded ${activeGames.length} active games into cache`);
 }

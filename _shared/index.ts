@@ -1,5 +1,5 @@
 import type { GameType, AppRouter, RouterInputs, RouterOutputs, GameUserInfo } from '../backend/shared_exports';
-import {Game} from '../backend/game';
+import { Game } from '../game/game';
 
 export type {
 	AppRouter,

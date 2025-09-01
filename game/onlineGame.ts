@@ -1,4 +1,4 @@
-import { Game, GameUserInfo, GameStatus, MovePaddleAction } from "../backend/game";
+import { Game, GameUserInfo, GameStatus, MovePaddleAction } from "./game";
 
 export class OnlineGame extends Game {
     private gameId: string;

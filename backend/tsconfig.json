@@ -12,12 +12,14 @@
 			"DOM"
 		],
 		"paths": {
-			"@backend/*": ["./*"]
+			"@backend/*": [
+				"./*"
+			]
 		}
 	},
-
 	"include": [
 		"./types/fastify.d.ts",
-		"./**/*.ts"
+		"./**/*.ts",
+		"../game/game.ts"
 	]
 }
