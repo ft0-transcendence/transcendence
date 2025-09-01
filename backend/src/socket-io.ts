@@ -3,6 +3,7 @@ import { User, GameType } from '@prisma/client';
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 import { cache } from './cache';
 import { Game, MovePaddleAction } from '../game';
+import { OnlineGame } from '../../game/onlineGame';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
@@ -123,6 +124,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 
 function setupMatchmakingNamespace(io: Server) {
 	const matchmakingNamespace = io.of("/matchmaking");
+	const onlineVersusGameNamespace = io.of("/vs-game");
 	applySocketAuth(matchmakingNamespace);
 
 
@@ -185,8 +187,7 @@ function setupMatchmakingNamespace(io: Server) {
 					player1.emit('match-found', { gameId, opponent: player2.data.user });
 					player2.emit('match-found', { gameId, opponent: player1.data.user });
 
-					const newGame = new Game();
-
+					const newGame = new OnlineGame(gameId, onlineVersusGameNamespace);
 
 					const game = await db.game.create({
 						data: {

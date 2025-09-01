@@ -1,8 +1,13 @@
 import { Game, GameUserInfo, GameStatus, MovePaddleAction } from "../backend/game";
 
 export class OnlineGame extends Game {
-    constructor(config?: Partial<ConstructorParameters<typeof Game>[0]>) {
+    private gameId: string;
+    private socketNamespace: any;
+
+    constructor(gameId: string, socketNamespace: any, config?: Partial<ConstructorParameters<typeof Game>[0]>) {
         super(config);
+        this.gameId = gameId;
+        this.socketNamespace = socketNamespace;
     }
 
     // Hook: chiamabile quando un giocatore entra (per eventuali side effects)
