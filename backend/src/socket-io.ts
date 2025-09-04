@@ -111,19 +111,38 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				socket.to(gameId).emit("player-left", { userId: user.id });
 
 				const room = onlineVersusGameNamespace.adapter.rooms.get(gameId);
-				if (!room || room.size === 0) {
-					const g = cache.activeGames.get(gameId) as OnlineGame | undefined;
-					if (g) {
-						await g.finish();
-					}
+				const remaining = room ? room.size : 0;
+
+				const g = cache.activeGames.get(gameId) as OnlineGame | undefined;
+				if (g && remaining <= 1) {
+					await g.finish();
 				}
 			})();
 		});
 
-		socket.on("disconnect", () => {
-			fastify.log.info("Online Versus Game socket disconnected %s", socket.id);
+		socket.on("disconnecting", () => {
+			fastify.log.info("Online Versus Game socket disconnecting %s", socket.id);
 
-			// do something with the disconnected user, check if he was in a game and handle that situation.
+			for (const roomId of socket.rooms) {
+				if (roomId === socket.id) continue;
+
+				// avvisa gli altri
+				socket.to(roomId).emit("player-left", { userId: user.id });
+
+				// verifica stato room dopo che il socket uscirà
+				setImmediate(async () => {
+					const room = onlineVersusGameNamespace.adapter.rooms.get(roomId);
+					const remaining = room ? room.size : 0;
+
+					const g = cache.activeGames.get(roomId) as OnlineGame | undefined;
+					if (!g) return;
+
+					// se resta 0 o 1 giocatore → chiudi la partita
+					if (remaining <= 1) {
+						await g.finish(); // idempotente: ferma loop, emette game-finished, persiste endDate/punteggi e rimuove da cache
+					}
+				});
+			}
 		});
 
 	});
@@ -167,17 +186,27 @@ function setupMatchmakingNamespace(io: Server) {
 				});
 
 				if (activeGameWithCurrentUser) {
-					const opponent = activeGameWithCurrentUser.leftPlayerId === user.id
-						? activeGameWithCurrentUser.rightPlayer
-						: activeGameWithCurrentUser.leftPlayer;
+					// se NON è in cache, è stale → chiudi e continua con nuovo matchmaking
+					if (!cache.activeGames.has(activeGameWithCurrentUser.id)) {
+						fastify.log.warn('Stale active game found in DB. Closing it.', activeGameWithCurrentUser.id);
+						await db.game.update({
+							where: { id: activeGameWithCurrentUser.id },
+							data: { endDate: new Date() },
+						});
+					} else {
+						// partita davvero attiva → riusala
+						const opponent = activeGameWithCurrentUser.leftPlayerId === user.id
+							? activeGameWithCurrentUser.rightPlayer
+							: activeGameWithCurrentUser.leftPlayer;
 
-					fastify.log.info('User already in active game, skipping matchmaking', user.username);
+						fastify.log.info('User already in active game, skipping matchmaking', user.username);
 
-					socket.emit('match-found', {
-						gameId: activeGameWithCurrentUser.id,
-						opponent: opponent,
-					});
-					return;
+						socket.emit('match-found', {
+							gameId: activeGameWithCurrentUser.id,
+							opponent: opponent,
+						});
+						return;
+					}
 				}
 
 				fastify.log.info('Matchmaking socket joined matchmaking. id=%s, username=%s', socket.id, user.username);

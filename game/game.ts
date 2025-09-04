@@ -62,7 +62,7 @@ export class Game {
 		maxVelocity: 0.15,
 		paddleSpeed: 0.2,
 		movementSensitivity: 0.5,
-		maxScore: 10,
+		maxScore: 1,
 
 		paddleHeightPercentage: 20,
 	}
@@ -134,7 +134,7 @@ export class Game {
 		}
 	}
 
-	public isPlayerInGame(id: GameUserInfo['id']){
+	public isPlayerInGame(id: GameUserInfo['id']) {
 		return id === this.#playerLeft?.id || id === this.#playerRight?.id;
 	}
 
@@ -154,7 +154,7 @@ export class Game {
 	}
 	public updatePartialConfig(config: Partial<GameConfig>) {
 		Object.assign(this.#config, config as Partial<GameConfig>);
-		if (config.maxScore && config.maxScore <= 0){
+		if (config.maxScore && config.maxScore <= 0) {
 			this.#config.maxScore = undefined;
 		}
 
