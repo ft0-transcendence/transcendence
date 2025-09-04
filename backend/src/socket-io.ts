@@ -67,6 +67,9 @@ function setupOnlineVersusGameNamespace(io: Server) {
 			(async () => {
 				// Create and join a "label" (not a real room, just a way to group sockets) to which we can broadcast the game state
 				await socket.join(gameId);
+				game.playerReady({ id: user.id, username: user.username });
+				socket.emit('game-state', game.getState());
+
 				fastify.log.debug("Socket joined game. id=%s, gameId=%s. is_a_player=%s", socket.id, gameId, isPlayerInGame);
 
 				// Notify other players in the game
@@ -107,7 +110,13 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				fastify.log.info(`User ${user.username} left game room ${gameId}`);
 				socket.to(gameId).emit("player-left", { userId: user.id });
 
-				// check if the user was in game and handle that situation
+				const room = onlineVersusGameNamespace.adapter.rooms.get(gameId);
+				if (!room || room.size === 0) {
+					const g = cache.activeGames.get(gameId) as OnlineGame | undefined;
+					if (g) {
+						await g.finish();
+					}
+				}
 			})();
 		});
 
@@ -187,7 +196,23 @@ function setupMatchmakingNamespace(io: Server) {
 					player1.emit('match-found', { gameId, opponent: player2.data.user });
 					player2.emit('match-found', { gameId, opponent: player1.data.user });
 
-					const newGame = new OnlineGame(gameId, onlineVersusGameNamespace);
+					const newGame = new OnlineGame(
+						gameId,
+						onlineVersusGameNamespace,
+						undefined,
+						async (state) => {
+							await db.game.update({
+								where: { id: gameId },
+								data: {
+									endDate: new Date(),
+									leftPlayerScore: state.scores.left,
+									rightPlayerScore: state.scores.right,
+								},
+							});
+							cache.activeGames.delete(gameId);
+							fastify.log.info("Game %s persisted and removed from cache.", gameId);
+						}
+					);
 
 					const game = await db.game.create({
 						data: {
@@ -216,3 +241,4 @@ function setupMatchmakingNamespace(io: Server) {
 	});
 
 }
+
