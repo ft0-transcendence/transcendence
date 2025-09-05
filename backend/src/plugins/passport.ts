@@ -53,13 +53,11 @@ export const passportPlugin = fp(async (fastify) => {
 						imageBlob: imageBlob,
 						imageBlobMimeType: blobMimeType
 					},
-					update: {
-						username: profile.displayName!,
-						email: email!,
-						imageUrl: imageUrl,
-						imageBlob: imageBlob,
-						imageBlobMimeType: blobMimeType
-					},
+									update: {
+					email: email!,
+					// Non aggiorniamo imageUrl, imageBlob, imageBlobMimeType
+					// per mantenere l'avatar custom dell'utente
+			},
 				});
 
 				done(null, user.id);
