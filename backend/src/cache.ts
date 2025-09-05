@@ -1,6 +1,6 @@
 import { PrismaClient, User } from "@prisma/client";
-import { Game } from "../../game/game";
-import { OnlineGame } from "../../game/onlineGame";
+import { Game } from "../game/game";
+import { OnlineGame } from "../game/onlineGame";
 import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
 

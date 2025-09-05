@@ -2,8 +2,8 @@ import { User, GameType } from '@prisma/client';
 
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 import { cache } from './cache';
-import { Game, GameUserInfo, MovePaddleAction } from '../../game/game';
-import { OnlineGame } from '../../game/onlineGame';
+import { Game, GameUserInfo, MovePaddleAction } from '../game/game';
+import { OnlineGame } from '../game/onlineGame';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';

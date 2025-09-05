@@ -20,6 +20,6 @@
 	"include": [
 		"./types/fastify.d.ts",
 		"./**/*.ts",
-		"../game/game.ts"
+		"game/game.ts"
 	]
 }
