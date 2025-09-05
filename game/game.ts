@@ -51,6 +51,7 @@ export type GameConfig = {
 export type GameUserInfo = {
 	id: string;
 	username: string;
+	isPlayer?: boolean;
 }
 
 export class Game {
@@ -69,7 +70,7 @@ export class Game {
 
 	#playerLeft: GameUserInfo | null = null;
 	#playerRight: GameUserInfo | null = null;
-
+	#connectedUsers: GameUserInfo[] = [];
 
 	#playerLeftReady = false;
 	#playerRightReady = false;
@@ -305,5 +306,34 @@ export class Game {
 			scores: { ...this.scores },
 			state: this.state,
 		};
+	}
+
+	// Connected users management
+	public addConnectedUser(user: GameUserInfo): void {
+		const existingUserIndex = this.#connectedUsers.findIndex(u => u.id === user.id);
+		if (existingUserIndex >= 0) {
+			this.#connectedUsers[existingUserIndex] = user;
+		} else {
+			this.#connectedUsers.push(user);
+		}
+	}
+
+	public removeConnectedUser(user: GameUserInfo): boolean {
+		const initialLength = this.#connectedUsers.length;
+		this.#connectedUsers = this.#connectedUsers.filter(u => u.id !== user.id);
+		return this.#connectedUsers.length < initialLength;
+	}
+
+	public getConnectedPlayers(): GameUserInfo[] {
+		return [...this.#connectedUsers];
+	}
+
+	// Player getters
+	public get leftPlayer(): GameUserInfo | null {
+		return this.#playerLeft;
+	}
+
+	public get rightPlayer(): GameUserInfo | null {
+		return this.#playerRight;
 	}
 }

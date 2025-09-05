@@ -22,7 +22,9 @@ export class OnlineGame extends Game {
         this.gameId = gameId;
         this.socketNamespace = socketNamespace;
         this.onFinish = onFinish;
-        this.startLoop();
+        if (socketNamespace) {
+            this.startLoop();
+        }
     }
 
     public onPlayerJoin(_player: GameUserInfo): void { }
@@ -30,6 +32,13 @@ export class OnlineGame extends Game {
     public onStateRequested(): GameStatus { return this.getState(); }
     public onPlayerAction(playerId: GameUserInfo['id'], action: MovePaddleAction): void {
         this.movePlayerPaddle(playerId, action);
+    }
+
+    public setSocketNamespace(socketNamespace: any): void {
+        this.socketNamespace = socketNamespace;
+        if (!this.loopHandle && !this.finished) {
+            this.startLoop();
+        }
     }
 
     private startLoop() {
@@ -42,7 +51,9 @@ export class OnlineGame extends Game {
 
             this.update(delta);
 
-            this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
+            if (this.socketNamespace) {
+                this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
+            }
 
             if (this.state === GameState.FINISH) {
                 await this.finish();
@@ -62,7 +73,9 @@ export class OnlineGame extends Game {
         this.finished = true;
         this.stopLoop();
         const state = this.getState();
-        this.socketNamespace.to(this.gameId).emit("game-finished", state);
+        if (this.socketNamespace) {
+            this.socketNamespace.to(this.gameId).emit("game-finished", state);
+        }
         if (this.onFinish) {
             await this.onFinish(state);
         }

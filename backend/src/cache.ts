@@ -1,5 +1,6 @@
 import { PrismaClient, User } from "@prisma/client";
 import { Game } from "../../game/game";
+import { OnlineGame } from "../../game/onlineGame";
 import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
 
@@ -8,7 +9,7 @@ export type Cache = {
 		connectedUsers: Set<User['id']>;
 		queuedPlayers: TypedSocket[];
 	},
-	activeGames: Map<string, Game>;
+	activeGames: Map<string, OnlineGame>;
 }
 
 /**
@@ -32,9 +33,25 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 	});
 
 	for (const game of activeGames) {
-		const gameInstance = new Game({
-			maxScore: game.scoreGoal,
-		});
+		const gameInstance = new OnlineGame(
+			game.id,
+			null, // socketNamespace will be set when needed
+			{
+				maxScore: game.scoreGoal,
+			},
+			async (state) => {
+				await db.game.update({
+					where: { id: game.id },
+					data: {
+						endDate: new Date(),
+						leftPlayerScore: state.scores.left,
+						rightPlayerScore: state.scores.right,
+					},
+				});
+				cache.activeGames.delete(game.id);
+				fastify.log.info("Game %s persisted and removed from cache.", game.id);
+			}
+		);
 		gameInstance.setPlayers({ ...game.leftPlayer }, { ...game.rightPlayer });
 		gameInstance.scores.left = game.leftPlayerScore;
 		gameInstance.scores.right = game.rightPlayerScore;
