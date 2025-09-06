@@ -142,6 +142,9 @@ export class OnlineMatchmakingController extends RouteController {
 			this.#matchmakingSocket.close();
 			console.debug('Cleaning up matchmaking socket');
 		}
+		if (this.#animateRedirectTimerTimeout){
+			clearTimeout(this.#animateRedirectTimerTimeout);
+		}
 	}
 
 }
