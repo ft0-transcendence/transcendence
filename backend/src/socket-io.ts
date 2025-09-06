@@ -14,6 +14,26 @@ type SocketData = {
 // README: if you want to have the custom socket's data type for each listener you have to add the type CustomSocket on the function's parameter
 export type TypedSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 
+export function setupSocketHandlers(io: Server) {
+
+	setupMatchmakingNamespace(io);
+	setupOnlineVersusGameNamespace(io);
+
+
+	fastify.log.info("Setting up Socket.IO handlers");
+	io.on("connection", (socket: TypedSocket) => {
+		fastify.log.info("Socket connected. id=%s, username=%s", socket.id, socket.data.user.username);
+	});
+
+	io.on("disconnect", (socket) => {
+		fastify.log.info("Socket disconnected %s", socket.id);
+	});
+
+	io.on("error", (err) => {
+		console.error("Socket error", err);
+	});
+}
+
 /**
  * By default all socket connections are those of a logged in user, because there is a `socketAuthSessionPlugin` middleware that forces the socket to be authenticated.
  * This function sets up the Socket.IO server to listen for new connections and events.
@@ -105,8 +125,8 @@ function setupMatchmakingNamespace(io: Server) {
 					const player1Data: GameUserInfo = { id: player1.data.user.id, username: player1.data.user.username, isPlayer: true };
 					const player2Data: GameUserInfo = { id: player2.data.user.id, username: player2.data.user.username, isPlayer: true };
 
-					player1.emit('match-found', { gameId, opponent: player2Data });
-					player2.emit('match-found', { gameId, opponent: player1Data });
+					player1.emit('match-found', { gameId, opponent: player2.data.user });
+					player2.emit('match-found', { gameId, opponent: player1.data.user });
 
 					const newGame = new OnlineGame(
 						gameId,
@@ -148,25 +168,6 @@ function setupMatchmakingNamespace(io: Server) {
 	});
 }
 
-export function setupSocketHandlers(io: Server) {
-
-	setupMatchmakingNamespace(io);
-	setupOnlineVersusGameNamespace(io);
-
-
-	fastify.log.info("Setting up Socket.IO handlers");
-	io.on("connection", (socket: TypedSocket) => {
-		fastify.log.info("Socket connected. id=%s, username=%s", socket.id, socket.data.user.username);
-	});
-
-	io.on("disconnect", (socket) => {
-		fastify.log.info("Socket disconnected %s", socket.id);
-	});
-
-	io.on("error", (err) => {
-		console.error("Socket error", err);
-	});
-}
 
 function setupOnlineVersusGameNamespace(io: Server) {
 	const onlineVersusGameNamespace = io.of("/vs-game");
