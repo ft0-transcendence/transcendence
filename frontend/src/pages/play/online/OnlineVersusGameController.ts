@@ -1,10 +1,9 @@
-import { Game, GameUserInfo } from "@shared";
+import { Game, GameStatus, GameUserInfo } from "@shared";
 import { GameComponent } from "@src/components/GameComponent";
 import { authManager } from "@src/tools/AuthManager";
 import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
 import { io, Socket } from "socket.io-client";
-import { unknown } from "zod";
 
 export class OnlineVersusGameController extends RouteController {
 	#gameId: string = "";
@@ -47,7 +46,7 @@ export class OnlineVersusGameController extends RouteController {
 	}
 
 	#setupSocketEvents() {
-		this.#gameSocket.on('game-found', (data: { connectedUsers: GameUserInfo[], leftPlayer: GameUserInfo, rightPlayer: GameUserInfo, ableToPlay: boolean, state: Game['state'] }) => {
+		this.#gameSocket.on('game-found', (data: { connectedUsers: GameUserInfo[], leftPlayer: GameUserInfo, rightPlayer: GameUserInfo, ableToPlay: boolean, state: GameStatus }) => {
 			console.debug('Game found', data);
 			this.#isGameValidated = true;
 			this.#connectedUsers = data.connectedUsers;
@@ -76,8 +75,7 @@ export class OnlineVersusGameController extends RouteController {
 			this.#connectedUsers = this.#connectedUsers.filter(p => p.id !== user.id);
 		});
 
-		this.#gameSocket.on('game-state', (data: Game['state']) => {
-			console.debug('Game state', data);
+		this.#gameSocket.on('game-state', (data: GameStatus) => {
 			this.#gameState = data;
 			this.#gameComponent.updateGameState(data);
 		});
