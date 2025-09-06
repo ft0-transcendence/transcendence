@@ -11,10 +11,16 @@ export type GameComponentProps = {
 	isLocalGame: boolean;
 }
 
+/**
+ * Key bindings configuration
+ * key: the key pressed
+ * side: which paddle to move ('left' or 'right')
+ * action: the action to perform ('up' or 'down')
+ */
 type GameKeyBindings = {
 	[key: string]: {
 		side: 'left' | 'right';
-		action: Game['MovePaddleAction']
+		direction: Game['MovePaddleAction']
 	}
 }
 
@@ -25,21 +31,133 @@ const BALL_SIZE = 6.9;
 
 
 export class GameComponent extends ComponentController {
+	readonly defaultKeyBindings: GameKeyBindings = {
+		'w': { side: 'left', direction: 'up' },
+		's': { side: 'left', direction: 'down' },
+		'ArrowUp': { side: 'right', direction: 'up' },
+		'ArrowDown': { side: 'right', direction: 'down' },
+	};
+
+	#keyBindings: GameKeyBindings;
+	#leftPlayerActive = false;
+	#rightPlayerActive = false;
+	#onMovement?: (side: GameKeyBindings[string]['side'], direction: GameKeyBindings[string]['direction']) => void;
+
+
 	#props: GameComponentProps = {
 		gameId: '',
 		gameType: 'VS',
 		isLocalGame: true,
 	};
 
+
+
 	#gameState: Game['GameStatus'] | null = null;
 
 	#gameCanvas: HTMLCanvasElement | null = null;
 	#ctx: CanvasRenderingContext2D | null = null;
 
+	#handleKeyDown: typeof this.handleKeyDown;
+	#handleKeyUp: typeof this.handleKeyUp;
+
+
 	constructor(props: Partial<GameComponentProps> = {}) {
 		super();
 		this.updateProps(props);
+		this.#keyBindings = { ...this.defaultKeyBindings };
+
+		this.#handleKeyDown = this.handleKeyDown.bind(this);
+		this.#handleKeyUp = this.handleKeyUp.bind(this);
 	}
+
+	// PUBLIC METHODS--------------------------------------------------------------------------------
+
+	public updateGameState(state: Game['GameStatus']) {
+		this.#gameState = state;
+		this.#updateGameStateElements();
+
+		const ctx = this.#ctx!;
+		const canvas = this.#gameCanvas!;
+
+		// clear
+		ctx.fillStyle = '#000';
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		// middle line
+		ctx.strokeStyle = '#FFF';
+		ctx.setLineDash([5, 15]);
+		ctx.beginPath();
+		ctx.moveTo(canvas.width / 2, 0);
+		ctx.lineTo(canvas.width / 2, canvas.height);
+		ctx.stroke();
+
+		this.#drawPaddles(state.paddles);
+		this.#drawBall(state.ball);
+		this.#drawScore(state.scores);
+
+		if (state.state !== 'RUNNING') {
+			ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			ctx.fillStyle = 'white';
+			ctx.font = '36px Arial';
+			ctx.textAlign = 'center';
+			ctx.fillText(
+				state.state,
+				canvas.width / 2,
+				canvas.height / 2
+			);
+		}
+	}
+	public updateProps(props: Partial<GameComponentProps>) {
+		this.#props = {
+			...this.#props,
+			...props,
+		};
+	}
+	public showError(error: string) {
+		toast.error('Error', error);
+		const errorContainer = document.getElementById(`${this.id}-error-container`)!;
+		const errorMessage = document.getElementById(`${this.id}-error-message`)!;
+		errorContainer.classList.remove('!hidden');
+		errorMessage.innerHTML = error;
+	}
+	public hideError() {
+		const errorContainer = document.getElementById(`${this.id}-error-container`)!;
+		errorContainer.classList.add('!hidden');
+	}
+
+	/**
+	 * Any movement happening inside the GameComponent will call this handler so the parent component can handle it.
+	 * @param handler The handler to call on movement
+	 */
+	public setMovementHandler(handler: (side: GameKeyBindings[string]['side'], direction: GameKeyBindings[string]['direction']) => void) {
+		this.#onMovement = handler;
+	}
+
+	public setActivePlayers(left: boolean, right: boolean) {
+		this.#leftPlayerActive = left;
+		this.#rightPlayerActive = right;
+	}
+
+	/**
+	 * Programmatically move the player's paddle
+	 * @param side player side
+	 * @param direction player direction
+	 * @returns void
+	 */
+	public movePlayer(side: GameKeyBindings[string]['side'], direction: GameKeyBindings[string]['direction']) {
+		if (side === 'left' && !this.#leftPlayerActive) return;
+		if (side === 'right' && !this.#rightPlayerActive) return;
+		this.#onMovement?.(side, direction);
+	}
+
+	public updateKeyBindings(bindings: GameKeyBindings) {
+		this.#keyBindings = { ...bindings };
+	}
+
+	//-----------------------------------------------------------------------------------------------
+
 
 	async render() {
 		return /*html*/`
@@ -69,7 +187,28 @@ export class GameComponent extends ComponentController {
 		this.#initCanvasData();
 
 		this.#updateGameStateElements();
+
+		document.addEventListener('keydown', this.#handleKeyDown);
+		document.addEventListener('keyup', this.#handleKeyUp);
 	}
+
+    private handleKeyDown(event: KeyboardEvent) {
+        const key = event.key.toLowerCase();
+        const binding = this.#keyBindings[key];
+
+        if (!binding) return;
+
+        // Prevent default behavior for game keys
+        event.preventDefault();
+
+        this.movePlayer(binding.side, binding.direction);
+    }
+
+    private handleKeyUp(event: KeyboardEvent) {
+        // Optional: Handle key up events if needed
+        // For example, if you want to implement continuous movement while key is pressed
+    }
+
 
 	#initCanvasData() {
 		const canvas = this.#gameCanvas!;
@@ -80,10 +219,6 @@ export class GameComponent extends ComponentController {
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 	}
 
-	protected async destroy() {
-		// TODO: cleanup events
-
-	}
 
 	#drawPaddles(paddles: Game['Paddles']) {
 		const ctx = this.#ctx!;
@@ -115,7 +250,7 @@ export class GameComponent extends ComponentController {
 		ctx.beginPath();
 		ctx.arc(
 			(ball.x / 100) * canvas.width,
-        	(ball.y / 100) * canvas.height,
+			(ball.y / 100) * canvas.height,
 			BALL_SIZE,
 			0,
 			Math.PI * 2
@@ -146,67 +281,18 @@ export class GameComponent extends ComponentController {
 	}
 
 
-
-	public updateGameState(state: Game['GameStatus']) {
-		this.#gameState = state;
-		this.#updateGameStateElements();
-
-		const ctx = this.#ctx!;
-		const canvas = this.#gameCanvas!;
-
-		// clear
-		ctx.fillStyle = '#000';
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-		// middle line
-		ctx.strokeStyle = '#FFF';
-		ctx.setLineDash([5, 15]);
-		ctx.beginPath();
-		ctx.moveTo(canvas.width / 2, 0);
-		ctx.lineTo(canvas.width / 2, canvas.height);
-		ctx.stroke();
-
-		this.#drawPaddles(state.paddles);
-		this.#drawBall(state.ball);
-		this.#drawScore(state.scores);
-
-		if (state.state !== 'RUNNING') {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.fillStyle = 'white';
-            ctx.font = '36px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(
-                state.state,
-                canvas.width / 2,
-                canvas.height / 2
-            );
-        }
-	}
-
-
 	#updateGameStateElements() {
 		document.getElementById(`${this.id}-game-state`)!.textContent = JSON.stringify(this.#gameState, null, 2);
 	}
 
-	public updateProps(props: Partial<GameComponentProps>) {
-		this.#props = {
-			...this.#props,
-			...props,
-		};
-	}
+	protected async destroy() {
+		window.removeEventListener('keydown', this.#handleKeyDown);
+		window.removeEventListener('keyup', this.#handleKeyUp);
 
-	public showError(error: string) {
-		toast.error('Error', error);
-		const errorContainer = document.getElementById(`${this.id}-error-container`)!;
-		const errorMessage = document.getElementById(`${this.id}-error-message`)!;
-		errorContainer.classList.remove('!hidden');
-		errorMessage.innerHTML = error;
+		this.#gameCanvas = null;
+		this.#ctx = null;
+		this.#gameState = null;
+		this.#onMovement = undefined;
+		this.#keyBindings = {};
 	}
-	public hideError() {
-		const errorContainer = document.getElementById(`${this.id}-error-container`)!;
-		errorContainer.classList.add('!hidden');
-	}
-
 }

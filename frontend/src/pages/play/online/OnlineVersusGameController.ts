@@ -15,7 +15,7 @@ export class OnlineVersusGameController extends RouteController {
 
 	#isPlayer = false;
 	#isGameStarted = false;
-	#gameState: unknown;
+	#gameState: Game['GameStatus'] | null = null;
 
 	#errors: string[] = [];
 
@@ -60,11 +60,35 @@ export class OnlineVersusGameController extends RouteController {
 				this.#isPlayer = data.ableToPlay;
 				this.#gameState = data.state;
 
+				const myId = authManager.user?.id;
+				const amILeftPlayer = data.leftPlayer.id === myId;
+
 				this.#gameComponent.updateGameState(data.state);
+				this.#gameComponent.setActivePlayers(amILeftPlayer, !amILeftPlayer);
+
+				let newKeyBindings: GameComponent['defaultKeyBindings'] = {
+					...this.#gameComponent.defaultKeyBindings,
+				};
+
+				if (amILeftPlayer) {
+					newKeyBindings = {
+						...newKeyBindings,
+						'ArrowUp': { side: 'left', direction: 'up' },
+						'ArrowDown': { side: 'left', direction: 'down' },
+					}
+				} else {
+					newKeyBindings = {
+						...newKeyBindings,
+						'w': { side: 'right', direction: 'up' },
+						's': { side: 'right', direction: 'down' },
+					}
+				}
+
+				this.#gameComponent.updateKeyBindings(newKeyBindings);
+
+				const otherPlayer = amILeftPlayer ? data.rightPlayer : data.leftPlayer;
 
 				if (data.ableToPlay) {
-					const myId = authManager.user?.id;
-					const otherPlayer = data.leftPlayer.id === myId ? data.rightPlayer : data.leftPlayer;
 					this.titleSuffix = `VS ${otherPlayer.username}`;
 				} else {
 					this.titleSuffix = `${data.leftPlayer.username} vs ${data.rightPlayer.username}`;
@@ -137,6 +161,20 @@ export class OnlineVersusGameController extends RouteController {
 
 	protected async postRender() {
 		console.debug('Listening for errors');
+
+		this.#gameComponent.setMovementHandler((side, direction) => {
+			if (this.#gameState?.state !== 'RUNNING') return;
+
+			this.#gameSocket.emit('player-action', direction);
+		});
+
+		// TODO: implement mobile controls
+		// upButton.addEventListener('click', () => {
+		// 	this.#gameComponent.movePlayer('left', 'up');
+		// });
+		// downButton.addEventListener('click', () => {
+		// 	this.#gameComponent.movePlayer('left', 'down');
+		// });
 	}
 	protected async destroy() {
 		if (this.#gameSocket.connected) {
