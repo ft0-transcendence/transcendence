@@ -28,13 +28,20 @@ export interface Scores {
 }
 
 export interface GameStatus {
+	debug: boolean;
+
 	ball: Ball;
 	paddles: Paddles;
 	scores: Scores;
 	state: GameState;
+
+	leftPlayer: GameUserInfo | null;
+	rightPlayer: GameUserInfo | null;
 }
 
 export type GameConfig = {
+	debug: boolean;
+
 	gameStartCountdown: number;
 	maxScore?: number;
 
@@ -46,6 +53,7 @@ export type GameConfig = {
 	movementSensitivity: number;
 
 	paddleHeightPercentage: number;
+
 }
 
 export type GameUserInfo = {
@@ -56,6 +64,7 @@ export type GameUserInfo = {
 
 export class Game {
 	#config: GameConfig = {
+		debug: true,
 		gameStartCountdown: 3000,
 
 		initialVelocity: 0.05,
@@ -301,10 +310,13 @@ export class Game {
 
 	public getState(): GameStatus {
 		return {
+			debug: this.#config.debug,
 			ball: { ...this.ball },
 			paddles: { ...this.paddles },
 			scores: { ...this.scores },
 			state: this.state,
+			leftPlayer: this.leftPlayer,
+			rightPlayer: this.rightPlayer,
 		};
 	}
 
