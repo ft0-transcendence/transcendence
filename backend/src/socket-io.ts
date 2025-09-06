@@ -28,6 +28,19 @@ function setupMatchmakingNamespace(io: Server) {
 
 		const { user } = socket.data;
 
+		socket.on("leave-matchmaking", () => {
+			fastify.log.info('Matchmaking socket left matchmaking. id=%s, username=%s', socket.id, user.username);
+			cache.matchmaking.connectedUsers.delete(user.id);
+			cache.matchmaking.queuedPlayers = cache.matchmaking.queuedPlayers.filter(s => s.id !== socket.id);
+		});
+
+		socket.on("disconnect", (reason) => {
+			cache.matchmaking.connectedUsers.delete(user.id);
+
+			fastify.log.info('Matchmaking socket disconnected, user disconnected. id=%s, username=%s, reason=%s', socket.id, socket.data.user.username, reason);
+			cache.matchmaking.queuedPlayers = cache.matchmaking.queuedPlayers.filter(s => s.id !== socket.id);
+		});
+
 		const userInCache = cache.matchmaking.connectedUsers.has(user.id);
 		if (userInCache) {
 			console.warn('User already in matchmaking cache, ignoring connection');
@@ -132,11 +145,6 @@ function setupMatchmakingNamespace(io: Server) {
 			})();
 		});
 
-		socket.on("disconnect", (reason) => {
-			cache.matchmaking.connectedUsers.delete(socket.data.user.id);
-			fastify.log.info('Matchmaking socket disconnected, user disconnected. id=%s, username=%s, reason=%s', socket.id, socket.data.user.username, reason);
-			cache.matchmaking.queuedPlayers = cache.matchmaking.queuedPlayers.filter(s => s.id !== socket.id);
-		});
 	});
 }
 
