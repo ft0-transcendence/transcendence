@@ -26,7 +26,7 @@ type GameKeyBindings = {
 
 
 // TODO: move to backend and retrieve it from socket?
-const PADDLE_WIDTH = 10;
+const PADDLE_WIDTH = 20;
 const BALL_SIZE = 6.9;
 
 
@@ -74,6 +74,13 @@ export class GameComponent extends ComponentController {
 
 	public updateGameState(state: Game['GameStatus']) {
 		this.#gameState = state;
+		const $debugContainer = document.getElementById(`${this.id}-debug-container`)!;
+		if (this.#gameState.debug) {
+			$debugContainer.classList.remove('hidden');
+		} else {
+			$debugContainer.classList.add('hidden');
+		}
+
 		this.#updateGameStateElements();
 
 		const ctx = this.#ctx!;
@@ -95,6 +102,23 @@ export class GameComponent extends ComponentController {
 		this.#drawBall(state.ball);
 		this.#drawScore(state.scores);
 
+		ctx.font = '36px Arial';
+		ctx.textAlign = 'center';
+		const leftUsername = (state.leftPlayer?.username || 'P1').toUpperCase();
+		ctx.fillText(
+			leftUsername,
+			canvas.width * 0.25,
+			30
+		);
+
+
+		const rightUsername = (state.rightPlayer?.username || 'P2').toUpperCase();
+		ctx.fillText(
+			rightUsername,
+			canvas.width * 0.75,
+			30
+		);
+
 		if (state.state !== 'RUNNING') {
 			ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -109,6 +133,7 @@ export class GameComponent extends ComponentController {
 			);
 		}
 	}
+
 	public updateProps(props: Partial<GameComponentProps>) {
 		this.#props = {
 			...this.#props,
@@ -162,7 +187,8 @@ export class GameComponent extends ComponentController {
 	async render() {
 		return /*html*/`
 			<div id="${this.id}-game" class="relative w-full h-full aspect-square flex flex-col bg-black/50">
-				<div class="absolute top-0 left-0">
+				<!-- TODO: debug info, remove it later -->
+				<div id="${this.id}-debug-container" class="absolute top-0 left-0 hidden">
 					<span class="font-bold text-xl">DBG GAME STATE</span>
 					<p id="${this.id}-game-state">${this.#gameState}</p>
 				</div>
@@ -192,22 +218,22 @@ export class GameComponent extends ComponentController {
 		document.addEventListener('keyup', this.#handleKeyUp);
 	}
 
-    private handleKeyDown(event: KeyboardEvent) {
-        const key = event.key.toLowerCase();
-        const binding = this.#keyBindings[key];
+	private handleKeyDown(event: KeyboardEvent) {
+		const key = event.key.toLowerCase();
+		const binding = this.#keyBindings[key];
 
-        if (!binding) return;
+		if (!binding) return;
 
-        // Prevent default behavior for game keys
-        event.preventDefault();
+		// Prevent default behavior for game keys
+		event.preventDefault();
 
-        this.movePlayer(binding.side, binding.direction);
-    }
+		this.movePlayer(binding.side, binding.direction);
+	}
 
-    private handleKeyUp(event: KeyboardEvent) {
-        // Optional: Handle key up events if needed
-        // For example, if you want to implement continuous movement while key is pressed
-    }
+	// TODO: maybe not needed
+	private handleKeyUp(event: KeyboardEvent) {
+
+	}
 
 
 	#initCanvasData() {
@@ -225,18 +251,20 @@ export class GameComponent extends ComponentController {
 		const canvas = this.#gameCanvas!;
 
 		ctx.fillStyle = '#FFF';
-		const paddleHeight = canvas.height / 100 * 20;
+		const paddleHeight = canvas.height / 100 * 20; // 20% of height
 
+		// Left paddle (at x=5% - PADDLE_WIDTH)
 		ctx.fillRect(
-			0,
-			(paddles.left / 100) * canvas.height,
+			canvas.width / 100 * 5 - PADDLE_WIDTH,
+			(paddles.left / 100) * canvas.height - paddleHeight / 2,
 			PADDLE_WIDTH,
 			paddleHeight
 		);
 
+		// Right paddle (at x=95%)
 		ctx.fillRect(
-			canvas.width - PADDLE_WIDTH,
-			(paddles.right / 100) * canvas.height,
+			canvas.width / 100 * 95,
+			(paddles.right / 100) * canvas.height - paddleHeight / 2,
 			PADDLE_WIDTH,
 			paddleHeight
 		);
