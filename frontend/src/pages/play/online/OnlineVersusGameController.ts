@@ -1,4 +1,4 @@
-import { Game, GameStatus, GameUserInfo } from "@shared";
+import { Game } from "@shared";
 import { GameComponent } from "@src/components/GameComponent";
 import { authManager } from "@src/tools/AuthManager";
 import toast from "@src/tools/Toast";
@@ -9,7 +9,7 @@ export class OnlineVersusGameController extends RouteController {
 	#gameId: string = "";
 	#gameSocket: Socket;
 
-	#connectedUsers: GameUserInfo[] = [];
+	#connectedUsers: Game['GameUserInfo'][] = [];
 
 	#isGameValidated = false;
 
@@ -22,7 +22,7 @@ export class OnlineVersusGameController extends RouteController {
 	#gameComponent: GameComponent;
 
 
-	constructor(params: Record<string, string>) {
+	constructor(params: Record<string, string> | undefined = undefined) {
 		super(params);
 
 		this.#gameId = this.params.gameId;
@@ -46,36 +46,43 @@ export class OnlineVersusGameController extends RouteController {
 	}
 
 	#setupSocketEvents() {
-		this.#gameSocket.on('game-found', (data: { connectedUsers: GameUserInfo[], leftPlayer: GameUserInfo, rightPlayer: GameUserInfo, ableToPlay: boolean, state: GameStatus }) => {
-			console.debug('Game found', data);
-			this.#isGameValidated = true;
-			this.#connectedUsers = data.connectedUsers;
-			this.#isPlayer = data.ableToPlay;
-			this.#gameState = data.state;
+		this.#gameSocket.on('game-found',
+			(data: {
+				connectedUsers: Game['GameUserInfo'][],
+				leftPlayer: Game['GameUserInfo'],
+				rightPlayer: Game['GameUserInfo'],
+				ableToPlay: boolean,
+				state: Game['GameStatus']
+			}) => {
+				console.debug('Game found', data);
+				this.#isGameValidated = true;
+				this.#connectedUsers = data.connectedUsers;
+				this.#isPlayer = data.ableToPlay;
+				this.#gameState = data.state;
 
-			this.#gameComponent.updateGameState(data.state);
+				this.#gameComponent.updateGameState(data.state);
 
-			if (data.ableToPlay) {
-				const myId = authManager.user?.id;
-				const otherPlayer = data.leftPlayer.id === myId ? data.rightPlayer : data.leftPlayer;
-				this.titleSuffix = `VS ${otherPlayer.username}`;
-			} else {
-				this.titleSuffix = `${data.leftPlayer.username} vs ${data.rightPlayer.username}`;
-			}
-		});
+				if (data.ableToPlay) {
+					const myId = authManager.user?.id;
+					const otherPlayer = data.leftPlayer.id === myId ? data.rightPlayer : data.leftPlayer;
+					this.titleSuffix = `VS ${otherPlayer.username}`;
+				} else {
+					this.titleSuffix = `${data.leftPlayer.username} vs ${data.rightPlayer.username}`;
+				}
+			});
 
-		this.#gameSocket.on('player-joined', (user: GameUserInfo) => {
+		this.#gameSocket.on('player-joined', (user: Game['GameUserInfo']) => {
 			console.debug('Player joined', user);
 			this.#connectedUsers.push(user);
 		});
 
-		this.#gameSocket.on('player-left', (user: GameUserInfo) => {
+		this.#gameSocket.on('player-left', (user: Game['GameUserInfo']) => {
 			console.debug('Player left', user);
 			document.querySelector(`#game-connected-user-${user.id}`)?.remove();
 			this.#connectedUsers = this.#connectedUsers.filter(p => p.id !== user.id);
 		});
 
-		this.#gameSocket.on('game-state', (data: GameStatus) => {
+		this.#gameSocket.on('game-state', (data: Game['GameStatus']) => {
 			this.#gameState = data;
 			this.#gameComponent.updateGameState(data);
 		});

@@ -1,24 +1,24 @@
 import { authManager } from "@src/tools/AuthManager";
 import { k } from "@src/tools/i18n";
-import { Game, GameUserInfo } from "@shared";
+import { Game, GameClass } from "@shared";
 import { RouteController } from "@tools/ViewController";
 
 export class LandingPageController extends RouteController {
 	private animationFrameId: number = 0;
 	private canvas: HTMLCanvasElement | null = null;
 	private ctx: CanvasRenderingContext2D | null = null;
-	private game: Game;
+	private game: GameClass;
 	private lastTime: number = 0;
 
-	#user1: GameUserInfo;
-	#user2: GameUserInfo;
+	#user1: Game['GameUserInfo'];
+	#user2: Game['GameUserInfo'];
 
 	constructor() {
 		super();
 
 		this.#user1 = { id: '1', username: 'Trife' };
 		this.#user2 = { id: '2', username: 'Pasquale' };
-		this.game = new Game({
+		this.game = new GameClass({
 			gameStartCountdown: 3000,
 
 			initialVelocity: 0.025,

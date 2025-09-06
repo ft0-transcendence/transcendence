@@ -1,4 +1,4 @@
-import { Game, GameType, GameUserInfo, GameStatus } from "@shared";
+import { Game } from "@shared";
 import { k } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { ComponentController } from "@src/tools/ViewController";
@@ -6,10 +6,19 @@ import { ComponentController } from "@src/tools/ViewController";
 export type GameComponentProps = {
 
 	gameId: string;
-	gameType: GameType;
+	gameType: Game['GameType'];
 
 	isLocalGame: boolean;
 }
+
+type GameKeyBindings = {
+	[key: string]: {
+		side: 'left' | 'right';
+		action: Game['MovePaddleAction']
+	}
+}
+
+
 // TODO: move to backend and retrieve it from socket?
 const PADDLE_WIDTH = 10;
 const BALL_SIZE = 6.9;
@@ -22,7 +31,7 @@ export class GameComponent extends ComponentController {
 		isLocalGame: true,
 	};
 
-	#gameState: GameStatus | null = null;
+	#gameState: Game['GameStatus'] | null = null;
 
 	#gameCanvas: HTMLCanvasElement | null = null;
 	#ctx: CanvasRenderingContext2D | null = null;
@@ -76,7 +85,7 @@ export class GameComponent extends ComponentController {
 
 	}
 
-	#drawPaddles(paddles: Game['paddles']) {
+	#drawPaddles(paddles: Game['Paddles']) {
 		const ctx = this.#ctx!;
 		const canvas = this.#gameCanvas!;
 
@@ -98,7 +107,7 @@ export class GameComponent extends ComponentController {
 		);
 	}
 
-	#drawBall(ball: Game['ball']) {
+	#drawBall(ball: Game['Ball']) {
 		const ctx = this.#ctx!;
 		const canvas = this.#gameCanvas!;
 
@@ -114,7 +123,7 @@ export class GameComponent extends ComponentController {
 		ctx.fill();
 	}
 
-	#drawScore(scores: Game['scores']) {
+	#drawScore(scores: Game['Scores']) {
 		const ctx = this.#ctx!;
 		const canvas = this.#gameCanvas!;
 
@@ -138,7 +147,7 @@ export class GameComponent extends ComponentController {
 
 
 
-	public updateGameState(state: GameStatus) {
+	public updateGameState(state: Game['GameStatus']) {
 		this.#gameState = state;
 		this.#updateGameStateElements();
 
