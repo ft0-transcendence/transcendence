@@ -1,4 +1,4 @@
-import { Game, GameType, GameUserInfo } from "@shared";
+import { Game, GameType, GameUserInfo, GameStatus } from "@shared";
 import { k } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { ComponentController } from "@src/tools/ViewController";
@@ -10,6 +10,10 @@ export type GameComponentProps = {
 
 	isLocalGame: boolean;
 }
+// TODO: move to backend and retrieve it from socket?
+const PADDLE_WIDTH = 10;
+const BALL_SIZE = 6.9;
+
 
 export class GameComponent extends ComponentController {
 	#props: GameComponentProps = {
@@ -18,7 +22,7 @@ export class GameComponent extends ComponentController {
 		isLocalGame: true,
 	};
 
-	#gameState: Game['state'] | null = null;
+	#gameState: GameStatus | null = null;
 
 	#gameCanvas: HTMLCanvasElement | null = null;
 	#ctx: CanvasRenderingContext2D | null = null;
@@ -67,16 +71,109 @@ export class GameComponent extends ComponentController {
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 	}
 
-
-
 	protected async destroy() {
+		// TODO: cleanup events
 
 	}
 
-	public updateGameState(state: Game['state']) {
-		console.debug('Game state update', state);
+	#drawPaddles(paddles: Game['paddles']) {
+		const ctx = this.#ctx!;
+		const canvas = this.#gameCanvas!;
+
+		ctx.fillStyle = '#FFF';
+		const paddleHeight = canvas.height / 100 * 20;
+
+		ctx.fillRect(
+			0,
+			(paddles.left / 100) * canvas.height,
+			PADDLE_WIDTH,
+			paddleHeight
+		);
+
+		ctx.fillRect(
+			canvas.width - PADDLE_WIDTH,
+			(paddles.right / 100) * canvas.height,
+			PADDLE_WIDTH,
+			paddleHeight
+		);
+	}
+
+	#drawBall(ball: Game['ball']) {
+		const ctx = this.#ctx!;
+		const canvas = this.#gameCanvas!;
+
+		ctx.fillStyle = '#FFF';
+		ctx.beginPath();
+		ctx.arc(
+			(ball.x / 100) * canvas.width,
+        	(ball.y / 100) * canvas.height,
+			BALL_SIZE,
+			0,
+			Math.PI * 2
+		);
+		ctx.fill();
+	}
+
+	#drawScore(scores: Game['scores']) {
+		const ctx = this.#ctx!;
+		const canvas = this.#gameCanvas!;
+
+		ctx.fillStyle = '#FFF';
+		ctx.font = 'bold 16px Arial';
+		ctx.textAlign = 'center';
+
+		ctx.fillText(
+			scores.left.toString(),
+			canvas.width * 0.25,
+			60
+		);
+
+
+		ctx.fillText(
+			scores.right.toString(),
+			canvas.width * 0.75,
+			60
+		);
+	}
+
+
+
+	public updateGameState(state: GameStatus) {
 		this.#gameState = state;
 		this.#updateGameStateElements();
+
+		const ctx = this.#ctx!;
+		const canvas = this.#gameCanvas!;
+
+		// clear
+		ctx.fillStyle = '#000';
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		// middle line
+		ctx.strokeStyle = '#FFF';
+		ctx.setLineDash([5, 15]);
+		ctx.beginPath();
+		ctx.moveTo(canvas.width / 2, 0);
+		ctx.lineTo(canvas.width / 2, canvas.height);
+		ctx.stroke();
+
+		this.#drawPaddles(state.paddles);
+		this.#drawBall(state.ball);
+		this.#drawScore(state.scores);
+
+		if (state.state !== 'RUNNING') {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'white';
+            ctx.font = '36px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(
+                state.state,
+                canvas.width / 2,
+                canvas.height / 2
+            );
+        }
 	}
 
 
