@@ -12,6 +12,10 @@ export class OnlineGame extends Game {
     private finished = false;
     private onFinish?: FinishCallback;
 
+    // Grace period management
+    private readonly GRACE_MS = 30000; // 30s
+    private disconnectedUntil: Map<string, number> = new Map();
+
     constructor(
         gameId: string,
         socketNamespace: any,
@@ -41,6 +45,37 @@ export class OnlineGame extends Game {
         }
     }
 
+    // Disconnection handling
+    public markPlayerDisconnected(playerId: string) {
+        const deadline = Date.now() + this.GRACE_MS;
+        this.disconnectedUntil.set(playerId, deadline);
+        if (this.socketNamespace) {
+            this.socketNamespace.to(this.gameId).emit("player-disconnected", {
+                userId: playerId,
+                expiresAt: deadline,
+            });
+        }
+    }
+
+    public markPlayerReconnected(playerId: string) {
+        if (this.disconnectedUntil.has(playerId)) {
+            this.disconnectedUntil.delete(playerId);
+            if (this.socketNamespace) {
+                this.socketNamespace.to(this.gameId).emit("player-reconnected", {
+                    userId: playerId,
+                });
+            }
+        }
+    }
+
+    private getOpponentPlayerId(playerId: string): string | null {
+        const left = this.leftPlayer?.id;
+        const right = this.rightPlayer?.id;
+        if (left === playerId) return right ?? null;
+        if (right === playerId) return left ?? null;
+        return null;
+    }
+
     private startLoop() {
         const TICK_MS = 16; // ~60fps
         this.lastTick = Date.now();
@@ -50,6 +85,34 @@ export class OnlineGame extends Game {
             this.lastTick = now;
 
             this.update(delta);
+
+            // Check grace period expirations → forfeit
+            if (!this.finished && this.disconnectedUntil.size > 0) {
+                for (const [playerId, until] of this.disconnectedUntil.entries()) {
+                    if (now >= until) {
+                        // Forfeit: opponent wins
+                        const opponentId = this.getOpponentPlayerId(playerId);
+                        if (opponentId) {
+                            const max = this.currentConfig.maxScore ?? undefined;
+                            if (max && this.leftPlayer && this.rightPlayer) {
+                                if (opponentId === this.leftPlayer.id) {
+                                    this.scores.left = max;
+                                } else if (opponentId === this.rightPlayer.id) {
+                                    this.scores.right = max;
+                                }
+                            }
+                        }
+                        this.disconnectedUntil.delete(playerId);
+                        this.state = GameState.FINISH;
+                        // Emit a final state immediately
+                        if (this.socketNamespace) {
+                            this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
+                        }
+                        await this.finish();
+                        break;
+                    }
+                }
+            }
 
             if (this.socketNamespace) {
                 this.socketNamespace.to(this.gameId).emit("game-state", this.getState());

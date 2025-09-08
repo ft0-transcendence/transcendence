@@ -218,6 +218,10 @@ function setupOnlineVersusGameNamespace(io: Server) {
 			// Create and join a "label" (not a real room, just a way to group sockets) to which we can broadcast the game state
 			await socket.join(gameId);
 			game.playerReady({ id: user.id, username: user.username });
+			// If the user is a player and was previously disconnected, mark as reconnected
+			if (isPlayerInGame && 'markPlayerReconnected' in game) {
+				(game as OnlineGame).markPlayerReconnected(user.id);
+			}
 			socket.emit('game-state', game.getState());
 
 			fastify.log.debug("Socket joined game. id=%s, gameId=%s. is_a_player=%s", socket.id, gameId, isPlayerInGame);
@@ -262,12 +266,10 @@ function setupOnlineVersusGameNamespace(io: Server) {
 			fastify.log.info(`User ${user.username} left game room ${gameId}`);
 			socket.to(gameId).emit("player-left", { userId: user.id });
 
-			const room = onlineVersusGameNamespace.adapter.rooms.get(gameId);
-			const remaining = room ? room.size : 0;
-
 			const g = cache.activeGames.get(gameId) as OnlineGame | undefined;
-			if (g && remaining <= 1) {
-				await g.finish();
+			if (g && g.isPlayerInGame(user.id)) {
+				// Start grace period instead of finishing immediately
+				g.markPlayerDisconnected(user.id);
 			}
 		});
 
@@ -284,6 +286,10 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				const removed = game.removeConnectedUser(userGameInfo);
 				if (removed) {
 					socket.to(gameId).emit('player-left', userGameInfo);
+				}
+				// If the disconnected user is a player in this game, start grace period
+				if (game.isPlayerInGame(user.id)) {
+					(game as OnlineGame).markPlayerDisconnected(user.id);
 				}
 			});
 			// do something with the disconnected user, check if he was in a game and handle that situation.

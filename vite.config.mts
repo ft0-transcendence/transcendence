@@ -51,7 +51,7 @@ export default defineConfig({
 			'/api': {
 				target: env.BACKEND_URL, // proxy API to Fastify
 				changeOrigin: false,
-    			xfwd: true,
+				xfwd: true,
 			},
 			'/socket.io': {
 				target: env.BACKEND_URL,
@@ -62,6 +62,18 @@ export default defineConfig({
 				target: env.BACKEND_URL,
 				ws: true,
 				changeOrigin: true,
+			},
+			'/matchmaking': {
+				target: env.BACKEND_URL,
+				ws: true,
+				changeOrigin: true,
+				secure: false,
+			},
+			'/vs-game': {
+				target: env.BACKEND_URL,
+				ws: true,
+				changeOrigin: true,
+				secure: false,
 			},
 		},
 		cors: true,

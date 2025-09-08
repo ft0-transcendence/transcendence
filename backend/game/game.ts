@@ -72,7 +72,7 @@ export class Game {
 		maxVelocity: 0.15,
 		paddleSpeed: 0.2,
 		movementSensitivity: 0.5,
-		maxScore: 1,
+		maxScore: 10,
 
 		paddleHeightPercentage: 20,
 	}
