@@ -35,6 +35,9 @@ export interface GameStatus {
 	scores: Scores;
 	state: GameState;
 
+	// Timestamp in ms when countdown ends (for 3-2-1 START). Null if not counting.
+	countdownEndsAt: number | null;
+
 	leftPlayer: GameUserInfo | null;
 	rightPlayer: GameUserInfo | null;
 }
@@ -77,14 +80,7 @@ export class Game {
 		paddleHeightPercentage: 20,
 	}
 
-	#playerLeft: GameUserInfo | null = null;
-	#playerRight: GameUserInfo | null = null;
-	#connectedUsers: GameUserInfo[] = [];
-
-	#playerLeftReady = false;
-	#playerRightReady = false;
-
-	#bothPlayersReady = () => this.#playerLeftReady && this.#playerRightReady;
+	// Local-only core. Player/session management lives in OnlineGame.
 
 	get currentConfig() {
 		return this.#config;
@@ -127,34 +123,7 @@ export class Game {
 		this.lastUpdate = null;
 	}
 
-	public setPlayers(player1: GameUserInfo, player2: GameUserInfo) {
-		const randomPos = Math.random() > .5;
-		this.#playerLeft = randomPos ? player1 : player2;
-		this.#playerRight = randomPos ? player2 : player1;
-	}
-
-	public playerReady(player: GameUserInfo) {
-		if (player.id === this.#playerLeft?.id) {
-			this.#playerLeftReady = true;
-		} else if (player.id === this.#playerRight?.id) {
-			this.#playerRightReady = true;
-		}
-		if (this.#bothPlayersReady()) {
-			this.start();
-		}
-	}
-
-	public isPlayerInGame(id: GameUserInfo['id']) {
-		return id === this.#playerLeft?.id || id === this.#playerRight?.id;
-	}
-
-	public movePlayerPaddle(playerId: GameUserInfo['id'], direction: MovePaddleAction) {
-		if (playerId === this.#playerLeft?.id) {
-			this.movePaddle("left", direction);
-		} else if (playerId === this.#playerRight?.id) {
-			this.movePaddle("right", direction);
-		}
-	}
+	// Local game has no player session management
 
 	public start(): void {
 		if (this.state === GameState.TOSTART || this.state === GameState.FINISH) {
@@ -162,6 +131,12 @@ export class Game {
 			this.reset();
 		}
 	}
+
+	// Compatibility no-ops for local game (keeps API stable for callers)
+	public setPlayers(_player1: GameUserInfo, _player2: GameUserInfo): void { }
+	public playerReady(_player: GameUserInfo): void { }
+	public isPlayerInGame(_id: GameUserInfo['id']): boolean { return false; }
+	public movePlayerPaddle(_playerId: GameUserInfo['id'], _direction: MovePaddleAction): void { }
 	public updatePartialConfig(config: Partial<GameConfig>) {
 		Object.assign(this.#config, config as Partial<GameConfig>);
 		if (config.maxScore && config.maxScore <= 0) {
@@ -315,37 +290,13 @@ export class Game {
 			paddles: { ...this.paddles },
 			scores: { ...this.scores },
 			state: this.state,
+			countdownEndsAt: this.countdown,
 			leftPlayer: this.leftPlayer,
 			rightPlayer: this.rightPlayer,
 		};
 	}
 
-	// Connected users management
-	public addConnectedUser(user: GameUserInfo): void {
-		const existingUserIndex = this.#connectedUsers.findIndex(u => u.id === user.id);
-		if (existingUserIndex >= 0) {
-			this.#connectedUsers[existingUserIndex] = user;
-		} else {
-			this.#connectedUsers.push(user);
-		}
-	}
-
-	public removeConnectedUser(user: GameUserInfo): boolean {
-		const initialLength = this.#connectedUsers.length;
-		this.#connectedUsers = this.#connectedUsers.filter(u => u.id !== user.id);
-		return this.#connectedUsers.length < initialLength;
-	}
-
-	public getConnectedPlayers(): GameUserInfo[] {
-		return [...this.#connectedUsers];
-	}
-
-	// Player getters
-	public get leftPlayer(): GameUserInfo | null {
-		return this.#playerLeft;
-	}
-
-	public get rightPlayer(): GameUserInfo | null {
-		return this.#playerRight;
-	}
+	// Player getters (local game returns nulls)
+	public get leftPlayer(): GameUserInfo | null { return null; }
+	public get rightPlayer(): GameUserInfo | null { return null; }
 }
