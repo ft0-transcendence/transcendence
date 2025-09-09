@@ -13,7 +13,7 @@ export class OnlineGame extends Game {
     private onFinish?: FinishCallback;
 
     // Grace period management
-    private readonly GRACE_MS = 30000; // 30s
+    private readonly GRACE_MS = 15000; // 15s
     private disconnectedUntil: Map<string, number> = new Map();
 
     // Online-only: player/session/connection management
@@ -162,12 +162,15 @@ export class OnlineGame extends Game {
                         // Forfeit: opponent wins 10-0
                         const opponentId = this.getOpponentPlayerId(playerId);
                         if (opponentId) {
-                            const FORFEIT_SCORE = 10;
+                            const FORFEIT_WIN = 10;
+                            const FORFEIT_LOSS = 0;
                             if (this.leftPlayer && this.rightPlayer) {
                                 if (opponentId === this.leftPlayer.id) {
-                                    this.scores.left = FORFEIT_SCORE;
+                                    this.scores.left = FORFEIT_WIN;
+                                    this.scores.right = FORFEIT_LOSS;
                                 } else if (opponentId === this.rightPlayer.id) {
-                                    this.scores.right = FORFEIT_SCORE;
+                                    this.scores.left = FORFEIT_LOSS;
+                                    this.scores.right = FORFEIT_WIN;
                                 }
                             }
                         }

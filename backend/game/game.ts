@@ -70,11 +70,11 @@ export class Game {
 		debug: true,
 		gameStartCountdown: 3000,
 
-		initialVelocity: 0.05,
-		velocityIncrease: 0.000005,
-		maxVelocity: 0.15,
-		paddleSpeed: 0.2,
-		movementSensitivity: 0.5,
+		initialVelocity: 0.035,
+		velocityIncrease: 0.000003,
+		maxVelocity: 0.12,
+		paddleSpeed: 2.0,
+		movementSensitivity: 1.0,
 		maxScore: 10,
 
 		paddleHeightPercentage: 20,
@@ -180,6 +180,9 @@ export class Game {
 	}
 
 	public movePaddle(player: "left" | "right", direction: MovePaddleAction): void {
+		// Ignore inputs while paused or during countdown
+		if (this.state !== GameState.RUNNING) return;
+		if (this.isInCountdown()) return;
 		const speed = this.#config.paddleSpeed * this.#config.movementSensitivity;
 		const min = this.#config.paddleHeightPercentage / 2;
 		const max = 100 - this.#config.paddleHeightPercentage / 2;
