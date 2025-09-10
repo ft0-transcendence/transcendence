@@ -30,27 +30,27 @@ class Toast {
 		}
 	}
 
-	public success(title: string, message: string, options?: ToastOptions) {
+	public success(title: string | null, message: string, options?: ToastOptions) {
 		return this.createToast('success', title, message, options);
 	}
-	public info(title: string, message: string, options?: ToastOptions) {
+	public info(title: string | null, message: string, options?: ToastOptions) {
 		return this.createToast('info', title, message, options);
 	}
 
-	public error(title: string, message: string, options?: ToastOptions) {
+	public error(title: string | null, message: string, options?: ToastOptions) {
 		return this.createToast('error', title, message, options);
 	}
-	public warn(title: string, message: string, options?: ToastOptions) {
+	public warn(title: string | null, message: string, options?: ToastOptions) {
 		return this.createToast('warn', title, message, options);
 	}
 
-	private createToast(type: 'success' | 'error' | 'info' | 'warn', title: string, message: string, options?: ToastOptions) {
+	private createToast(type: 'success' | 'error' | 'info' | 'warn', title: string | null, message: string, options?: ToastOptions) {
 		const toast = document.createElement('div');
 		toast.className = `last:mb-4 first:mt-4 mx-4 pt-2 pb-4 text-white rounded-lg shadow-lg bg-neutral-800 toast-${type} relative opacity-100 overflow-hidden`;
 		toast.innerHTML = `
 			<div class="px-4 toast-header  mb-2 gap-2 flex items-center border-b border-b-white/20">
 				<div class="toast-icon ${options?.titleIcon || ''}"></div>
-				<div class="toast-title text-base font-semibold">${title}</div>
+				<div class="toast-title text-base font-semibold">${title ?? ''}</div>
 				<button class="close_toast absolute top-1 right-3 text-2xl font-semibold cursor-pointer" aria-label="Close">&times;</button>
 			</div>
 			<div class="text-sm px-4 overflow-hidden text-ellipsis">

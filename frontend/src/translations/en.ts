@@ -12,6 +12,8 @@ export const en = {
 		offline_mode_explanation: 'Play on the same computer, without tracking the matches.',
 		online_mode_login_needed: 'You need to login to play online.',
 		go_back: 'Go back',
+		username: 'Username',
+		profile_picture: 'Profile Picture',
 	},
 	game_modes: {
 		ai: '1 vs AI',
@@ -36,6 +38,21 @@ export const en = {
 		start_playing: 'Start Playing',
 		fullscreen_mode: 'Fullscreen mode',
 	},
+	settings: {
+		title: 'Profile Settings',
+		profile_picture_instructions: 'Recommended: Square image, max 2.5MB',
+		username_instructions: 'Username must be unique and 3-24 characters long. Only letters, numbers and underscores are allowed.',
+		update: {
+			username: {
+				title: 'Username update',
+				success: 'Username updated successfully',
+			},
+			avatar: {
+				title: 'Avatar update',
+				success: 'Avatar updated successfully',
+			}
+		}
+	}
 }
 
 export type TranslationSchema = typeof en;

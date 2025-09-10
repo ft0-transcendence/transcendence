@@ -13,6 +13,8 @@ export const ua: TranslationSchema = {
 		offline_mode_explanation: 'Грати на одному комп’ютері, без відстеження ігор.',
 		online_mode_login_needed: 'Вам потрібно увійти, щоб грати онлайн.',
 		go_back: 'Повернутись назад',
+		username: 'Ім’я користувача',
+		profile_picture: 'Образ профілю',
 	},
 	game_modes: {
 		ai: '1 vs AI',
@@ -37,4 +39,19 @@ export const ua: TranslationSchema = {
 		start_playing: 'Почати грати',
 		fullscreen_mode: 'Повноекранний режим',
 	},
+	settings: {
+		title: 'Налаштування профілю',
+		profile_picture_instructions: 'Рекомендовано: квадратне зображення, макс. 2.5МБ',
+		username_instructions: 'Ім’я користувача повинно бути унікальним та 3-24 символів. Дозволено лише літери, цифри та підкреслення.',
+		update: {
+			username: {
+				title: 'Оновлення імені користувача',
+				success: 'Ім’я користувача оновлено успішно',
+			},
+			avatar: {
+				title: 'Оновлення аватару',
+				success: 'Аватар оновлено успішно',
+			}
+		}
+	}
 }

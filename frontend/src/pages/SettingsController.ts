@@ -136,7 +136,7 @@ export class SettingsController extends RouteController {
 		try {
 			const response = await api.user.uploadAvatar.mutate({ dataUrl: this.#currentAvatarData });
 			authManager.refreshUser();
-			toast.success(t('settings.update.avatar.title'), t('settings.update.avatar.success'));
+			toast.success(t('settings.update.avatar.title'), t('settings.update.avatar.success') ?? "");
 		} catch (err) {
 			if (err instanceof TRPCClientError) {
 				console.debug('Error saving avatar', {err});
@@ -153,7 +153,7 @@ export class SettingsController extends RouteController {
 				try {
 			const response = await api.user.updateUsername.mutate({ username: newUsername });
 			authManager.refreshUser();
-			toast.success(t('settings.update.username.title'), t('settings.update.username.success'));
+			toast.success(t('settings.update.username.title'), t('settings.update.username.success') ?? "");
 			this.#usernameInput!.value = response.username;
 		} catch (err) {
 			if (err instanceof TRPCClientError) {

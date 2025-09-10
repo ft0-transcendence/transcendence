@@ -13,6 +13,8 @@ export const it: TranslationSchema = {
 		offline_mode_explanation: 'Gioca sullo stesso computer, senza tracciare le partite.',
 		online_mode_login_needed: 'Devi effettuare il login per giocare online.',
 		go_back: 'Torna indietro',
+		username: 'Nome utente',
+		profile_picture: 'Immagine del profilo',
 	},
 	game_modes: {
 		ai: '1 vs IA',
@@ -37,4 +39,19 @@ export const it: TranslationSchema = {
 		start_playing: 'Inizia a giocare',
 		fullscreen_mode: 'Schermo intero',
 	},
+	settings: {
+		title: 'Impostazioni del profilo',
+		profile_picture_instructions: 'Raccomandato: immagine quadrata, max 2.5MB',
+		username_instructions: 'Il nome utente deve essere univoco e 3-24 caratteri. Sono ammessi solo lettere, numeri e underscore.',
+		update: {
+			username: {
+				title: 'Aggiornamento nome utente',
+				success: 'Nome utente aggiornato con successo',
+			},
+			avatar: {
+				title: 'Aggiornamento avatar',
+				success: 'Avatar aggiornato con successo',
+			}
+		}
+	}
 }
