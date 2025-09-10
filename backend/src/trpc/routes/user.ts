@@ -60,7 +60,7 @@ export const userRouter = t.router({
 					throw new TRPCError({ code: "BAD_REQUEST", message: `File too large. Max ${MAX_PROFILE_PICTURE_SIZE_MB}MB` });
 				}
 
-				return ctx.db.user.update({
+				await ctx.db.user.update({
 					where: { id: ctx.user!.id },
 					data: {
 						imageBlob: buffer,
@@ -68,6 +68,7 @@ export const userRouter = t.router({
 						imageUrl: null
 					},
 				});
+				return { success: true };
 			} else if (input.imageUrl) {
 				try {
 					const response = await fetch(input.imageUrl);
@@ -81,7 +82,7 @@ export const userRouter = t.router({
 					const blob = await response.blob();
 					const buffer = new Uint8Array(await blob.arrayBuffer());
 
-					return ctx.db.user.update({
+					await ctx.db.user.update({
 						where: { id: ctx.user!.id },
 						data: {
 							imageUrl: input.imageUrl,
@@ -89,6 +90,7 @@ export const userRouter = t.router({
 							imageBlobMimeType: blob.type
 						},
 					});
+					return { success: true };
 				} catch (error) {
 					throw new Error("FAILED_TO_DOWNLOAD_IMAGE");
 				}
