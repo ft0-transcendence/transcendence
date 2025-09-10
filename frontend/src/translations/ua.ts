@@ -7,6 +7,7 @@ export const ua: TranslationSchema = {
 	generic: {
 		or: 'Або',
 		choose_game_mode: 'Виберіть режим гри',
+		friends: 'Друзі',
 		online: 'ОНЛАЙН',
 		offline: 'ОФФЛАЙН',
 		online_mode_explanation: 'Грати онлайн, з системою матчемплей та відстеженням ігор.',

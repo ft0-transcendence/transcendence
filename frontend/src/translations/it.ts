@@ -8,6 +8,7 @@ export const it: TranslationSchema = {
 		or: 'Oppure',
 		choose_game_mode: 'Scegli una modalità di gioco',
 		online: 'ONLINE',
+		friends: 'Amici',
 		offline: 'OFFLINE',
 		online_mode_explanation: 'Gioca online, con un sistema di matchmaking e tracciamento delle partite.',
 		offline_mode_explanation: 'Gioca sullo stesso computer, senza tracciare le partite.',

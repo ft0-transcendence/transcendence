@@ -6,6 +6,7 @@ export const en = {
 	generic: {
 		or: 'OR',
 		choose_game_mode: 'Choose a game mode',
+		friends: 'Friends',
 		online: 'ONLINE',
 		offline: 'OFFLINE',
 		online_mode_explanation: 'Play on a server, with a matchmaking system and match history tracking.',
