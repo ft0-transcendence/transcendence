@@ -136,6 +136,7 @@ export class SettingsController extends RouteController {
 		try {
 			const response = await api.user.uploadAvatar.mutate({ dataUrl: this.#currentAvatarData });
 			authManager.refreshUser();
+			this.#saveAvatarButton!.disabled = true;
 			toast.success(t('settings.update.avatar.title'), t('settings.update.avatar.success') ?? "");
 		} catch (err) {
 			if (err instanceof TRPCClientError) {

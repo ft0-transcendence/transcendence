@@ -48,7 +48,7 @@ export class BaseLayout extends LayoutController {
 								${isLoggedIn
 				? /*html*/`
 										<div class="flex gap-1 items-center justify-center flex-col">
-											<img src="${authManager.userImageUrl}" alt="Logged in user image" class="user-image rounded-full object-scale-down h-8 w-8">
+											<img src="${authManager.userImageUrl}" alt="Logged in user image" class="user-image rounded-full object-cover h-8 w-8">
 											<div class="text-xs italic text-white/50 user-username">
 												${authManager.user?.username}
 											</div>
