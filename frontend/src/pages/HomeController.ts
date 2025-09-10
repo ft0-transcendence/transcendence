@@ -11,6 +11,7 @@ export class HomeController extends RouteController {
 		super();
 		this.titleSuffix = 'Home';
 	}
+	#handleFriendActionClickEvent = this.handleUserActionClickEvent.bind(this);
 
 	#friendsListContainer: HTMLElement | null = null;
 
@@ -39,11 +40,24 @@ export class HomeController extends RouteController {
 					<!-- Friends List -->
 					<div class="flex flex-col w-full grow p-4 border-b border-white/15 sm:border-none">
 						<div class="flex items-center justify-between mb-4">
-							<h2 class="text-lg font-semibold text-gray-300" data-i18n="${k('generic.friends')}">Friends</h2>
-							<span class="text-sm text-gray-400"><span class="friends-count">0</span> <span data-i18n="${k('generic.online')}">ONLINE</span></span>
+							<div class="flex items-center gap-2">
+								<h2 class="text-lg font-semibold text-gray-300" data-i18n="${k('generic.friends')}">Friends</h2>
+								<button id="${this.id}-add-friend-btn"
+										class="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+										title="${t('generic.add_friend')}">
+									<i class="fa fa-plus text-sm"></i>
+								</button>
+							</div>
+							<span class="text-sm text-gray-400">
+								<span class="friends-count">0</span>
+								<span data-i18n="${k('generic.online')}">ONLINE</span>
+							</span>
 						</div>
-						<ul id="${this.id}-friends-list" class="flex flex-col gap-2 w-full">
-						</ul>
+
+						<div class="flex-grow overflow-y-auto min-h-0">
+							<ul id="${this.id}-friends-list" class="flex flex-col gap-2 w-full">
+							</ul>
+						</div>
 					</div>
 				</div>
 
@@ -60,9 +74,6 @@ export class HomeController extends RouteController {
 	}
 
 	async postRender() {
-		console.log('Home controller post-render');
-
-
 		this.#friendsListContainer = document.querySelector(`#${this.id}-friends-list`);
 		const baseSocket = authManager.getBaseSocketConnection();
 		if (baseSocket) {
@@ -205,8 +216,6 @@ export class HomeController extends RouteController {
 		return friendElement;
 	}
 
-
-	#handleFriendActionClickEvent = this.handleUserActionClickEvent.bind(this);
 	private handleUserActionClickEvent(event: MouseEvent) {
 		const target = event.target as HTMLElement;
 		const actionButton = target.closest('.friend-action-button');
@@ -216,7 +225,6 @@ export class HomeController extends RouteController {
 		if (!friendId) return;
 
 		console.log('Friend action button clicked', friendId);
-
 	}
 
 }
