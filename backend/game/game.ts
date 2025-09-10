@@ -134,7 +134,12 @@ export class Game {
 
 	// Compatibility no-ops for local game (keeps API stable for callers)
 	public setPlayers(_player1: GameUserInfo, _player2: GameUserInfo): void { }
-	public playerReady(_player: GameUserInfo): void { }
+	public playerReady(_player: GameUserInfo): void {
+		// For demo purposes, start the game after any player is "ready"
+		if (this.state === GameState.TOSTART) {
+			this.start();
+		}
+	}
 	public isPlayerInGame(_id: GameUserInfo['id']): boolean { return false; }
 	public movePlayerPaddle(_playerId: GameUserInfo['id'], _direction: MovePaddleAction): void { }
 	public updatePartialConfig(config: Partial<GameConfig>) {
@@ -299,7 +304,11 @@ export class Game {
 		};
 	}
 
-	// Player getters (local game returns nulls)
-	public get leftPlayer(): GameUserInfo | null { return null; }
-	public get rightPlayer(): GameUserInfo | null { return null; }
+	// Player getters (local game returns demo players for landing page)
+	public get leftPlayer(): GameUserInfo | null {
+		return { id: '1', username: 'Leo' };
+	}
+	public get rightPlayer(): GameUserInfo | null {
+		return { id: '2', username: 'Pasquale' };
+	}
 }
