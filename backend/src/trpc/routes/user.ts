@@ -1,5 +1,9 @@
+import { TRPCError } from "@trpc/server";
 import {protectedProcedure, t} from "../trpc";
 import { z } from "zod";
+
+const MAX_PROFILE_PICTURE_SIZE_MB = 2.5;
+const MAX_PROFILE_PICTURE_SIZE_BYTES = MAX_PROFILE_PICTURE_SIZE_MB * 1024 * 1024;
 
 export const userRouter = t.router({
 	getUser: protectedProcedure
@@ -24,7 +28,7 @@ export const userRouter = t.router({
 
 			const existing = await ctx.db.user.findFirst({ where: { username: input.username } });
 			if (existing && existing.id !== ctx.user!.id) {
-				throw new Error("USERNAME_TAKEN");
+				throw new TRPCError({ code: "BAD_REQUEST", message: "The username is already taken" });
 			}
 
 			return ctx.db.user.update({
@@ -49,7 +53,14 @@ export const userRouter = t.router({
 				const match = /data:(.*);base64/.exec(header);
 				const mime = match?.[1] ?? "image/png";
 				const buffer = Buffer.from(base64, "base64");
-				return ctx.db.user.update({
+
+				const sizeBytes = buffer.length;
+				console.log("Uploading avatar. Size:", sizeBytes, "bytes");
+				if (sizeBytes > MAX_PROFILE_PICTURE_SIZE_BYTES) {
+					throw new TRPCError({ code: "BAD_REQUEST", message: `File too large. Max ${MAX_PROFILE_PICTURE_SIZE_MB}MB` });
+				}
+
+				await ctx.db.user.update({
 					where: { id: ctx.user!.id },
 					data: {
 						imageBlob: buffer,
@@ -57,16 +68,21 @@ export const userRouter = t.router({
 						imageUrl: null
 					},
 				});
+				return { success: true };
 			} else if (input.imageUrl) {
 				try {
 					const response = await fetch(input.imageUrl);
 					if (!response.ok) {
 						throw new Error("INVALID_IMAGE_URL");
 					}
+					const contentLength = response.headers.get('content-length');
+					if (contentLength && parseInt(contentLength) > MAX_PROFILE_PICTURE_SIZE_BYTES) {
+						throw new TRPCError({ code: "BAD_REQUEST", message: `File too large. Max ${MAX_PROFILE_PICTURE_SIZE_MB}MB` });
+					}
 					const blob = await response.blob();
 					const buffer = new Uint8Array(await blob.arrayBuffer());
 
-					return ctx.db.user.update({
+					await ctx.db.user.update({
 						where: { id: ctx.user!.id },
 						data: {
 							imageUrl: input.imageUrl,
@@ -74,6 +90,7 @@ export const userRouter = t.router({
 							imageBlobMimeType: blob.type
 						},
 					});
+					return { success: true };
 				} catch (error) {
 					throw new Error("FAILED_TO_DOWNLOAD_IMAGE");
 				}

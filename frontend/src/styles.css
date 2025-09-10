@@ -87,3 +87,12 @@ img {
 .skeletonize * {
 	@apply !bg-white/10 outline outline-black/50 hover:!outline-amber-500/30;
 }
+
+
+.friend-status-icon.friend-status-icon-online {
+	@apply !bg-emerald-500;
+}
+
+.friend-status-icon.friend-status-icon-offline {
+	@apply !bg-zinc-700;
+}

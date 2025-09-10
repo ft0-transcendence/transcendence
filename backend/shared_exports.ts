@@ -1,13 +1,15 @@
 import type { GameType } from '@prisma/client';
 import type { AppRouter, RouterInputs, RouterOutputs } from './src/trpc/root';
 import { Game, GameUserInfo } from './game/game';
+import type { SocketFriendInfo } from './src/socket-io';
 
 export type {
 	AppRouter,
 	RouterOutputs,
 	RouterInputs,
 	GameType,
-	GameUserInfo
+	GameUserInfo,
+	SocketFriendInfo,
 };
 
 export {

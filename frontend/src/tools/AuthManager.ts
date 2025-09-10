@@ -1,5 +1,5 @@
 import {TRPCClientError} from "@trpc/client";
-import {RouterOutputs} from "@shared";
+import {RouterOutputs, SocketFriendInfo} from "@shared";
 import {api} from "@main";
 import { io, Socket } from 'socket.io-client';
 import { router } from "@src/pages/_router";
@@ -23,6 +23,9 @@ export class AuthManager {
 
 	#user: RouterOutputs['user']['getUser'] = null;
 
+	#friendsList: SocketFriendInfo[] = [];
+
+
 	#userRefreshInterval: NodeJS.Timeout | null = null;
 	#userRefreshIntervalMs = 1000 * 30;
 	#lastCall: Promise<void> | null = null;
@@ -39,6 +42,14 @@ export class AuthManager {
 			loggedOutContainer: AUTH_DOM_IDS.loggedOutContainer,
 			...config,
 		};
+	}
+	async init() {
+		this.#lastCall = this.refreshUser();
+		return this.#lastCall;
+	}
+
+	get friendsList() {
+		return this.#friendsList;
 	}
 
 	get user() {
@@ -59,10 +70,7 @@ export class AuthManager {
 		return !!this.#user;
 	}
 
-	async init() {
-		this.#lastCall = this.refreshUser();
-		return this.#lastCall;
-	}
+
 
 	async login(){
 		// SETTING THE REDIRECT URL BACK TO THE REQUESTOR ORIGIN
@@ -87,6 +95,12 @@ export class AuthManager {
 		this.#baseSocketConnection.on('connect', () => {
 			console.debug('Socket connected to server');
 		});
+
+		this.#baseSocketConnection.on('friends-list', (friendsList) => {
+			console.debug('Friends list updated', this.#friendsList);
+			this.#friendsList = friendsList;
+		});
+
 		this.#baseSocketConnection.on('disconnect', (reason) => {
 			console.debug('Socket disconnected from server.');
 			if (router.currentRouteNeedsAuth){
@@ -119,6 +133,7 @@ export class AuthManager {
 			if (this.#user && !this.#baseSocketConnection){
 				this.#initSocketConnection();
 			}
+			this.#updateUserFields();
 		} catch (err) {
 			this.#user = null;
 			if (err instanceof TRPCClientError) {
@@ -138,6 +153,22 @@ export class AuthManager {
 				this.#lastCall = this.refreshUser();
 			}, this.#userRefreshIntervalMs);
 		}
+	}
+
+	#updateUserFields() {
+		if (!this.#user) return;
+		document.querySelectorAll('.user-username').forEach(el => {
+			if (el instanceof HTMLElement) {
+				el.innerText = this.#user?.username ?? '';
+			}
+		});
+		document.querySelectorAll('.user-image').forEach(el => {
+			if (el instanceof HTMLImageElement) {
+				el.src = this.userImageUrl ?? '';
+				el.alt = this.#user?.username ?? 'user image';
+			}
+		});
+
 	}
 }
 

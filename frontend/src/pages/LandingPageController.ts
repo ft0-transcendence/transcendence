@@ -82,6 +82,7 @@ export class LandingPageController extends RouteController {
 		this.startAnimation();
 
 		document.querySelector(`#${this.id}-login-btn`)?.addEventListener('click', () => {
+			sessionStorage.removeItem('lastRoute')
 			authManager.login();
 		}, { once: true });
 

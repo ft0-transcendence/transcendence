@@ -11,6 +11,12 @@ import { db } from './trpc/db';
 type SocketData = {
 	user: User;
 }
+
+export type SocketFriendInfo = {
+	state: 'online' | 'offline';
+	// lastSeen: Date;
+} & User
+
 // README: if you want to have the custom socket's data type for each listener you have to add the type CustomSocket on the function's parameter
 export type TypedSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 
