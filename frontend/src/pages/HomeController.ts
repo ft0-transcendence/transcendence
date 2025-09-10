@@ -24,8 +24,8 @@ export class HomeController extends RouteController {
 				<div class="flex flex-col items-center w-full grow lg:grid lg:grid-cols-5">
 					<div class="flex flex-col items-center w-full text-center lg:h-full lg:col-span-1">
 						<div class="flex flex-col items-center w-full gap-8 p-4 border-b border-b-white/15">
-								<img src="${authManager.userImageUrl}" alt="User image" class="w-48 h-48 sm:w-32 sm:h-32 rounded-full aspect-square shrink-0">
-								<div class="text-xl font-bold">${userData?.username}</div>
+								<img src="${authManager.userImageUrl}" alt="User image" class="user-image w-48 h-48 sm:w-32 sm:h-32 rounded-full aspect-square shrink-0">
+								<div class="text-xl font-bold user-username">${userData?.username}</div>
 						</div>
 						<div class="flex flex-col justify-end w-full grow">
 

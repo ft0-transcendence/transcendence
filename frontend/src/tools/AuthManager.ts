@@ -119,6 +119,7 @@ export class AuthManager {
 			if (this.#user && !this.#baseSocketConnection){
 				this.#initSocketConnection();
 			}
+			this.#updateUserFields();
 		} catch (err) {
 			this.#user = null;
 			if (err instanceof TRPCClientError) {
@@ -138,6 +139,22 @@ export class AuthManager {
 				this.#lastCall = this.refreshUser();
 			}, this.#userRefreshIntervalMs);
 		}
+	}
+
+	#updateUserFields() {
+		if (!this.#user) return;
+		document.querySelectorAll('.user-username').forEach(el => {
+			if (el instanceof HTMLElement) {
+				el.innerText = this.#user?.username ?? '';
+			}
+		});
+		document.querySelectorAll('.user-image').forEach(el => {
+			if (el instanceof HTMLImageElement) {
+				el.src = this.userImageUrl ?? '';
+				el.alt = this.#user?.username ?? 'user image';
+			}
+		});
+
 	}
 }
 
