@@ -18,6 +18,8 @@ import { loadActiveGamesIntoCache } from "./src/cache";
 
 pino;
 
+const BODY_LIMIT_MB = 10;
+
 export const fastify = Fastify({
 	logger: {
 		level: "debug",
@@ -34,6 +36,7 @@ export const fastify = Fastify({
 	ignoreDuplicateSlashes: true,
 	trustProxy: true,
 	disableRequestLogging: true,
+	bodyLimit: BODY_LIMIT_MB * 1024 * 1024,
 });
 
 

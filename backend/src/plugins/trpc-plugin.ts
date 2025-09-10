@@ -10,7 +10,8 @@ export const trpcPlugin = fp(async (fastify) => {
 		prefix: "/api/trpc",
 		trpcOptions: {
 			router: appRouter,
-			createContext: createTRPCContext
-		}
+			createContext: createTRPCContext,
+			allowBatching: true
+		},
 	})
 });
