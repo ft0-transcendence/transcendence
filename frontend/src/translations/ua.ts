@@ -48,6 +48,13 @@ export const ua: TranslationSchema = {
 		start_playing: 'Почати грати',
 		fullscreen_mode: 'Повноекранний режим',
 	},
+	play: {
+		enter_your_username: 'Введіть своє ім’я користувача',
+		start_game: 'Почати гру',
+		enter_players_usernames: 'Введіть імена користувачів гравців',
+		left_player_input_label: 'Лівий гравець (клавіші W, S)',
+		right_player_input_label: 'Правий гравець (клавіші ↑, ↓)',
+	},
 	settings: {
 		title: 'Налаштування профілю',
 		profile_picture_instructions: 'Рекомендовано: квадратне зображення, макс. 2.5МБ',

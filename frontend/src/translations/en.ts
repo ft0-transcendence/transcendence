@@ -50,6 +50,13 @@ export const en = {
 		start_playing: 'Start Playing',
 		fullscreen_mode: 'Fullscreen mode',
 	},
+	play: {
+		enter_your_username: 'Enter Your Username',
+		start_game: 'Start Game',
+		enter_players_usernames: 'Enter Players Usernames',
+		left_player_input_label: 'Left Player (W, S keys)',
+		right_player_input_label: 'Right Player (↑, ↓ keys)',
+	},
 
 	settings: {
 		title: 'Profile Settings',
