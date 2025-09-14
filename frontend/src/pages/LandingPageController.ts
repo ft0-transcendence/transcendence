@@ -123,7 +123,11 @@ export class LandingPageController extends RouteController {
         requestAnimationFrame(animate);
 	}
 
-	onDestroy() {
+	protected async destroy() {
+		console.debug(`Cleaning up LandingPageController resources`);
+
 		cancelAnimationFrame(this.#animationFrameId);
+		this.#lastTime = 0;
+		this.#animationFrameId = 0;
 	}
 }
