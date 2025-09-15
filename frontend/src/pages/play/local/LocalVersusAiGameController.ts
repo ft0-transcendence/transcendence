@@ -139,7 +139,9 @@ export class LocalVersusAiGameController extends RouteController {
 				this.#gameComponent!.setMovementHandler((side, direction, type) => {
 					if (this.#game.getState().state !== 'RUNNING') return;
 					if (type === 'press') {
-						this.#game.movePlayerPaddle(this.#player!.id, direction);
+						this.#game.press(side, direction);
+					} else if (type === 'release') {
+						this.#game.release(side, direction);
 					}
 				});
 
@@ -164,11 +166,11 @@ export class LocalVersusAiGameController extends RouteController {
 
 
 
-				// Start the game
+				// Start the game (internal loop)
 				this.#game.playerReady(this.#player);
 				this.#game.playerReady(this.#ai);
-
-				// Start game loop
+				(this.#game as any).updatePartialConfig?.({ enableInternalLoop: true });
+				this.#game.start();
 				this.startGameLoop();
 			}
 		});
@@ -177,37 +179,35 @@ export class LocalVersusAiGameController extends RouteController {
 	private startGameLoop() {
 		const animate = (currentTime: number) => {
 			if (this.#lastTime) {
-				const delta = currentTime - this.#lastTime;
-
-				this.#game.update(delta);
-
 				const state = this.#game.getState();
-
-				// AI movement logic
-				// if (state.state === 'RUNNING') {
-					const aiSide = this.#isPlayerLeft ? 'right' : 'left';
-					const aiPaddlePos = aiSide === 'left' ? state.paddles.left : state.paddles.right;
-					let target = 50;
-					if (aiSide === 'right' && state.ball.dirX >= 0) {
-						target = state.ball.y;
+				// AI holds press/release
+				const aiSide = this.#isPlayerLeft ? 'right' : 'left';
+				const aiPaddlePos = aiSide === 'left' ? state.paddles.left : state.paddles.right;
+				let target = 50;
+				if (aiSide === 'right' && state.ball.dirX >= 0) {
+					target = state.ball.y;
+				}
+				else if (aiSide === 'left' && state.ball.dirX <= 0) {
+					target = state.ball.y;
+				}
+				const diff = target - aiPaddlePos;
+				if (Math.abs(diff) > 1) {
+					if (diff > 0) {
+						this.#game.release(aiSide, 'up');
+						this.#game.press(aiSide, 'down');
+					} else {
+						this.#game.release(aiSide, 'down');
+						this.#game.press(aiSide, 'up');
 					}
-					else if (aiSide === 'left' && state.ball.dirX <= 0) {
-						target = state.ball.y;
-					}
-					const diff = target - aiPaddlePos;
-
-					if (Math.abs(diff) > 1) {
-						this.#game.movePlayerPaddle(this.#ai.id, diff > 0 ? "down" : "up");
-					}
-				// }
-
-				this.#gameComponent?.updateGameState(this.#game.getState());
+				} else {
+					this.#game.release(aiSide, 'up');
+					this.#game.release(aiSide, 'down');
+				}
+				this.#gameComponent?.updateGameState(state);
 			}
-
 			this.#lastTime = currentTime;
 			this.#animationFrameId = requestAnimationFrame(animate);
 		};
-
 		this.#animationFrameId = requestAnimationFrame(animate);
 	}
 

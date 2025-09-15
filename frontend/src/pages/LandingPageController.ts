@@ -30,7 +30,8 @@ export class LandingPageController extends RouteController {
 			movementSensitivity: 0.69,
 			maxScore: undefined,
 			paddleHeightPercentage: 20,
-			debug: false
+			debug: false,
+			enableInternalLoop: true,
 		});
 
 		this.#game.setPlayers(this.#user1, this.#user2);
@@ -76,8 +77,11 @@ export class LandingPageController extends RouteController {
 	}
 
 	async postRender() {
+		// ensure internal loop is enabled and start
+		(this.#game as any).updatePartialConfig?.({ enableInternalLoop: true });
 		this.#game.playerReady(this.#user1);
 		this.#game.playerReady(this.#user2);
+		this.#game.start();
 
 		this.startAnimation();
 
@@ -101,18 +105,22 @@ export class LandingPageController extends RouteController {
 				const leftTarget = state.ball.dirX < 0 ? state.ball.y : 50;
 				const leftDiff = leftTarget - state.paddles.left;
 				if (Math.abs(leftDiff) > 1) {
-					this.#game.movePaddle("left", leftDiff > 0 ? "down" : "up");
+					if (leftDiff > 0) { this.#game.release('left', 'up'); this.#game.press('left', 'down'); }
+					else { this.#game.release('left', 'down'); this.#game.press('left', 'up'); }
+				} else {
+					this.#game.release('left', 'up'); this.#game.release('left', 'down');
 				}
 
 				const rightTarget = state.ball.dirX > 0 ? state.ball.y : 50;
 				const rightDiff = rightTarget - state.paddles.right;
 				if (Math.abs(rightDiff) > 1) {
-					this.#game.movePaddle("right", rightDiff > 0 ? "down" : "up");
+					if (rightDiff > 0) { this.#game.release('right', 'up'); this.#game.press('right', 'down'); }
+					else { this.#game.release('right', 'down'); this.#game.press('right', 'up'); }
+				} else {
+					this.#game.release('right', 'up'); this.#game.release('right', 'down');
 				}
 
-				this.#game.update(delta);
-
-				// Update game component with new state
+				// Game updates internally now; only render
 				this.#gameComponent?.updateGameState(this.#game.getState());
 			}
 
@@ -120,7 +128,7 @@ export class LandingPageController extends RouteController {
 			this.#animationFrameId = requestAnimationFrame(animate);
 		}
 
-        requestAnimationFrame(animate);
+		requestAnimationFrame(animate);
 	}
 
 	protected async destroy() {

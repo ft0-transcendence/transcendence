@@ -137,8 +137,9 @@ export class LocalVersusPlayerGameController extends RouteController {
 				this.#gameComponent.setMovementHandler((side, direction, type) => {
 					if (this.#game.getState().state !== 'RUNNING') return;
 					if (type === 'press') {
-						const playerId = side === 'left' ? this.#playerLeft!.id : this.#playerRight!.id;
-						this.#game.movePlayerPaddle(playerId, direction);
+						this.#game.press(side, direction);
+					} else if (type === 'release') {
+						this.#game.release(side, direction);
 					}
 				});
 
@@ -154,23 +155,18 @@ export class LocalVersusPlayerGameController extends RouteController {
 				this.#game.playerReady(this.#playerLeft);
 				this.#game.playerReady(this.#playerRight);
 
+				(this.#game as any).updatePartialConfig?.({ enableInternalLoop: true });
+				this.#game.start();
 				this.startGameLoop();
 			}
 		});
 	}
 
 	private startGameLoop() {
-		const animate = (currentTime: number) => {
-			if (this.#lastTime) {
-				const delta = currentTime - this.#lastTime;
-				this.#game.update(delta);
-				this.#gameComponent?.updateGameState(this.#game.getState());
-			}
-
-			this.#lastTime = currentTime;
+		const animate = (_currentTime: number) => {
+			this.#gameComponent?.updateGameState(this.#game.getState());
 			this.#animationFrameId = requestAnimationFrame(animate);
 		};
-
 		this.#animationFrameId = requestAnimationFrame(animate);
 	}
 

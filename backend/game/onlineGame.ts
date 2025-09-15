@@ -1,5 +1,4 @@
-import { Game, GameUserInfo, GameStatus, MovePaddleAction } from "./game";
-import { GameState } from "./game";
+import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState } from "./game";
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
@@ -7,8 +6,7 @@ export class OnlineGame extends Game {
     private gameId: string;
     private socketNamespace: any;
 
-    private loopHandle: ReturnType<typeof setInterval> | null = null;
-    private lastTick: number | null = null;
+    private unsubscribeTick: (() => void) | null = null;
     private finished = false;
     private onFinish?: FinishCallback;
 
@@ -33,9 +31,16 @@ export class OnlineGame extends Game {
         this.gameId = gameId;
         this.socketNamespace = socketNamespace;
         this.onFinish = onFinish;
-        if (socketNamespace) {
-            this.startLoop();
-        }
+        // Subscribe to Game's tick to emit state
+        this.unsubscribeTick = this.onTick((state, now) => {
+            if (this.socketNamespace) {
+                this.socketNamespace.to(this.gameId).emit("game-state", state);
+            }
+            if (this.state === GameState.FINISH) {
+                this.finish();
+            }
+            this.checkGraceAndForfeit(now);
+        });
     }
 
     public onPlayerJoin(_player: GameUserInfo): void { }
@@ -47,9 +52,7 @@ export class OnlineGame extends Game {
 
     public setSocketNamespace(socketNamespace: any): void {
         this.socketNamespace = socketNamespace;
-        if (!this.loopHandle && !this.finished) {
-            this.startLoop();
-        }
+        // Nothing else: loop is handled by base Game
     }
 
     // Players assignment and readiness
@@ -67,6 +70,10 @@ export class OnlineGame extends Game {
         }
         if (this.playerLeftReady && this.playerRightReady) {
             this.start();
+            // Emit initial state immediately so clients see countdown without waiting next tick
+            if (this.socketNamespace) {
+                this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
+            }
         }
     }
 
@@ -145,68 +152,43 @@ export class OnlineGame extends Game {
         return null;
     }
 
-    private startLoop() {
-        const TICK_MS = 16; // ~60fps
-        this.lastTick = Date.now();
-        this.loopHandle = setInterval(async () => {
-            const now = Date.now();
-            const delta = Math.max(0, now - (this.lastTick ?? now));
-            this.lastTick = now;
-
-            this.update(delta);
-
-            // Check grace period expirations → forfeit 10-0
-            if (!this.finished && this.disconnectedUntil.size > 0) {
-                for (const [playerId, until] of this.disconnectedUntil.entries()) {
-                    if (now >= until) {
-                        // Forfeit: opponent wins 10-0
-                        const opponentId = this.getOpponentPlayerId(playerId);
-                        if (opponentId) {
-                            const FORFEIT_WIN = 10;
-                            const FORFEIT_LOSS = 0;
-                            if (this.leftPlayer && this.rightPlayer) {
-                                if (opponentId === this.leftPlayer.id) {
-                                    this.scores.left = FORFEIT_WIN;
-                                    this.scores.right = FORFEIT_LOSS;
-                                } else if (opponentId === this.rightPlayer.id) {
-                                    this.scores.left = FORFEIT_LOSS;
-                                    this.scores.right = FORFEIT_WIN;
-                                }
+    private checkGraceAndForfeit(now: number) {
+        if (!this.finished && this.disconnectedUntil.size > 0) {
+            for (const [playerId, until] of this.disconnectedUntil.entries()) {
+                if (now >= until) {
+                    const opponentId = this.getOpponentPlayerId(playerId);
+                    if (opponentId) {
+                        const FORFEIT_WIN = 10;
+                        const FORFEIT_LOSS = 0;
+                        if (this.leftPlayer && this.rightPlayer) {
+                            if (opponentId === this.leftPlayer.id) {
+                                this.scores.left = FORFEIT_WIN;
+                                this.scores.right = FORFEIT_LOSS;
+                            } else if (opponentId === this.rightPlayer.id) {
+                                this.scores.left = FORFEIT_LOSS;
+                                this.scores.right = FORFEIT_WIN;
                             }
                         }
-                        this.disconnectedUntil.delete(playerId);
-                        this.state = GameState.FINISH;
-                        // Emit a final state immediately
-                        if (this.socketNamespace) {
-                            this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
-                        }
-                        await this.finish();
-                        break;
                     }
+                    this.disconnectedUntil.delete(playerId);
+                    this.state = GameState.FINISH;
+                    if (this.socketNamespace) {
+                        this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
+                    }
+                    this.finish();
+                    break;
                 }
             }
-
-            if (this.socketNamespace) {
-                this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
-            }
-
-            if (this.state === GameState.FINISH) {
-                await this.finish();
-            }
-        }, TICK_MS);
-    }
-
-    private stopLoop() {
-        if (this.loopHandle) {
-            clearInterval(this.loopHandle);
-            this.loopHandle = null;
         }
     }
 
     public async finish() {
         if (this.finished) return;
         this.finished = true;
-        this.stopLoop();
+        if (this.unsubscribeTick) {
+            this.unsubscribeTick();
+            this.unsubscribeTick = null;
+        }
         const state = this.getState();
         if (this.socketNamespace) {
             this.socketNamespace.to(this.gameId).emit("game-finished", state);
