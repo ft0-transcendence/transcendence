@@ -137,7 +137,7 @@ function setupMatchmakingNamespace(io: Server) {
 					const newGame = new OnlineGame(
 						gameId,
 						onlineVersusGameNamespace,
-						{ enableInternalLoop: true },
+						{ enableInternalLoop: true, debug: false },
 						async (state) => {
 							await db.game.update({
 								where: { id: gameId },

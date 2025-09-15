@@ -28,8 +28,6 @@ export class LocalVersusAiGameController extends RouteController {
 			initialVelocity: 0.025,
 			velocityIncrease: 0.000005,
 			maxVelocity: 0.175,
-			paddleSpeed: 0.69,
-			movementSensitivity: 0.69,
 			debug: false
 		});
 
