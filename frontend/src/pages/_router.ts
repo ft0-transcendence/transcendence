@@ -10,6 +10,8 @@ import { GameSelectorController } from "./play/GameSelectorController";
 import { SettingsController } from "./SettingsController";
 import { OnlineMatchmakingController } from "./play/online/OnlineMatchmakingController";
 import { OnlineVersusGameController } from "./play/online/OnlineVersusGameController";
+import { LocalVersusAiGameController } from "./play/local/LocalVersusAiGameController";
+import { LocalVersusPlayerGameController } from "./play/local/LocalVersusPlayerGameController";
 
 export type Route = {
 	path: string;
@@ -56,6 +58,16 @@ const routes: Route[] = [
 	{
 		path: '/play',
 		newController: () => new GameSelectorController(),
+		newLayout: () => new BaseLayout(),
+	},
+	{
+		path: '/play/ai',
+		newController: () => new LocalVersusAiGameController(),
+		newLayout: () => new BaseLayout(),
+	},
+	{
+		path: '/play/1v1',
+		newController: () => new LocalVersusPlayerGameController(),
 		newLayout: () => new BaseLayout(),
 	},
 	{

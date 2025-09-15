@@ -48,6 +48,13 @@ export const it: TranslationSchema = {
 		start_playing: 'Inizia a giocare',
 		fullscreen_mode: 'Schermo intero',
 	},
+	play: {
+		enter_your_username: 'Inserisci il tuo nome utente',
+		start_game: 'Inizia la partita',
+		enter_players_usernames: 'Inserisci i nomi utente dei giocatori',
+		left_player_input_label: 'Giocatore sinistro (tasti W, S)',
+		right_player_input_label: 'Giocatore destro (tasti ↑, ↓)',
+	},
 	settings: {
 		title: 'Impostazioni del profilo',
 		profile_picture_instructions: 'Raccomandato: immagine quadrata, max 2.5MB',
