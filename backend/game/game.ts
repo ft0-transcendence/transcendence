@@ -107,6 +107,8 @@ export class Game {
     // Local-only: store players for local games
     private _leftPlayer: GameUserInfo | null = null;
     private _rightPlayer: GameUserInfo | null = null;
+    private leftPlayerReady: boolean = false;
+    private rightPlayerReady: boolean = false;
 
     constructor(config?: Partial<GameConfig>) {
         if (config) {
@@ -152,9 +154,17 @@ export class Game {
         this._rightPlayer = player2;
     }
     public playerReady(_player: GameUserInfo): void {
+
         // TODO: aggiungere logica per startare il gioco quando entrambi i giocatori sono pronti
-        if (this.state === GameState.TOSTART) {
+        if (this.leftPlayer && this.leftPlayer.id === _player.id) {
+            this.leftPlayerReady = true;
+        } else if (this.rightPlayer && this.rightPlayer.id === _player.id) {
+            this.rightPlayerReady = true;
+        }
+        if (this.leftPlayerReady && this.rightPlayerReady) {
             this.start();
+            /*if (this.state === GameState.TOSTART) {
+                this.start();*/
         }
     }
     public isPlayerInGame(_id: GameUserInfo['id']): boolean { return false; }
