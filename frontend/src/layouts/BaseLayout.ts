@@ -77,6 +77,11 @@ export class BaseLayout extends LayoutController {
 											</div>
 											`
 			}
+			
+									<div data-route="/" class="cursor-pointer w-full hover:text-amber-400 route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
+										<span class="grow text-left font-semibold" data-i18n="${k("navbar.homepage")}">Homepage</span>
+											<i class="fa fa-home"></i>
+									</div>
 
 								</div>
 

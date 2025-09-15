@@ -22,7 +22,7 @@ export class LandingPageController extends RouteController {
 		this.#user2 = { id: '2', username: 'Pasquale' };
 
 		this.#game = new GameClass({
-			gameStartCountdown: 500,
+			gameStartCountdown: 0,
 			initialVelocity: 0.025,
 			velocityIncrease: 0.000005,
 			maxVelocity: 0.175,
