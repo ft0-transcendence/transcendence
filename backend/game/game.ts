@@ -1,5 +1,3 @@
-// backend/game/Game.ts
-
 export enum GameState {
     TOSTART = "TOSTART",
     RUNNING = "RUNNING",
@@ -57,7 +55,6 @@ export type GameConfig = {
 
     paddleHeightPercentage: number;
 
-    // Enable Game's internal loop (disabled by default; OnlineGame runs its own loop)
     enableInternalLoop?: boolean;
 }
 
@@ -83,13 +80,11 @@ export class Game {
         enableInternalLoop: true,
     }
 
-    // Local-only core. Player/session management lives in OnlineGame.
 
     get currentConfig() {
         return this.#config;
     }
 
-    // Input state for continuous movement
     private inputState = {
         left: { up: false, down: false },
         right: { up: false, down: false },
@@ -142,33 +137,28 @@ export class Game {
         this.lastUpdate = null;
     }
 
-    // Local game has no player session management
-
     public start(): void {
         if (this.state === GameState.TOSTART || this.state === GameState.FINISH) {
             this.state = GameState.RUNNING;
             this.reset();
-            // Ensure internal loop is running
             if (!this.loopHandle) {
                 this.startLoop();
             }
         }
     }
 
-    // Local players assignment (OnlineGame overrides its own setPlayers)
     public setPlayers(player1: GameUserInfo, player2: GameUserInfo): void {
         this._leftPlayer = player1;
         this._rightPlayer = player2;
     }
     public playerReady(_player: GameUserInfo): void {
-        // For demo purposes, start the game after any player is "ready"
+        // TODO: aggiungere logica per startare il gioco quando entrambi i giocatori sono pronti
         if (this.state === GameState.TOSTART) {
             this.start();
         }
     }
     public isPlayerInGame(_id: GameUserInfo['id']): boolean { return false; }
 
-    // Deprecated for external movement; kept for compatibility (immediate nudge)
     public movePaddle(player: "left" | "right", direction: MovePaddleAction): void {
         if (this.state !== GameState.RUNNING) return;
         if (this.isInCountdown()) return;
@@ -226,7 +216,6 @@ export class Game {
         this.countdown = Date.now() + this.#config.gameStartCountdown;
     }
 
-    // New input API: press/release to set continuous movement
     public press(side: "left" | "right", direction: MovePaddleAction): void {
         this.inputState[side][direction] = true;
     }
@@ -365,7 +354,6 @@ export class Game {
         };
     }
 
-    // Player getters (local game: use assigned players or fallback demo)
     public get leftPlayer(): GameUserInfo | null {
         return this._leftPlayer ?? { id: '1', username: 'Leo' };
     }
@@ -373,7 +361,6 @@ export class Game {
         return this._rightPlayer ?? { id: '2', username: 'Pasquale' };
     }
 
-    // Internal loop helpers
     private startLoop() {
         const TICK_MS = 16; // ~60fps
         this.lastTick = Date.now();

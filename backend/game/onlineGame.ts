@@ -10,11 +10,9 @@ export class OnlineGame extends Game {
     private finished = false;
     private onFinish?: FinishCallback;
 
-    // Grace period management
     private readonly GRACE_MS = 15000; // 15s
     private disconnectedUntil: Map<string, number> = new Map();
 
-    // Online-only: player/session/connection management
     private _playerLeft: GameUserInfo | null = null;
     private _playerRight: GameUserInfo | null = null;
     private connectedUsers: GameUserInfo[] = [];
@@ -31,7 +29,6 @@ export class OnlineGame extends Game {
         this.gameId = gameId;
         this.socketNamespace = socketNamespace;
         this.onFinish = onFinish;
-        // Subscribe to Game's tick to emit state
         this.unsubscribeTick = this.onTick((state, now) => {
             if (this.socketNamespace) {
                 this.socketNamespace.to(this.gameId).emit("game-state", state);
@@ -52,10 +49,8 @@ export class OnlineGame extends Game {
 
     public setSocketNamespace(socketNamespace: any): void {
         this.socketNamespace = socketNamespace;
-        // Nothing else: loop is handled by base Game
     }
 
-    // Players assignment and readiness
     public setPlayers(player1: GameUserInfo, player2: GameUserInfo) {
         const randomPos = Math.random() > 0.5;
         this._playerLeft = randomPos ? player1 : player2;
@@ -70,7 +65,6 @@ export class OnlineGame extends Game {
         }
         if (this.playerLeftReady && this.playerRightReady) {
             this.start();
-            // Emit initial state immediately so clients see countdown without waiting next tick
             if (this.socketNamespace) {
                 this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
             }
@@ -89,7 +83,6 @@ export class OnlineGame extends Game {
         }
     }
 
-    // Connected users management
     public addConnectedUser(user: GameUserInfo): void {
         const existingUserIndex = this.connectedUsers.findIndex(u => u.id === user.id);
         if (existingUserIndex >= 0) {
@@ -124,7 +117,6 @@ export class OnlineGame extends Game {
                 expiresAt: deadline,
             });
         }
-        // Pause the game while waiting for reconnection (grace period)
         if (hadNoDisconnections) {
             this.pause();
         }
@@ -138,7 +130,6 @@ export class OnlineGame extends Game {
                 userId: playerId,
             });
         }
-        // If everyone is back, resume with countdown
         if (this.disconnectedUntil.size === 0 && this.state !== GameState.FINISH) {
             this.resume();
         }
