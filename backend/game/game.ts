@@ -109,6 +109,10 @@ export class Game {
     // Tick listeners to notify external systems (e.g., OnlineGame) after each update
     private tickListeners: Array<(state: GameStatus, now: number) => void> = [];
 
+    // Local-only: store players for local games
+    private _leftPlayer: GameUserInfo | null = null;
+    private _rightPlayer: GameUserInfo | null = null;
+
     constructor(config?: Partial<GameConfig>) {
         if (config) {
             this.updatePartialConfig(config);
@@ -151,8 +155,11 @@ export class Game {
         }
     }
 
-    // Compatibility no-ops for local game (keeps API stable for callers)
-    public setPlayers(_player1: GameUserInfo, _player2: GameUserInfo): void { }
+    // Local players assignment (OnlineGame overrides its own setPlayers)
+    public setPlayers(player1: GameUserInfo, player2: GameUserInfo): void {
+        this._leftPlayer = player1;
+        this._rightPlayer = player2;
+    }
     public playerReady(_player: GameUserInfo): void {
         // For demo purposes, start the game after any player is "ready"
         if (this.state === GameState.TOSTART) {
@@ -358,12 +365,12 @@ export class Game {
         };
     }
 
-    // Player getters (local game returns demo players for landing page)
+    // Player getters (local game: use assigned players or fallback demo)
     public get leftPlayer(): GameUserInfo | null {
-        return { id: '1', username: 'Leo' };
+        return this._leftPlayer ?? { id: '1', username: 'Leo' };
     }
     public get rightPlayer(): GameUserInfo | null {
-        return { id: '2', username: 'Pasquale' };
+        return this._rightPlayer ?? { id: '2', username: 'Pasquale' };
     }
 
     // Internal loop helpers
