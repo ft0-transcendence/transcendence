@@ -142,7 +142,7 @@ export class GameComponent extends ComponentController {
 		);
 
 		// Overlay: paused/finish labels
-		if (state.state !== 'RUNNING') {
+		if (state.state === 'PAUSE' || state.state === 'FINISH') {
 			ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
 
