@@ -69,5 +69,19 @@ export const ua: TranslationSchema = {
 				success: 'Аватар оновлено успішно',
 			}
 		}
-	}
+	},
+	page_titles: {
+		play: {
+			online: {
+				"1v1_game": '1 vs 1 - гра онлайн',
+				"1v1_matchmaking": '1 vs 1 Matchmaking - онлайн',
+				"tournaments": 'Турніри - онлайн',
+			},
+			offline: {
+				"1vAI": '1 vs AI - оффлайн',
+				"1v1": '1 vs 1 - оффлайн',
+				"tournaments": 'Турніри - оффлайн',
+			}
+		}
+	},
 }

@@ -23,6 +23,7 @@ export const en = {
 		online_mode_explanation: 'Play on a server, with a matchmaking system and match history tracking.',
 		offline_mode_explanation: 'Play on the same computer, without tracking the matches.',
 		online_mode_login_needed: 'You need to login to play online.',
+
 	},
 
 	game_modes: {
@@ -72,7 +73,23 @@ export const en = {
 				success: 'Avatar updated successfully',
 			}
 		}
-	}
+	},
+
+
+	page_titles: {
+		play: {
+			online: {
+				"1v1_game": '1 VS 1 - online game',
+				"1v1_matchmaking": '1 VS 1 Matchmaking - online',
+				"tournaments": 'Tournaments - online',
+			},
+			offline: {
+				"1vAI": '1 VS AI - offline',
+				"1v1": '1 VS 1 - offline',
+				"tournaments": 'Tournaments - offline',
+			}
+		}
+	},
 };
 
 

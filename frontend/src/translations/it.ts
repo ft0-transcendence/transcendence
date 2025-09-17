@@ -4,7 +4,7 @@ import { TranslationSchema } from "./en";
  * This is the Italian translation file.
  */
 export const it: TranslationSchema = {
-	generic:{
+	generic: {
 		or: 'Oppure',
 		choose_game_mode: 'Scegli una modalità di gioco',
 		online: 'ONLINE',
@@ -67,6 +67,22 @@ export const it: TranslationSchema = {
 			avatar: {
 				title: 'Aggiornamento avatar',
 				success: 'Avatar aggiornato con successo',
+			}
+		}
+	},
+
+
+	page_titles: {
+		play: {
+			online: {
+				"1v1_game": '1 vs 1 - partita online',
+				"1v1_matchmaking": '1 vs 1 Matchmaking - online',
+				"tournaments": 'Tornei - online',
+			},
+			offline: {
+				"1vAI": '1 vs IA - offline',
+				"1v1": '1 vs 1 - offline',
+				"tournaments": 'Tornei - offline',
 			}
 		}
 	}

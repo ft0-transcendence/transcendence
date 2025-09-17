@@ -1,6 +1,6 @@
 import { Game, GameClass } from "@shared";
 import { GameComponent } from "@src/components/GameComponent";
-import { k } from "@src/tools/i18n";
+import { k, t } from "@src/tools/i18n";
 import { RouteController } from "@src/tools/ViewController";
 
 export class LocalVersusPlayerGameController extends RouteController {
@@ -31,6 +31,13 @@ export class LocalVersusPlayerGameController extends RouteController {
 		});
 		this.#gameComponent.updateKeyBindings({}) // Initially disable controls
 		this.registerChildComponent(this.#gameComponent);
+
+		this.updateTitleSuffix();
+	}
+
+
+	override updateTitleSuffix() {
+		this.titleSuffix = t('page_titles.play.offline.1v1') || '1 VS 1 - offline';
 	}
 
 	async render() {

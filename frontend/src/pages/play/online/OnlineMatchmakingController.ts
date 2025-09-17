@@ -1,4 +1,5 @@
 import { router } from "@src/pages/_router";
+import { t } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
 import { io, Socket } from "socket.io-client";
@@ -7,14 +8,21 @@ export class OnlineMatchmakingController extends RouteController {
 	#redirectToGameSeconds = 5;
 	#matchmakingSocket: Socket;
 
-	constructor() {
-		super();
+	constructor(params?: Record<string, string>) {
+		super(params);
+		this.titleSuffix = ''
+
 		this.#matchmakingSocket = io('/matchmaking', {
 			withCredentials: true,
 		});
 		this.#matchmakingSocket.on('connect', () => {
 			console.debug('Matchmaking Socket connected to server');
 		});
+		this.updateTitleSuffix();
+	}
+
+	override updateTitleSuffix() {
+		this.titleSuffix = t('page_titles.play.online.1v1_matchmaking') || '1 VS 1 Matchmaking - online';
 	}
 
 	async preRender() {
