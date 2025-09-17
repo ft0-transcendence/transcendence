@@ -10,7 +10,6 @@ export class OnlineMatchmakingController extends RouteController {
 
 	constructor(params?: Record<string, string>) {
 		super(params);
-		this.titleSuffix = ''
 
 		this.#matchmakingSocket = io('/matchmaking', {
 			withCredentials: true,
