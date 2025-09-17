@@ -1,351 +1,400 @@
-// backend/game/Game.ts
-
 export enum GameState {
-	TOSTART = "TOSTART",
-	RUNNING = "RUNNING",
-	PAUSE = "PAUSE",
-	FINISH = "FINISH"
+    TOSTART = "TOSTART",
+    RUNNING = "RUNNING",
+    PAUSE = "PAUSE",
+    FINISH = "FINISH"
 }
 
 export type MovePaddleAction = "up" | "down";
 
 export interface Ball {
-	x: number;
-	y: number;
-	dirX: number;
-	dirY: number;
-	velocity: number;
+    x: number;
+    y: number;
+    dirX: number;
+    dirY: number;
+    velocity: number;
 }
 
 export interface Paddles {
-	left: number;
-	right: number;
+    left: number;
+    right: number;
 }
 
 export interface Scores {
-	left: number;
-	right: number;
+    left: number;
+    right: number;
 }
 
 export interface GameStatus {
-	debug: boolean;
+    debug: boolean;
 
-	ball: Ball;
-	paddles: Paddles;
-	scores: Scores;
-	state: GameState;
+    ball: Ball;
+    paddles: Paddles;
+    scores: Scores;
+    state: GameState;
 
-	leftPlayer: GameUserInfo | null;
-	rightPlayer: GameUserInfo | null;
+    // Timestamp in ms when countdown ends (for 3-2-1 START). Null if not counting.
+    countdownEndsAt: number | null;
+
+    leftPlayer: GameUserInfo | null;
+    rightPlayer: GameUserInfo | null;
 }
 
 export type GameConfig = {
-	debug: boolean;
+    debug: boolean;
 
-	gameStartCountdown: number;
-	maxScore?: number;
+    gameStartCountdown: number;
+    maxScore?: number;
 
-	initialVelocity: number;
-	velocityIncrease: number;
-	maxVelocity: number;
+    initialVelocity: number;
+    velocityIncrease: number;
+    maxVelocity: number;
 
-	paddleSpeed: number;
-	movementSensitivity: number;
+    paddleSpeed: number;
+    movementSensitivity: number;
 
-	paddleHeightPercentage: number;
+    paddleHeightPercentage: number;
 
+    enableInternalLoop?: boolean;
 }
 
 export type GameUserInfo = {
-	id: string;
-	username: string;
-	isPlayer?: boolean;
+    id: string;
+    username: string;
+    isPlayer?: boolean;
 }
 
 export class Game {
-	#config: GameConfig = {
-		debug: true,
-		gameStartCountdown: 3000,
+    #config: GameConfig = { 
+        debug: true,
+        gameStartCountdown: 3000,
 
-		initialVelocity: 0.05,
-		velocityIncrease: 0.000005,
-		maxVelocity: 0.15,
-		paddleSpeed: 0.2,
-		movementSensitivity: 0.5,
-		maxScore: 10,
+        initialVelocity: 0.042,
+        velocityIncrease: 0.000002,
+        maxVelocity: 0.12,
+        paddleSpeed: 2.0,
+        movementSensitivity: 0.5,
+        maxScore: 10,
 
-		paddleHeightPercentage: 20,
-	}
-
-	#playerLeft: GameUserInfo | null = null;
-	#playerRight: GameUserInfo | null = null;
-	#connectedUsers: GameUserInfo[] = [];
-
-	#playerLeftReady = false;
-	#playerRightReady = false;
-
-	#bothPlayersReady = () => this.#playerLeftReady && this.#playerRightReady;
-
-	get currentConfig() {
-		return this.#config;
-	}
+        paddleHeightPercentage: 20,
+        enableInternalLoop: true,
+    }
 
 
-	public state: GameState;
-	public countdown: number | null;
-	public ball: Ball;
-	public paddles: Paddles;
-	public scores: Scores;
-	public lastUpdate: number | null;
+    get currentConfig() {
+        return this.#config;
+    }
 
-	constructor(config?: Partial<GameConfig>) {
-		if (config) {
-			this.updatePartialConfig(config);
-		}
+    private inputState = {
+        left: { up: false, down: false },
+        right: { up: false, down: false },
+    };
 
-		this.state = GameState.TOSTART;
-		this.countdown = null;
+    // Internal loop management
+    private loopHandle: ReturnType<typeof setInterval> | null = null;
+    private lastTick: number | null = null;
 
-		this.ball = {
-			x: 50,
-			y: 50,
-			dirX: 0,
-			dirY: 0,
-			velocity: this.#config.initialVelocity,
-		};
+    public state: GameState;
+    public countdown: number | null;
+    public ball: Ball;
+    public paddles: Paddles;
+    public scores: Scores;
+    public lastUpdate: number | null;
 
-		this.paddles = {
-			left: 50,
-			right: 50,
-		};
+    // Tick listeners to notify external systems (e.g., OnlineGame) after each update
+    private tickListeners: Array<(state: GameStatus, now: number) => void> = [];
 
-		this.scores = {
-			left: 0,
-			right: 0,
-		};
+    // Local-only: store players for local games
+    private _leftPlayer: GameUserInfo | null = null;
+    private _rightPlayer: GameUserInfo | null = null;
+    private leftPlayerReady: boolean = false;
+    private rightPlayerReady: boolean = false;
 
-		this.lastUpdate = null;
-	}
+    constructor(config?: Partial<GameConfig>) {
+        if (config) {
+            this.updatePartialConfig(config);
+        }
 
-	public setPlayers(player1: GameUserInfo, player2: GameUserInfo) {
-		const randomPos = Math.random() > .5;
-		this.#playerLeft = randomPos ? player1 : player2;
-		this.#playerRight = randomPos ? player2 : player1;
-	}
+        this.state = GameState.TOSTART;
+        this.countdown = null;
 
-	public playerReady(player: GameUserInfo) {
-		if (player.id === this.#playerLeft?.id) {
-			this.#playerLeftReady = true;
-		} else if (player.id === this.#playerRight?.id) {
-			this.#playerRightReady = true;
-		}
-		if (this.#bothPlayersReady()) {
-			this.start();
-		}
-	}
+        this.ball = {
+            x: 50,
+            y: 50,
+            dirX: 0,
+            dirY: 0,
+            velocity: this.#config.initialVelocity,
+        };
 
-	public isPlayerInGame(id: GameUserInfo['id']) {
-		return id === this.#playerLeft?.id || id === this.#playerRight?.id;
-	}
+        this.paddles = {
+            left: 50,
+            right: 50,
+        };
 
-	public movePlayerPaddle(playerId: GameUserInfo['id'], direction: MovePaddleAction) {
-		if (playerId === this.#playerLeft?.id) {
-			this.movePaddle("left", direction);
-		} else if (playerId === this.#playerRight?.id) {
-			this.movePaddle("right", direction);
-		}
-	}
+        this.scores = {
+            left: 0,
+            right: 0,
+        };
 
-	public start(): void {
-		if (this.state === GameState.TOSTART || this.state === GameState.FINISH) {
-			this.state = GameState.RUNNING;
-			this.reset();
-		}
-	}
-	public updatePartialConfig(config: Partial<GameConfig>) {
-		Object.assign(this.#config, config as Partial<GameConfig>);
-		if (config.maxScore && config.maxScore <= 0) {
-			this.#config.maxScore = undefined;
-		}
+        this.lastUpdate = null;
+    }
 
-	}
+    public start(): void {
+        if (this.state === GameState.TOSTART || this.state === GameState.FINISH) {
+            this.state = GameState.RUNNING;
+            this.reset();
+            if (!this.loopHandle) {
+                this.startLoop();
+            }
+        }
+    }
 
-	public pause(): void {
-		if (this.state === GameState.RUNNING) {
-			this.state = GameState.PAUSE;
-		}
-	}
+    public setPlayers(player1: GameUserInfo, player2: GameUserInfo): void {
+        this._leftPlayer = player1;
+        this._rightPlayer = player2;
+    }
+    public playerReady(_player: GameUserInfo): void {
 
-	public resume(): void {
-		if (this.state === GameState.PAUSE) {
-			this.state = GameState.RUNNING;
-			this.countdown = Date.now() + this.#config.gameStartCountdown;
-		}
-	}
+        // TODO: aggiungere logica per startare il gioco quando entrambi i giocatori sono pronti
+        if (this.leftPlayer && this.leftPlayer.id === _player.id) {
+            this.leftPlayerReady = true;
+        } else if (this.rightPlayer && this.rightPlayer.id === _player.id) {
+            this.rightPlayerReady = true;
+        }
+        if (this.leftPlayerReady && this.rightPlayerReady) {
+            this.start();
+            /*if (this.state === GameState.TOSTART) {
+                this.start();*/
+        }
+    }
+    public isPlayerInGame(_id: GameUserInfo['id']): boolean { return false; }
 
-	public reset(): void {
-		this.ball.x = 50;
-		this.ball.y = 50;
-		this.paddles.left = 50;
-		this.paddles.right = 50;
-		this.ball.velocity = this.#config.initialVelocity;
+    public movePaddle(player: "left" | "right", direction: MovePaddleAction): void {
+        if (this.state !== GameState.RUNNING) return;
+        if (this.isInCountdown()) return;
+        const speed = this.#config.paddleSpeed * this.#config.movementSensitivity;
+        const min = this.#config.paddleHeightPercentage / 2;
+        const max = 100 - this.#config.paddleHeightPercentage / 2;
+        if (player === "left") {
+            if (direction === "up") this.paddles.left -= speed;
+            if (direction === "down") this.paddles.left += speed;
+            this.paddles.left = Math.max(min, Math.min(max, this.paddles.left));
+        } else if (player === "right") {
+            if (direction === "up") this.paddles.right -= speed;
+            if (direction === "down") this.paddles.right += speed;
+            this.paddles.right = Math.max(min, Math.min(max, this.paddles.right));
+        }
+    }
 
-		// Direzione random
-		let direction: { x: number; y: number };
-		do {
-			const heading = Math.random() * 2 * Math.PI;
-			direction = { x: Math.cos(heading), y: Math.sin(heading) };
-		} while (Math.abs(direction.x) <= 0.7 || Math.abs(direction.x) >= 0.9);
+    public updatePartialConfig(config: Partial<GameConfig>) {
+        Object.assign(this.#config, config as Partial<GameConfig>);
+        if (config.maxScore && config.maxScore <= 0) {
+            this.#config.maxScore = undefined;
+        }
+    }
 
+    public pause(): void {
+        if (this.state === GameState.RUNNING) {
+            this.state = GameState.PAUSE;
+        }
+    }
 
-		this.ball.dirX = direction.x;
-		this.ball.dirY = direction.y;
+    public resume(): void {
+        if (this.state === GameState.PAUSE) {
+            this.state = GameState.RUNNING;
+            this.countdown = Date.now() + this.#config.gameStartCountdown;
+        }
+    }
 
-		this.countdown = Date.now() + this.#config.gameStartCountdown;
-	}
+    public reset(): void {
+        this.ball.x = 50;
+        this.ball.y = 50;
+        this.paddles.left = 50;
+        this.paddles.right = 50;
+        this.ball.velocity = this.#config.initialVelocity;
 
-	public movePaddle(player: "left" | "right", direction: MovePaddleAction): void {
-		const speed = this.#config.paddleSpeed * this.#config.movementSensitivity;
-		const min = this.#config.paddleHeightPercentage / 2;
-		const max = 100 - this.#config.paddleHeightPercentage / 2;
-		if (player === "left") {
-			if (direction === "up") this.paddles.left -= speed;
-			if (direction === "down") this.paddles.left += speed;
-			this.paddles.left = Math.max(min, Math.min(max, this.paddles.left));
-		} else if (player === "right") {
-			if (direction === "up") this.paddles.right -= speed;
-			if (direction === "down") this.paddles.right += speed;
-			this.paddles.right = Math.max(min, Math.min(max, this.paddles.right));
-		}
-	}
+        // Randomize initial direction
+        let direction: { x: number; y: number };
+        do {
+            const heading = Math.random() * 2 * Math.PI;
+            direction = { x: Math.cos(heading), y: Math.sin(heading) };
+        } while (Math.abs(direction.x) <= 0.7 || Math.abs(direction.x) >= 0.9);
 
-	public isInCountdown(): boolean {
-		return this.countdown !== null && Date.now() < this.countdown;
-	}
+        this.ball.dirX = direction.x;
+        this.ball.dirY = direction.y;
 
-	public update(delta: number): void {
-		if (this.state === GameState.FINISH) return;
-		if (this.state === GameState.PAUSE) return;
-		if (this.isInCountdown()) return;
+        this.countdown = Date.now() + this.#config.gameStartCountdown;
+    }
 
-		// Muovi la pallina
-		this.ball.x += this.ball.dirX * this.ball.velocity * delta;
-		this.ball.y += this.ball.dirY * this.ball.velocity * delta;
+    public press(side: "left" | "right", direction: MovePaddleAction): void {
+        this.inputState[side][direction] = true;
+    }
+    public release(side: "left" | "right", direction: MovePaddleAction): void {
+        this.inputState[side][direction] = false;
+    }
 
-		// Aumenta velocità
-		const newVelocity = this.ball.velocity + this.#config.velocityIncrease * delta;
-		if (newVelocity <= this.#config.maxVelocity) {
-			this.ball.velocity = newVelocity;
-		}
+    public isInCountdown(): boolean {
+        return this.countdown !== null && Date.now() < this.countdown;
+    }
 
-		// Collisione con muri
-		this.handleWallCollision();
+    public update(delta: number): void {
+        const now = Date.now();
 
-		// Collisione con paddle
-		this.handlePaddleCollision();
+        // Always notify listeners every tick (even during countdown/pause/finish)
+        if (this.tickListeners.length > 0) {
+            const state = this.getState();
+            for (const cb of this.tickListeners) cb(state, now);
+        }
 
-		// Goal
-		this.checkGoal();
-	}
+        if (this.state === GameState.FINISH) return;
+        if (this.state === GameState.PAUSE) return;
+        if (this.isInCountdown()) return;
 
-	private handleWallCollision(): void {
-		const ballRadius = 1.5;
-		// Bordo superiore
-		if (this.ball.y <= ballRadius && this.ball.dirY < 0) {
-			this.ball.dirY = Math.abs(this.ball.dirY);
-			this.ball.y = ballRadius + 0.5;
-		}
-		// Bordo inferiore
-		if (this.ball.y >= 100 - ballRadius && this.ball.dirY > 0) {
-			this.ball.dirY = -Math.abs(this.ball.dirY);
-			this.ball.y = 100 - ballRadius - 0.5;
-		}
-	}
+        // Move paddles based on input state
+        const step = this.#config.paddleSpeed * this.#config.movementSensitivity * (delta / 16);
+        const min = this.#config.paddleHeightPercentage / 2;
+        const max = 100 - this.#config.paddleHeightPercentage / 2;
 
-	private handlePaddleCollision(): void {
-		// Paddle sinistro
-		if (
-			this.ball.x <= 5 && // posizione paddle sinistro
-			Math.abs(this.ball.y - this.paddles.left) <= this.#config.paddleHeightPercentage / 2
-		) {
-			this.ball.dirX = Math.abs(this.ball.dirX);
-			// Cambia angolo in base a dove colpisce il paddle
-			const relY = (this.ball.y - this.paddles.left) / (this.#config.paddleHeightPercentage / 2);
-			const angle = relY * Math.PI / 4;
-			const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-			this.ball.dirX = Math.abs(Math.cos(angle)) * speed;
-			this.ball.dirY = Math.sin(angle) * speed;
-		}
-		// Paddle destro
-		if (
-			this.ball.x >= 95 && // posizione paddle destro
-			Math.abs(this.ball.y - this.paddles.right) <= this.#config.paddleHeightPercentage / 2
-		) {
-			this.ball.dirX = -Math.abs(this.ball.dirX);
-			const relY = (this.ball.y - this.paddles.right) / (this.#config.paddleHeightPercentage / 2);
-			const angle = relY * Math.PI / 4;
-			const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-			this.ball.dirX = -Math.abs(Math.cos(angle)) * speed;
-			this.ball.dirY = Math.sin(angle) * speed;
-		}
-	}
+        if (this.inputState.left.up && !this.inputState.left.down) {
+            this.paddles.left -= step;
+        } else if (this.inputState.left.down && !this.inputState.left.up) {
+            this.paddles.left += step;
+        }
 
-	private checkGoal(): void {
-		if (this.ball.x < 0) {
-			this.scores.right++;
-			if (this.#config.maxScore && this.scores.right >= this.#config.maxScore) {
-				this.state = GameState.FINISH;
-			} else {
-				this.reset();
-			}
-		} else if (this.ball.x > 100) {
-			this.scores.left++;
-			if (this.#config.maxScore && this.scores.left >= this.#config.maxScore) {
-				this.state = GameState.FINISH;
-			} else {
-				this.reset();
-			}
-		}
-	}
+        if (this.inputState.right.up && !this.inputState.right.down) {
+            this.paddles.right -= step;
+        } else if (this.inputState.right.down && !this.inputState.right.up) {
+            this.paddles.right += step;
+        }
 
-	public getState(): GameStatus {
-		return {
-			debug: this.#config.debug,
-			ball: { ...this.ball },
-			paddles: { ...this.paddles },
-			scores: { ...this.scores },
-			state: this.state,
-			leftPlayer: this.leftPlayer,
-			rightPlayer: this.rightPlayer,
-		};
-	}
+        this.paddles.left = Math.max(min, Math.min(max, this.paddles.left));
+        this.paddles.right = Math.max(min, Math.min(max, this.paddles.right));
 
-	// Connected users management
-	public addConnectedUser(user: GameUserInfo): void {
-		const existingUserIndex = this.#connectedUsers.findIndex(u => u.id === user.id);
-		if (existingUserIndex >= 0) {
-			this.#connectedUsers[existingUserIndex] = user;
-		} else {
-			this.#connectedUsers.push(user);
-		}
-	}
+        // Move ball
+        this.ball.x += this.ball.dirX * this.ball.velocity * delta;
+        this.ball.y += this.ball.dirY * this.ball.velocity * delta;
 
-	public removeConnectedUser(user: GameUserInfo): boolean {
-		const initialLength = this.#connectedUsers.length;
-		this.#connectedUsers = this.#connectedUsers.filter(u => u.id !== user.id);
-		return this.#connectedUsers.length < initialLength;
-	}
+        // Increase velocity
+        const newVelocity = this.ball.velocity + this.#config.velocityIncrease * delta;
+        if (newVelocity <= this.#config.maxVelocity) {
+            this.ball.velocity = newVelocity;
+        }
 
-	public getConnectedPlayers(): GameUserInfo[] {
-		return [...this.#connectedUsers];
-	}
+        // Collisions
+        this.handleWallCollision();
+        this.handlePaddleCollision();
 
-	// Player getters
-	public get leftPlayer(): GameUserInfo | null {
-		return this.#playerLeft;
-	}
+        // Goals
+        this.checkGoal();
 
-	public get rightPlayer(): GameUserInfo | null {
-		return this.#playerRight;
-	}
+        // (Listeners already notified at tick start)
+    }
+
+    private handleWallCollision(): void {
+        const ballRadius = 1.5;
+        // Top wall
+        if (this.ball.y <= ballRadius && this.ball.dirY < 0) {
+            this.ball.dirY = Math.abs(this.ball.dirY);
+            this.ball.y = ballRadius + 0.5;
+        }
+        // Bottom wall
+        if (this.ball.y >= 100 - ballRadius && this.ball.dirY > 0) {
+            this.ball.dirY = -Math.abs(this.ball.dirY);
+            this.ball.y = 100 - ballRadius - 0.5;
+        }
+    }
+
+    private handlePaddleCollision(): void {
+        // Left paddle
+        if (
+            this.ball.x <= 5 &&
+            Math.abs(this.ball.y - this.paddles.left) <= this.#config.paddleHeightPercentage / 2
+        ) {
+            this.ball.dirX = Math.abs(this.ball.dirX);
+            const relY = (this.ball.y - this.paddles.left) / (this.#config.paddleHeightPercentage / 2);
+            const angle = relY * Math.PI / 4;
+            const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
+            this.ball.dirX = Math.abs(Math.cos(angle)) * speed;
+            this.ball.dirY = Math.sin(angle) * speed;
+        }
+        // Right paddle
+        if (
+            this.ball.x >= 95 &&
+            Math.abs(this.ball.y - this.paddles.right) <= this.#config.paddleHeightPercentage / 2
+        ) {
+            this.ball.dirX = -Math.abs(this.ball.dirX);
+            const relY = (this.ball.y - this.paddles.right) / (this.#config.paddleHeightPercentage / 2);
+            const angle = relY * Math.PI / 4;
+            const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
+            this.ball.dirX = -Math.abs(Math.cos(angle)) * speed;
+            this.ball.dirY = Math.sin(angle) * speed;
+        }
+    }
+
+    private checkGoal(): void {
+        if (this.ball.x < 0) {
+            this.scores.right++;
+            if (this.#config.maxScore && this.scores.right >= this.#config.maxScore) {
+                this.state = GameState.FINISH;
+                this.stopLoopIfNeeded();
+            } else {
+                this.reset();
+            }
+        } else if (this.ball.x > 100) {
+            this.scores.left++;
+            if (this.#config.maxScore && this.scores.left >= this.#config.maxScore) {
+                this.state = GameState.FINISH;
+                this.stopLoopIfNeeded();
+            } else {
+                this.reset();
+            }
+        }
+    }
+
+    public getState(): GameStatus {
+        return {
+            debug: this.#config.debug,
+            ball: { ...this.ball },
+            paddles: { ...this.paddles },
+            scores: { ...this.scores },
+            state: this.state,
+            countdownEndsAt: this.countdown,
+            leftPlayer: this.leftPlayer,
+            rightPlayer: this.rightPlayer,
+        };
+    }
+
+    public get leftPlayer(): GameUserInfo | null {
+        return this._leftPlayer ?? { id: '1', username: 'Leo' };
+    }
+    public get rightPlayer(): GameUserInfo | null {
+        return this._rightPlayer ?? { id: '2', username: 'Pasquale' };
+    }
+
+    private startLoop() {
+        const TICK_MS = 16; // ~60fps
+        this.lastTick = Date.now();
+        this.loopHandle = setInterval(() => {
+            const now = Date.now();
+            const delta = Math.max(0, now - (this.lastTick ?? now));
+            this.lastTick = now;
+            this.update(delta);
+        }, TICK_MS);
+    }
+    private stopLoop() {
+        if (this.loopHandle) {
+            clearInterval(this.loopHandle);
+            this.loopHandle = null;
+        }
+    }
+    private stopLoopIfNeeded() { /* no-op: keep loop running */ }
+
+    public onTick(callback: (state: GameStatus, now: number) => void): () => void {
+        this.tickListeners.push(callback);
+        return () => {
+            this.tickListeners = this.tickListeners.filter(cb => cb !== callback);
+        };
+    }
 }
+
+

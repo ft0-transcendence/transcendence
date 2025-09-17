@@ -125,7 +125,7 @@ export class OnlineMatchmakingController extends RouteController {
 
 			const timeLeft = new Date(Date.now() + (this.#redirectToGameSeconds * 1000));
 			this.#animateRedirectTimer(timeLeft, () => {
-				router.navigate(`/play/online/1v1/${data.gameId}`);
+				window.location.href = `/play/online/1v1/${data.gameId}`;
 			});
 		});
 
@@ -133,7 +133,7 @@ export class OnlineMatchmakingController extends RouteController {
 			console.warn('Error', data);
 			toast.error('Error', data);
 			this.#matchmakingSocket.emit('leave-matchmaking');
-			router.navigate('/play');
+			window.location.href = '/play';
 		});
 	}
 
@@ -142,7 +142,7 @@ export class OnlineMatchmakingController extends RouteController {
 			this.#matchmakingSocket.close();
 			console.debug('Cleaning up matchmaking socket');
 		}
-		if (this.#animateRedirectTimerTimeout){
+		if (this.#animateRedirectTimerTimeout) {
 			clearTimeout(this.#animateRedirectTimerTimeout);
 		}
 	}

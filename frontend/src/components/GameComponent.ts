@@ -141,7 +141,8 @@ export class GameComponent extends ComponentController {
 			30
 		);
 
-		if (state.state !== 'RUNNING') {
+		// Overlay: paused/finish labels
+		if (state.state === 'PAUSE' || state.state === 'FINISH') {
 			ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -150,6 +151,25 @@ export class GameComponent extends ComponentController {
 			ctx.textAlign = 'center';
 			ctx.fillText(
 				state.state,
+				canvas.width / 2,
+				canvas.height / 2
+			);
+		}
+
+		// Countdown overlay: show 3-2-1-START if countdown active
+		if (typeof state.countdownEndsAt === 'number' && state.countdownEndsAt > Date.now()) {
+			const msLeft = state.countdownEndsAt - Date.now();
+			const secondsLeft = Math.ceil(msLeft / 1000);
+			const label = secondsLeft > 0 ? `${secondsLeft}` : 'START';
+
+			ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			ctx.fillStyle = '#f59e0b'; // amber-500 to match UI accents
+			ctx.font = 'bold 72px Arial';
+			ctx.textAlign = 'center';
+			ctx.fillText(
+				label,
 				canvas.width / 2,
 				canvas.height / 2
 			);
