@@ -3,6 +3,7 @@ import {RouterOutputs, SocketFriendInfo} from "@shared";
 import {api} from "@main";
 import { io, Socket } from 'socket.io-client';
 import { router } from "@src/pages/_router";
+import { getImageByUrlOrBlob, getProfilePictureUrlByUserId } from "@src/utils/getImage";
 
 export const AUTH_DOM_IDS = {
 	userMenuButton: 'user_menu_button',
@@ -57,10 +58,7 @@ export class AuthManager {
 	}
 	get userImageUrl() {
 		if (!this.#user) return null;
-		if (!this.#user.imageBlob) return this.#user.imageUrl;
-		const uint8Array = new Uint8Array(this.#user.imageBlob) as unknown as ArrayBuffer;
-		const blob = new Blob([uint8Array], { type: this.#user.imageBlobMimeType ?? "image/png" });
-		return URL.createObjectURL(blob)
+		return getProfilePictureUrlByUserId(this.#user.id);
 	}
 
 	async isUserLoggedIn() {
@@ -164,7 +162,7 @@ export class AuthManager {
 		});
 		document.querySelectorAll('.user-image').forEach(el => {
 			if (el instanceof HTMLImageElement) {
-				el.src = this.userImageUrl ?? '';
+				el.src = getProfilePictureUrlByUserId(this.#user!.id);
 				el.alt = this.#user?.username ?? 'user image';
 			}
 		});

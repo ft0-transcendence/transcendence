@@ -23,6 +23,10 @@ export const en = {
 		online_mode_explanation: 'Play on a server, with a matchmaking system and match history tracking.',
 		offline_mode_explanation: 'Play on the same computer, without tracking the matches.',
 		online_mode_login_needed: 'You need to login to play online.',
+		loading: 'Loading...',
+		currently_active_games: 'Currently Active Games',
+		notifications: 'Notifications',
+		last_20_matches: 'Last 20 Matches',
 
 	},
 
@@ -50,6 +54,7 @@ export const en = {
 		tournaments: 'Tournaments',
 		start_playing: 'Start Playing',
 		fullscreen_mode: 'Fullscreen mode',
+		landing_page: 'Landing Page',
 	},
 	play: {
 		enter_your_username: 'Enter Your Username',

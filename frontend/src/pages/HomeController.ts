@@ -1,33 +1,51 @@
 import { api } from "../../main";
 import { RouteController } from "@tools/ViewController";
-import { router } from "./_router";
 import { authManager } from "@tools/AuthManager";
-import toast from "@tools/Toast";
 import { RouterOutputs, SocketFriendInfo } from "@shared";
 import { k, t, updateDOMTranslations } from "@src/tools/i18n";
+import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
+import { LoadingOverlay } from "@src/components/LoadingOverlay";
 
 export class HomeController extends RouteController {
-	constructor() {
-		super();
-		this.titleSuffix = 'Home';
-	}
+
 	#handleFriendActionClickEvent = this.handleUserActionClickEvent.bind(this);
 
 	#friendsListContainer: HTMLElement | null = null;
 
+	#loadingOverlays: {
+		activeGames: LoadingOverlay,
+		notifications: LoadingOverlay,
+		last20Matches: LoadingOverlay,
+	} = {
+		activeGames: new LoadingOverlay('active-games'),
+		notifications: new LoadingOverlay('notifications'),
+		last20Matches: new LoadingOverlay('last-20-matches'),
+	}
+
+	constructor() {
+		super();
+		this.titleSuffix = 'Home';
+
+		this.registerChildComponent(this.#loadingOverlays.activeGames);
+		this.registerChildComponent(this.#loadingOverlays.notifications);
+		this.registerChildComponent(this.#loadingOverlays.last20Matches);
+	}
+
+
 	async preRender() {
 		console.log('Home controller pre-render');
+
 	}
 
 	async render() {
 		const userData = authManager.user;
 
 		return /*html*/`
-		<div class="flex flex-col w-full grow">
-			<div class="flex flex-col items-center w-full grow md:grid md:grid-cols-5">
-				<div class="flex flex-col items-center w-full text-center md:h-full md:col-span-1 bg-zinc-900/50">
+		<div class="flex flex-col w-full grow md:overflow-hidden">
+			<div class="flex flex-col items-center w-full grow md:grid md:grid-cols-5 overflow-hidden">
+				<div class="flex flex-col items-center overflow-y-auto md:h-full md:overflow-hidden w-full text-center md:col-span-1 bg-zinc-900/50 overflow-hidden shrink-0">
 					<!-- User Profile -->
-					<div class="flex flex-col items-center w-full gap-4 p-6 border-b border-b-white/15 bg-zinc-800/50">
+					<div class="flex flex-col items-center w-full p-6 h-44 border-b border-b-white/15 bg-zinc-800/50 shrink-0">
 						<div class="relative">
 							<img src="${authManager.userImageUrl}"
 								 alt="User image"
@@ -38,7 +56,7 @@ export class HomeController extends RouteController {
 					</div>
 
 					<!-- Friends List -->
-					<div class="flex flex-col w-full grow p-4 border-b border-white/15 sm:border-none">
+					<div class="flex flex-col w-full grow p-4 border-b border-white/15 md:border-none shrink-0">
 						<div class="flex items-center justify-between mb-4">
 							<div class="flex items-center gap-2">
 								<h2 class="text-lg font-semibold text-gray-300" data-i18n="${k('generic.friends')}">Friends</h2>
@@ -62,11 +80,39 @@ export class HomeController extends RouteController {
 				</div>
 
 				<!-- content -->
-				<div class="flex flex-col w-full gap-8 p-4 text-center md:h-full md:col-span-4 md:border-l md:border-l-white/30">
-					<h2 class="font-mono text-2xl font-bold uppercase">Match History</h2>
-					<div class="flex flex-col gap-2">
-						<span class="text-xl animate-bounce">WIP...</span>
-					</div>
+				<div class="grow flex flex-col w-full text-center md:h-full md:col-span-4 md:border-l md:border-l-white/15 md:overflow-hidden">
+					<section class="hidden md:flex flex-col w-full justify-center h-44 px-4 pt-2 border-b border-b-white/15 shrink-0 relative">
+						<h4 class="capitalize font-bold" data-i18n="${k('generic.currently_active_games')}">Currently Active Games</h4>
+						<!-- Active games will be listed here -->
+						<div id="${this.id}-active-games" class="flex flex-row gap-4 w-full items-center justify-center grow">
+							<span>N/A</span>
+						</div>
+
+
+						<!-- Loading Overlay -->
+						${await this.#loadingOverlays.activeGames.silentRender()}
+					</section>
+					<section class="flex flex-col md:flex-row grow bg-black md:overflow-hidden">
+						<div class="flex flex-col w-full md:w-1/5 min-w-3xs bg-zinc-950 md:h-full p-2 min-h-32 relative">
+							<h4 class="capitalize font-bold" data-i18n="${k('generic.notifications')}">Notifications</h4>
+							<!-- Notifications will be listed here -->
+							<div id="${this.id}-notifications" class="grow flex flex-col w-full p-2 md:overflow-y-auto">
+							</div>
+
+							<!-- Loading Overlay -->
+							${await this.#loadingOverlays.notifications.silentRender()}
+						</div>
+						<div class="flex flex-col grow p-2 min-h-32 md:overflow-hidden relative">
+							<h4 class="capitalize font-bold" data-i18n="${k('generic.last_20_matches')}">Last 20 Matches</h4>
+							<!-- Game history will be listed here -->
+							<ul id="${this.id}-game-history" class="grow flex flex-col w-full p-2 md:overflow-y-auto">
+							</ul>
+
+							<!-- Loading Overlay -->
+							${await this.#loadingOverlays.last20Matches.silentRender()}
+						</div>
+
+					</section>
 				</div>
 			</div>
 		</div>
@@ -115,12 +161,106 @@ export class HomeController extends RouteController {
 
 		this.#updateFriendsCount();
 
+
+		// Active Games
+		this.#activeGamesContainer = document.querySelector(`#${this.id}-active-games`);
+		this.#fetchAndRenderActiveGames();
+
+		// Notifications
+		this.#notificationsContainer = document.querySelector(`#${this.id}-notifications`);
+		this.#fetchAndRenderNotifications();
+
+		// Last 20 Matches
+		this.#last20MatchesContainer = document.querySelector(`#${this.id}-game-history`);
+		this.#fetchAndRenderLast20Matches();
+
+
 		document.addEventListener('click', this.#handleFriendActionClickEvent);
 	}
 
 	async destroy() {
 		document.removeEventListener('click', this.#handleFriendActionClickEvent);
 	}
+
+	// LAST 20 MATCHES FUNCTIONS ---------------------------------------------------------------------------------------
+	#last20MatchesContainer: HTMLElement | null = null;
+	async #fetchAndRenderLast20Matches() {
+		if (!this.#last20MatchesContainer) return;
+		this.#loadingOverlays.last20Matches.show();
+		const matches = await api.game.lastNMatches.query({ quantity: 20 });
+		this.#renderLast20Matches(matches);
+		this.#loadingOverlays.last20Matches.hide();
+	}
+	#renderLast20Matches(matches: RouterOutputs['game']['lastNMatches']) {
+		if (!this.#last20MatchesContainer) return;
+
+		this.#last20MatchesContainer.innerHTML = ``;
+		for (const match of matches) {
+			const matchElement = document.createElement('li');
+			matchElement.className = 'match-item group hover:bg-white/5 transition-colors rounded-lg even:bg-zinc-500/5';
+			const myResultClass = match.result === 'W' ? 'text-green-500' : 'text-red-500';
+			const mySideIsLeft = match.mySide === 'left';
+
+			matchElement.innerHTML = /*html*/`
+			<div class="grid grid-cols-5 items-center px-2 py-3">
+				<div class="w-12 text-lg text-center col-span-1">
+					<span class="uppercase font-bold ${myResultClass}">${match.result}</span>
+				</div>
+				<!-- Match Avatar -->
+				<div class="grid grid-cols-3 gap-1 items-center col-span-4">
+					<div class="flex flex-col justify-center items-center gap-1 text-sm">
+						<img src="${getProfilePictureUrlByUserId(match.leftPlayer.id)}"
+						 alt="${match.leftPlayer.username}'s avatar"
+						 class="w-10 h-10 rounded-full object-cover match-image ring-1 ring-white/10">
+						<span>${match.leftPlayer.username}</span>
+					</div>
+					<div class="text-lg font-bold">
+						<span class="${mySideIsLeft ? myResultClass : ''}">${match.leftPlayerScore}</span>
+						<span>:</span>
+						<span class="${!mySideIsLeft ? myResultClass : ''}">${match.rightPlayerScore}</span>
+					</div>
+					<div class="flex flex-col justify-center items-center gap-1 text-sm">
+						<img src="${getProfilePictureUrlByUserId(match.rightPlayer.id)}"
+						 alt="${match.rightPlayer.username}'s avatar"
+						 class="w-10 h-10 rounded-full object-cover match-image ring-1 ring-white/10">
+						 <span>${match.rightPlayer.username}</span>
+					</div>
+				</div>
+			</div>
+		`;
+			this.#last20MatchesContainer.appendChild(matchElement);
+		}
+	}
+	// END LAST 20 MATCHES FUNCTIONS -------------------------------------------------------------------------------------
+
+
+	// ACTIVE GAMES FUNCTIONS ---------------------------------------------------------------------------------------
+	#activeGamesContainer: HTMLElement | null = null;
+	#fetchAndRenderActiveGames() {
+		if (!this.#activeGamesContainer) return;
+		this.#loadingOverlays.activeGames.show();
+		// const activeGames = await api.game.getActiveGames.query();
+		// this.#renderActiveGames(activeGames);
+		// this.#loadingOverlays.activeGames.hide();
+	}
+
+	// END ACTIVE GAMES FUNCTIONS --------------------------------------------------------------------------------------
+
+	// NOTIFICATIONS FUNCTIONS -----------------------------------------------------------------------------------------
+	#notificationsContainer: HTMLElement | null = null;
+	#fetchAndRenderNotifications() {
+		if (!this.#notificationsContainer) return;
+		this.#loadingOverlays.notifications.show();
+		// const notifications = await api.notification.getNotifications.query();
+		// this.#renderNotifications(notifications);
+		// this.#loadingOverlays.notifications.hide();
+	}
+
+
+	// END NOTIFICATIONS FUNCTIONS -------------------------------------------------------------------------------------
+
+
+	// FRIEND LIST FUNCTIONS -------------------------------------------------------------------------------------------
 
 	#upsertFriend(friend: SocketFriendInfo) {
 		const existingFriend = document.querySelector(`#${this.id}-friends-list li[id="friend-${friend!.id}"]`) as HTMLElement | null;
@@ -226,5 +366,7 @@ export class HomeController extends RouteController {
 
 		console.log('Friend action button clicked', friendId);
 	}
+
+	// END FRIEND LIST FUNCTIONS ---------------------------------------------------------------------------------------
 
 }

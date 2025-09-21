@@ -24,6 +24,10 @@ export const it: TranslationSchema = {
 		more_actions: 'Altre azioni',
 		view_profile: 'Vedi profilo',
 		send: 'Invia',
+		currently_active_games: 'Giochi attualmente in corso',
+		notifications: 'Notifiche',
+		last_20_matches: 'Ultime 20 partite',
+		loading: 'Caricamento...',
 	},
 	game_modes: {
 		ai: '1 vs IA',
@@ -47,6 +51,7 @@ export const it: TranslationSchema = {
 		tournaments: 'Tornei',
 		start_playing: 'Inizia a giocare',
 		fullscreen_mode: 'Schermo intero',
+		landing_page: 'Pagina iniziale',
 	},
 	play: {
 		enter_your_username: 'Inserisci il tuo nome utente',

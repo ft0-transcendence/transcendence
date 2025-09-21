@@ -3,6 +3,7 @@ import { AUTH_DOM_IDS, authManager } from "@tools/AuthManager";
 import { CONSTANTS } from "../pages/_router";
 import { k } from "@tools/i18n";
 import { LanguageSelectorComponent } from '../components/LanguageSelector';
+import { isIos } from "@src/utils/agentUtils";
 
 export class BaseLayout extends LayoutController {
 	#userMenuContainer: HTMLElement | null = null;
@@ -45,22 +46,32 @@ export class BaseLayout extends LayoutController {
 						<div id="${AUTH_DOM_IDS.userMenuContainer}" class="absolute mb-2 right-0 items-center hidden w-56 px-3 py-2 text-base bg-black rounded bottom-full z-50">
 
 							<div class="flex flex-col w-full select-none ">
+								<!-- User info / HEADER -->
+
 								${isLoggedIn
-				? /*html*/`
-										<div class="flex gap-1 items-center justify-center flex-col">
-											<img src="${authManager.userImageUrl}" alt="Logged in user image" class="user-image rounded-full object-cover h-8 w-8">
-											<div class="text-xs italic text-white/50 user-username">
-												${authManager.user?.username}
+									? /*html*/`
+											<div class="flex gap-1 items-center justify-center flex-col">
+												<img src="${authManager.userImageUrl}" alt="Logged in user image" class="user-image rounded-full object-cover h-8 w-8">
+												<div class="text-xs italic text-white/50 user-username">
+													${authManager.user?.username}
+												</div>
 											</div>
-										</div>
-										<div class="horiz-divider"></div>
-									`
-				: ``
-			}
+											<div class="horiz-divider"></div>
+										`
+									: ``
+								}
+
+								<!-- Menu items -->
+
 								<div class="px-1 pt-2 pb-2 flex flex-col text-base">
 
+									<a data-route="/" href="/" class="cursor-pointer w-full hover:text-amber-400 route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
+										<span class="grow text-left font-semibold" data-i18n="${k("navbar.landing_page")}">Landing Page</span>
+											<i class="fa fa-home"></i>
+									</a>
+
 									${isLoggedIn
-				? /*html*/`
+										? /*html*/`
 											<div data-route="/settings" class="cursor-pointer w-full hover:text-amber-400 route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
 												<span class="grow text-left font-semibold" data-i18n="${k("navbar.settings")}">Settings</span>
 													<i class="fa fa-cog"></i>
@@ -70,30 +81,27 @@ export class BaseLayout extends LayoutController {
 													<i class="fa fa-sign-out"></i>
 											</a>
 											`
-				:  /*html*/`
+										:  /*html*/`
 											<div onclick="window.authManager.login()" class="hover:text-amber-400 fake-route-link  no-hover-bg py-1 !flex-row !justify-start !gap-0">
 												<span class="grow text-left font-semibold" data-i18n="${k("navbar.login")}">Login</span>
 													<i class="fa fa-sign-in"></i>
 											</div>
 											`
-			}
-			
-									<div data-route="/" class="cursor-pointer w-full hover:text-amber-400 route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
-										<span class="grow text-left font-semibold" data-i18n="${k("navbar.homepage")}">Homepage</span>
-											<i class="fa fa-home"></i>
-									</div>
+									}
+
 
 								</div>
 
-								<!-- REQUEST FULLSCREEN -->
-								<div id="${this.id}-fullscreen-toggle-container" class="flex flex-col w-full select-none py-2 overflow-hidden">
-									<div id="${this.id}-fullscreen-toggle" class="overflow-hidden hover:text-amber-400 fake-route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
-										<div class="grow overflow-ellipsis text-left font-semibold line-clamp-1" data-i18n="${k("navbar.fullscreen_mode")}">Fullscreen mode</div>
 
-										<i class="fullscreen-enable-icon fa fa-expand"></i>
-										<i class="fullscreen-disable-icon fa fa-compress !hidden"></i>
+									<!-- REQUEST FULLSCREEN -->
+									<div id="${this.id}-fullscreen-toggle-container" class="flex flex-col w-full select-none overflow-hidden text-xs">
+										<div id="${this.id}-fullscreen-toggle" class="overflow-hidden hover:text-amber-400 fake-route-link no-hover-bg py-1 !flex-row !justify-start !gap-0">
+											<div class="grow overflow-ellipsis text-left font-semibold line-clamp-1" data-i18n="${k("navbar.fullscreen_mode")}">Fullscreen mode</div>
+
+											<i class="fullscreen-enable-icon fa fa-expand"></i>
+											<i class="fullscreen-disable-icon fa fa-compress !hidden"></i>
+										</div>
 									</div>
-								</div>
 
 								<!-- language selector -->
 								${await this.registerChildComponent(new LanguageSelectorComponent()).silentRender()}
@@ -108,11 +116,6 @@ export class BaseLayout extends LayoutController {
 			</div>`;
 	}
 
-	#isIos() {
-		var isIOS = /ipad|iphone|ipod/.test(navigator.userAgent?.toLowerCase()) && !(window as any).MSStream;
-		return isIOS;
-	}
-
 
 	#onFullscreenToggleClickBind = this.#onFullscreenToggleClick.bind(this);
 	#onMenuButtonClickBind = this.#onMenuButtonClick.bind(this);
@@ -121,7 +124,7 @@ export class BaseLayout extends LayoutController {
 	async postRender() {
 		console.log('Base layout loaded');
 
-		if (this.#isIos()) {
+		if (isIos()) {
 			const fullscreenToggleContainer = document.getElementById(`${this.id}-fullscreen-toggle-container`);
 			fullscreenToggleContainer?.classList.add('!hidden');
 		}

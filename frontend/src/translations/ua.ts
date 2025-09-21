@@ -24,6 +24,10 @@ export const ua: TranslationSchema = {
 		view_profile: 'Переглянути профіль',
 		send: 'Надіслати',
 		sending_request: 'Надсилання запиту...',
+		currently_active_games: 'Поточні активні гри',
+		notifications: 'Сповіщення',
+		last_20_matches: 'Останні 20 матчів',
+		loading: 'Завантаження...',
 	},
 	game_modes: {
 		ai: '1 vs AI',
@@ -47,6 +51,7 @@ export const ua: TranslationSchema = {
 		tournaments: 'Турніри',
 		start_playing: 'Почати грати',
 		fullscreen_mode: 'Повноекранний режим',
+		landing_page: 'Головна сторінка',
 	},
 	play: {
 		enter_your_username: 'Введіть своє ім’я користувача',

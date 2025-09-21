@@ -30,4 +30,35 @@ export const publicRoutes: FastifyPluginAsync = async (fastify) => {
 		reply.redirect(redirectTo);
 	});
 	// --------------------------------------------------------------------------
+
+	fastify.get("/avatar/:userId", async (req, reply) => {
+		const { userId } = req.params as { userId: string | undefined };
+		if (!userId || userId?.trim()?.length === 0) {
+			reply.status(400).send("Missing userId");
+			return;
+		}
+
+		const user = await fastify.prisma.user.findFirst({
+			where: {
+				id: userId,
+			}
+		});
+
+		if (!user) {
+			reply.status(404).send("User not found");
+			return;
+		}
+
+		const blob = user.imageBlob;
+		if (!blob && user.imageUrl) {
+			reply.redirect(user.imageUrl);
+			return;
+		}
+		if (!blob) {
+			reply.status(404).send("User image not found");
+			return;
+		}
+
+		reply.type(user.imageBlobMimeType ?? "image/png").send(blob);
+	});
 };
