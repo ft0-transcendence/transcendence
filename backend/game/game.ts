@@ -65,16 +65,16 @@ export type GameUserInfo = {
 }
 
 export class Game {
-	#config: GameConfig = {
-		debug: true,
-		gameStartCountdown: 3000,
+    #config: GameConfig = {
+        debug: true,
+        gameStartCountdown: 3000,
 
-		initialVelocity: 0.042,
-		velocityIncrease: 0.000002,
-		maxVelocity: 0.12,
-		paddleSpeed: 2.0,
-		movementSensitivity: 0.5,
-		maxScore: 10,
+        initialVelocity: 0.075,
+        velocityIncrease: 0.0000005,
+        maxVelocity: 0.12,
+        paddleSpeed: 4.2,
+        movementSensitivity: 0.7,
+        maxScore: 10,
 
 		paddleHeightPercentage: 20,
 		enableInternalLoop: true,
