@@ -69,10 +69,10 @@ export class Game {
         debug: false,
         gameStartCountdown: 3000,
 
-        initialVelocity: 0.075,
-        velocityIncrease: 0.0000005,
+        initialVelocity: 0.050,
+        velocityIncrease: 0.0000003,
         maxVelocity: 0.12,
-        paddleSpeed: 4.2,
+        paddleSpeed: 3.0,
         movementSensitivity: 0.7,
         maxScore: 10,
 
