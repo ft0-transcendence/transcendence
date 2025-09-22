@@ -88,7 +88,7 @@ function setupMatchmakingNamespace(io: Server) {
 							{ rightPlayerId: user.id },
 						],
 					},
-					include: { leftPlayer: true, rightPlayer: true },
+					include: { leftPlayer: {select: {id: true, username: true}}, rightPlayer: {select: {id: true, username: true}} },
 				});
 
 				if (activeGameWithCurrentUser) {
@@ -105,11 +105,13 @@ function setupMatchmakingNamespace(io: Server) {
 							? activeGameWithCurrentUser.rightPlayer
 							: activeGameWithCurrentUser.leftPlayer;
 
+						const opponentData: GameUserInfo = { id: opponent.id, username: opponent.username, isPlayer: true };
+
 						fastify.log.info('User already in active game, skipping matchmaking', user.username);
 
 						socket.emit('match-found', {
 							gameId: activeGameWithCurrentUser.id,
-							opponent: opponent,
+							opponent: opponentData,
 						});
 						return;
 					}
@@ -131,8 +133,8 @@ function setupMatchmakingNamespace(io: Server) {
 					const player1Data: GameUserInfo = { id: player1.data.user.id, username: player1.data.user.username, isPlayer: true };
 					const player2Data: GameUserInfo = { id: player2.data.user.id, username: player2.data.user.username, isPlayer: true };
 
-					player1.emit('match-found', { gameId, opponent: player2.data.user });
-					player2.emit('match-found', { gameId, opponent: player1.data.user });
+					player1.emit('match-found', { gameId, opponent: player2Data });
+					player2.emit('match-found', { gameId, opponent: player1Data });
 
 					const newGame = new OnlineGame(
 						gameId,
