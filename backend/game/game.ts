@@ -66,7 +66,7 @@ export type GameUserInfo = {
 
 export class Game {
     #config: GameConfig = {
-        debug: true,
+        debug: false,
         gameStartCountdown: 3000,
 
         initialVelocity: 0.075,
