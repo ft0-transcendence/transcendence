@@ -161,7 +161,7 @@ export class OnlineVersusGameController extends RouteController {
 		console.debug('Listening for errors');
 
 		this.#gameComponent.setMovementHandler((side, direction, type) => {
-			if (this.#gameState?.state !== 'RUNNING') return;
+			// if (this.#gameState?.state !== 'RUNNING') return;
 			const event = type === 'press' ? 'player-press' : 'player-release';
 			this.#gameSocket.emit(event, direction);
 		});
