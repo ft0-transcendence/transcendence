@@ -2,6 +2,7 @@ import { router } from "@src/pages/_router";
 import { t } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
+import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
 import { io, Socket } from "socket.io-client";
 
 export class OnlineMatchmakingController extends RouteController {
@@ -122,8 +123,7 @@ export class OnlineMatchmakingController extends RouteController {
 
 			$lookingForMatch.classList.add('hidden');
 
-			const blob = new Blob([data.opponent.imageBlob], { type: data.opponent.imageBlobMimeType });
-			$opponentImage.src = URL.createObjectURL(blob);
+			$opponentImage.src = getProfilePictureUrlByUserId(data.opponent.id);
 			$opponentUsername.innerText = data.opponent.username;
 
 			this.#matchmakingSocket?.close();
