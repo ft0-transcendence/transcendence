@@ -132,7 +132,7 @@ export class OnlineMatchmakingController extends RouteController {
 
 			const timeLeft = new Date(Date.now() + (this.#redirectToGameSeconds * 1000));
 			this.#animateRedirectTimer(timeLeft, () => {
-				window.location.href = `/play/online/1v1/${data.gameId}`;
+				router.navigate(`/play/online/1v1/${data.gameId}`);
 			});
 		});
 
@@ -140,7 +140,7 @@ export class OnlineMatchmakingController extends RouteController {
 			console.warn('Error', data);
 			toast.error('Error', data);
 			this.#matchmakingSocket.emit('leave-matchmaking');
-			window.location.href = '/play';
+			router.navigate('/play/');
 		});
 	}
 
