@@ -1,6 +1,7 @@
 import { Game } from "@shared";
 import { GameComponent } from "@src/components/GameComponent";
 import { authManager } from "@src/tools/AuthManager";
+import { t } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
 import { io, Socket } from "socket.io-client";
@@ -43,6 +44,11 @@ export class OnlineVersusGameController extends RouteController {
 		});
 		this.registerChildComponent(this.#gameComponent);
 
+		this.updateTitleSuffix();
+	}
+
+	override updateTitleSuffix() {
+		this.titleSuffix = t('page_titles.play.online.1v1_game') || '1 VS 1 - game';
 	}
 
 	#setupSocketEvents() {
@@ -66,21 +72,21 @@ export class OnlineVersusGameController extends RouteController {
 				this.#gameComponent.updateGameState(data.state);
 				this.#gameComponent.setActivePlayers(amILeftPlayer, !amILeftPlayer);
 
-				let newKeyBindings: GameComponent['defaultKeyBindings'] = {
-					...this.#gameComponent.defaultKeyBindings,
-				};
+				let newKeyBindings: GameComponent['defaultKeyBindings'] = {};
 
 				if (amILeftPlayer) {
 					newKeyBindings = {
-						...newKeyBindings,
-						'ArrowUp': { side: 'left', direction: 'up' },
-						'ArrowDown': { side: 'left', direction: 'down' },
+						'w': { side: 'left', direction: 'up' },
+						's': { side: 'left', direction: 'down' },
+						'arrowup': { side: 'left', direction: 'up' },
+						'arrowdown': { side: 'left', direction: 'down' },
 					}
 				} else {
 					newKeyBindings = {
-						...newKeyBindings,
 						'w': { side: 'right', direction: 'up' },
 						's': { side: 'right', direction: 'down' },
+						'arrowup': { side: 'right', direction: 'up' },
+						'arrowdown': { side: 'right', direction: 'down' },
 					}
 				}
 
@@ -130,9 +136,7 @@ export class OnlineVersusGameController extends RouteController {
 
 	async render() {
 		return /*html*/`<div class="flex flex-col grow">
-
 			<div id="${this.id}-game-container" class="flex flex-col grow sm:flex-row sm:justify-center w-full">
-
 				<section class="flex flex-col sm:min-w-32 sm:grow">
 				</section>
 
@@ -141,14 +145,8 @@ export class OnlineVersusGameController extends RouteController {
 						<!-- GAME COMPONENT -->
 						${await this.#gameComponent!.render()}
 					</div>
-
-					<!-- CONTROLS CONTAINER (for mobile) -->
-					<div class="flex flex-col h-60 sm:hidden">
-						TODO: GAME CONTROLS
-					</div>
 				</section>
 				<section class="hidden sm:flex sm:min-w-32 sm:grow">
-
 				</section>
 			</div>
 
@@ -162,19 +160,12 @@ export class OnlineVersusGameController extends RouteController {
 	protected async postRender() {
 		console.debug('Listening for errors');
 
-		this.#gameComponent.setMovementHandler((side, direction) => {
-			if (this.#gameState?.state !== 'RUNNING') return;
-
-			this.#gameSocket.emit('player-action', direction);
+		this.#gameComponent.setMovementHandler((side, direction, type) => {
+			// if (this.#gameState?.state !== 'RUNNING') return;
+			const event = type === 'press' ? 'player-press' : 'player-release';
+			this.#gameSocket.emit(event, direction);
 		});
 
-		// TODO: implement mobile controls
-		// upButton.addEventListener('click', () => {
-		// 	this.#gameComponent.movePlayer('left', 'up');
-		// });
-		// downButton.addEventListener('click', () => {
-		// 	this.#gameComponent.movePlayer('left', 'down');
-		// });
 	}
 	protected async destroy() {
 		if (this.#gameSocket.connected) {

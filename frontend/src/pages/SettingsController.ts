@@ -38,7 +38,7 @@ export class SettingsController extends RouteController {
 
 		return /*html*/`
         <div class="flex flex-col grow w-full items-center justify-center p-4">
-            <div class="flex flex-col w-full max-w-2xl p-6 bg-zinc-800 rounded-lg shadow-xl space-y-8">
+            <div class="flex flex-col w-full max-w-2xl p-6 bg-zinc-800/50 rounded-lg shadow-md space-y-8">
                 <h1 class="text-3xl font-bold text-gray-100" data-i18n="${k('settings.title')}">Profile Settings</h1>
 
                 <!-- Profile Image -->

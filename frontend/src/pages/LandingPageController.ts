@@ -6,8 +6,23 @@ import { GameComponent } from "@src/components/GameComponent";
 
 export class LandingPageController extends RouteController {
 
-	#game: GameClass;
-	#gameComponent: GameComponent | null = null;
+	#game: GameClass = new GameClass({
+		gameStartCountdown: 0,
+		initialVelocity: 0.025,
+		velocityIncrease: 0.000005,
+		maxVelocity: 0.175,
+		paddleSpeed: 0.69,
+		movementSensitivity: 0.69,
+		maxScore: undefined,
+		paddleHeightPercentage: 20,
+		debug: false,
+		enableInternalLoop: true,
+	});;
+	#gameComponent: GameComponent = new GameComponent({
+		gameId: "demo",
+		gameType: 'VS',
+		isLocalGame: true,
+	});
 
 	#animationFrameId: number = 0;
 	#lastTime: number = 0;
@@ -18,37 +33,25 @@ export class LandingPageController extends RouteController {
 	constructor() {
 		super();
 
+		this.registerChildComponent(this.#gameComponent);
+
 		this.#user1 = { id: '1', username: 'Leo' };
 		this.#user2 = { id: '2', username: 'Pasquale' };
-
-		this.#game = new GameClass({
-			gameStartCountdown: 500,
-			initialVelocity: 0.025,
-			velocityIncrease: 0.000005,
-			maxVelocity: 0.175,
-			paddleSpeed: 0.69,
-			movementSensitivity: 0.69,
-			maxScore: undefined,
-			paddleHeightPercentage: 20,
-			debug: false
-		});
 
 		this.#game.setPlayers(this.#user1, this.#user2);
 	}
 
 	protected async preRender(): Promise<void> {
-		this.#gameComponent = new GameComponent({
-			gameId: "demo",
-			gameType: 'VS',
-			isLocalGame: true,
-		});
 
-		this.registerChildComponent(this.#gameComponent);
+
 		this.#gameComponent.setMovementHandler(() => { });
 		this.#gameComponent.updateKeyBindings({});
 	}
 
 	async render() {
+		const isLoggedIn = await authManager.isUserLoggedIn();
+
+
 		return /*html*/`
 			<div class="relative flex flex-col grow w-full items-center justify-center">
 				<div class="absolute top-0 left-0 w-full h-full opacity-25 flex flex-col justify-center items-center">
@@ -56,7 +59,7 @@ export class LandingPageController extends RouteController {
 						${await this.#gameComponent!.silentRender()}
 					</div>
                 </div>
-				<div class="flex flex-col items-center gap-8 justify-center text-center">
+				<div class="flex flex-col grow items-center gap-8 justify-center text-center z-20 bg-black/25 p-2 md:p-8">
 					<h1 class="text-6xl font-bold mb-4">Pong Game</h1>
 					<p class="text-xl text-center max-w-2xl mb-8" data-i18n="${k('landing_page.description')}">
 						Welcome to the classic Pong experience! Challenge your friends or improve your skills
@@ -66,7 +69,7 @@ export class LandingPageController extends RouteController {
 						<button data-route="/play" data-i18n="${k('navbar.start_playing')}" class="bg-teal-700 cursor-pointer uppercase px-6 py-2 rounded-md drop-shadow-md drop-shadow-black hover:drop-shadow-teal-950 active:drop-shadow-teal-950 font-mono text-xl font-bold">
 							Start Playing
 						</button>
-						<button id="${this.id}-login-btn" data-i18n="${k('navbar.login')}" class="bg-rose-800 cursor-pointer uppercase px-6 py-2 rounded-md drop-shadow-md drop-shadow-black hover:drop-shadow-rose-950 active:drop-shadow-rose-950 font-mono text-xl font-bold">
+						<button id="${this.id}-login-btn" data-i18n="${k('navbar.login')}" class="${isLoggedIn ? '!hidden' : ''} bg-rose-800 cursor-pointer uppercase px-6 py-2 rounded-md drop-shadow-md drop-shadow-black hover:drop-shadow-rose-950 active:drop-shadow-rose-950 font-mono text-xl font-bold">
 							Sign In
 						</button>
 					</div>
@@ -76,8 +79,13 @@ export class LandingPageController extends RouteController {
 	}
 
 	async postRender() {
+		// ensure internal loop is enabled and start
+		(this.#game as any).updatePartialConfig?.({ enableInternalLoop: true });
 		this.#game.playerReady(this.#user1);
 		this.#game.playerReady(this.#user2);
+		this.#game.start();
+
+		this.#gameComponent!.setActivePlayers(false, false);
 
 		this.startAnimation();
 
@@ -91,6 +99,7 @@ export class LandingPageController extends RouteController {
 	// TODO: improve it :)
 	// CHATGPT START=================================================================================
 	private startAnimation() {
+		// TODO: use the Game's loop instead of this
 		const animate = (currentTime: number) => {
 			if (this.#lastTime) {
 				const delta = currentTime - this.#lastTime;
@@ -101,18 +110,22 @@ export class LandingPageController extends RouteController {
 				const leftTarget = state.ball.dirX < 0 ? state.ball.y : 50;
 				const leftDiff = leftTarget - state.paddles.left;
 				if (Math.abs(leftDiff) > 1) {
-					this.#game.movePaddle("left", leftDiff > 0 ? "down" : "up");
+					if (leftDiff > 0) { this.#game.release('left', 'up'); this.#game.press('left', 'down'); }
+					else { this.#game.release('left', 'down'); this.#game.press('left', 'up'); }
+				} else {
+					this.#game.release('left', 'up'); this.#game.release('left', 'down');
 				}
 
 				const rightTarget = state.ball.dirX > 0 ? state.ball.y : 50;
 				const rightDiff = rightTarget - state.paddles.right;
 				if (Math.abs(rightDiff) > 1) {
-					this.#game.movePaddle("right", rightDiff > 0 ? "down" : "up");
+					if (rightDiff > 0) { this.#game.release('right', 'up'); this.#game.press('right', 'down'); }
+					else { this.#game.release('right', 'down'); this.#game.press('right', 'up'); }
+				} else {
+					this.#game.release('right', 'up'); this.#game.release('right', 'down');
 				}
 
-				this.#game.update(delta);
-
-				// Update game component with new state
+				// Game updates internally now; only render
 				this.#gameComponent?.updateGameState(this.#game.getState());
 			}
 
@@ -120,10 +133,14 @@ export class LandingPageController extends RouteController {
 			this.#animationFrameId = requestAnimationFrame(animate);
 		}
 
-        requestAnimationFrame(animate);
+		requestAnimationFrame(animate);
 	}
 
-	onDestroy() {
+	protected async destroy() {
+		console.debug(`Cleaning up LandingPageController resources`);
+
 		cancelAnimationFrame(this.#animationFrameId);
+		this.#lastTime = 0;
+		this.#animationFrameId = 0;
 	}
 }

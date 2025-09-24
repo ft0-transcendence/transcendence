@@ -94,7 +94,7 @@ function setupMatchmakingNamespace(io: Server) {
 							{ rightPlayerId: user.id },
 						],
 					},
-					include: { leftPlayer: true, rightPlayer: true },
+					include: { leftPlayer: {select: {id: true, username: true}}, rightPlayer: {select: {id: true, username: true}} },
 				});
 
 				if (activeGameWithCurrentUser) {
@@ -111,11 +111,13 @@ function setupMatchmakingNamespace(io: Server) {
 							? activeGameWithCurrentUser.rightPlayer
 							: activeGameWithCurrentUser.leftPlayer;
 
+						const opponentData: GameUserInfo = { id: opponent.id, username: opponent.username, isPlayer: true };
+
 						fastify.log.info('User already in active game, skipping matchmaking', user.username);
 
 						socket.emit('match-found', {
 							gameId: activeGameWithCurrentUser.id,
-							opponent: opponent,
+							opponent: opponentData,
 						});
 						return;
 					}
@@ -137,13 +139,13 @@ function setupMatchmakingNamespace(io: Server) {
 					const player1Data: GameUserInfo = { id: player1.data.user.id, username: player1.data.user.username, isPlayer: true };
 					const player2Data: GameUserInfo = { id: player2.data.user.id, username: player2.data.user.username, isPlayer: true };
 
-					player1.emit('match-found', { gameId, opponent: player2.data.user });
-					player2.emit('match-found', { gameId, opponent: player1.data.user });
+					player1.emit('match-found', { gameId, opponent: player2Data });
+					player2.emit('match-found', { gameId, opponent: player1Data });
 
 					const newGame = new OnlineGame(
 						gameId,
 						onlineVersusGameNamespace,
-						undefined,
+						{ enableInternalLoop: true, debug: false },
 						async (state) => {
 							await db.game.update({
 								where: { id: gameId },
@@ -230,6 +232,8 @@ function setupOnlineVersusGameNamespace(io: Server) {
 			// Create and join a "label" (not a real room, just a way to group sockets) to which we can broadcast the game state
 			await socket.join(gameId);
 			game.playerReady({ id: user.id, username: user.username });
+			// After joining, if both players are ready the game may have just started; emit fresh state to this socket too
+			socket.emit('game-state', game.getState());
 			// If the user is a player and was previously disconnected, mark as reconnected
 			if (isPlayerInGame && 'markPlayerReconnected' in game) {
 				(game as OnlineGame).markPlayerReconnected(user.id);
@@ -245,7 +249,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 			// socket.emit('game-state', game.getState());
 		});
 
-		socket.on("player-action", (action: MovePaddleAction) => {
+		socket.on("player-press", (action: MovePaddleAction) => {
 			// Get gameId from the socket's rooms
 			const rooms = Array.from(socket.rooms);
 			const gameId = rooms.find(room => room !== socket.id);
@@ -268,9 +272,40 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				return;
 			}
 
-			game.movePlayerPaddle(user.id, action);
-
+			// Map to side and press API on base Game
+			if (game.leftPlayer?.id === user.id) {
+				game.press("left", action);
+			} else if (game.rightPlayer?.id === user.id) {
+				game.press("right", action);
+			}
 			socket.to(gameId).emit("game-state", game.getState());
+			socket.emit("game-state", game.getState());
+		});
+
+		socket.on("player-release", (action: MovePaddleAction) => {
+			const rooms = Array.from(socket.rooms);
+			const gameId = rooms.find(room => room !== socket.id);
+			if (!gameId) {
+				socket.emit('error', 'Not in any game room');
+				return;
+			}
+			const game = cache.activeGames.get(gameId);
+			if (!game) {
+				socket.emit('error', 'Game not found');
+				return;
+			}
+			const isPlayerInGame = game.isPlayerInGame(user.id);
+			if (!isPlayerInGame) {
+				socket.emit('error', 'You are not a player in this game');
+				return;
+			}
+			if (game.leftPlayer?.id === user.id) {
+				game.release("left", action);
+			} else if (game.rightPlayer?.id === user.id) {
+				game.release("right", action);
+			}
+			socket.to(gameId).emit("game-state", game.getState());
+			socket.emit("game-state", game.getState());
 		});
 
 		socket.on("leave-game", async (gameId: string) => {

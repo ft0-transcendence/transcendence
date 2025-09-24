@@ -1,7 +1,9 @@
 import { Game } from "@shared";
+import { authManager } from "@src/tools/AuthManager";
 import { k } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { ComponentController } from "@src/tools/ViewController";
+import { isMobile } from '../utils/agentUtils';
 
 export type GameComponentProps = {
 
@@ -10,6 +12,12 @@ export type GameComponentProps = {
 
 	isLocalGame: boolean;
 }
+
+export type GameComponentMovementHandler = (
+	side: GameKeyBindings[string]['side'],
+	direction: GameKeyBindings[string]['direction'],
+	type: 'press' | 'release'
+) => void;
 
 /**
  * Key bindings configuration
@@ -34,32 +42,33 @@ export class GameComponent extends ComponentController {
 	readonly defaultKeyBindings: GameKeyBindings = {
 		'w': { side: 'left', direction: 'up' },
 		's': { side: 'left', direction: 'down' },
-		'ArrowUp': { side: 'right', direction: 'up' },
-		'ArrowDown': { side: 'right', direction: 'down' },
+		'arrowup': { side: 'right', direction: 'up' },
+		'arrowdown': { side: 'right', direction: 'down' },
 	};
 
+	#gameState: Game['GameStatus'] | null = null;
+
 	#keyBindings: GameKeyBindings;
-	#leftPlayerActive = false;
-	#rightPlayerActive = false;
-	#onMovement?: (side: GameKeyBindings[string]['side'], direction: GameKeyBindings[string]['direction']) => void;
-
-
 	#props: GameComponentProps = {
 		gameId: '',
 		gameType: 'VS',
 		isLocalGame: true,
 	};
 
+	#leftPlayerActive = false;
+	#rightPlayerActive = false;
 
+	private onMovement?: GameComponentMovementHandler;
 
-	#gameState: Game['GameStatus'] | null = null;
-
-	#gameCanvas: HTMLCanvasElement | null = null;
+	#canvas: HTMLCanvasElement | null = null;
 	#ctx: CanvasRenderingContext2D | null = null;
 
 	#handleKeyDown: typeof this.handleKeyDown;
 	#handleKeyUp: typeof this.handleKeyUp;
 
+
+	#handleButtonStart = this.handleButtonStart.bind(this);
+	#handleButtonEnd = this.handleButtonEnd.bind(this);
 
 	constructor(props: Partial<GameComponentProps> = {}) {
 		super();
@@ -72,19 +81,41 @@ export class GameComponent extends ComponentController {
 
 	// PUBLIC METHODS--------------------------------------------------------------------------------
 
+	public updateCanvasSize() {
+		if (!this.#canvas || !this.#ctx) return;
+		this.#canvas.width = this.#canvas.clientWidth;
+		this.#canvas.height = this.#canvas.clientHeight;
+		this.#ctx.fillStyle = '#000';
+		this.#ctx.fillRect(0, 0, this.#canvas.width, this.#canvas.height);
+	}
+
 	public updateGameState(state: Game['GameStatus']) {
 		this.#gameState = state;
-		const $debugContainer = document.getElementById(`${this.id}-debug-container`)!;
-		if (this.#gameState.debug) {
-			$debugContainer.classList.remove('hidden');
+
+		const $debugContainer = document.getElementById(`${this.id}-debug-container`);
+
+		if (!$debugContainer){
+			console.warn('Debug container not found');
+			return;
 		} else {
-			$debugContainer.classList.add('hidden');
+			if (this.#gameState.debug) {
+				$debugContainer.classList.remove('hidden');
+			} else {
+				$debugContainer.classList.add('hidden');
+			}
 		}
+		if (!state.rightPlayer?.isPlayer){
+			this.#rightPlayerActive = false;
+		}
+		if (!state.leftPlayer?.isPlayer){
+			this.#leftPlayerActive = false;
+		}
+
 
 		this.#updateGameStateElements();
 
 		const ctx = this.#ctx!;
-		const canvas = this.#gameCanvas!;
+		const canvas = this.#canvas!;
 
 		// clear
 		ctx.fillStyle = '#000';
@@ -119,7 +150,8 @@ export class GameComponent extends ComponentController {
 			30
 		);
 
-		if (state.state !== 'RUNNING') {
+		// Overlay: paused/finish labels
+		if (state.state === 'PAUSE' || state.state === 'FINISH') {
 			ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -128,6 +160,25 @@ export class GameComponent extends ComponentController {
 			ctx.textAlign = 'center';
 			ctx.fillText(
 				state.state,
+				canvas.width / 2,
+				canvas.height / 2
+			);
+		}
+
+		// Countdown overlay: show 3-2-1-START if countdown active
+		if (typeof state.countdownEndsAt === 'number' && state.countdownEndsAt > Date.now()) {
+			const msLeft = state.countdownEndsAt - Date.now();
+			const secondsLeft = Math.ceil(msLeft / 1000);
+			const label = secondsLeft > 0 ? `${secondsLeft}` : 'START';
+
+			ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			ctx.fillStyle = '#f59e0b'; // amber-500 to match UI accents
+			ctx.font = 'bold 72px Arial';
+			ctx.textAlign = 'center';
+			ctx.fillText(
+				label,
 				canvas.width / 2,
 				canvas.height / 2
 			);
@@ -156,13 +207,32 @@ export class GameComponent extends ComponentController {
 	 * Any movement happening inside the GameComponent will call this handler so the parent component can handle it.
 	 * @param handler The handler to call on movement
 	 */
-	public setMovementHandler(handler: (side: GameKeyBindings[string]['side'], direction: GameKeyBindings[string]['direction']) => void) {
-		this.#onMovement = handler;
+	public setMovementHandler(handler: GameComponentMovementHandler) {
+		this.onMovement = handler;
 	}
 
 	public setActivePlayers(left: boolean, right: boolean) {
 		this.#leftPlayerActive = left;
 		this.#rightPlayerActive = right;
+
+		const isMobileDevice = isMobile();
+
+		const $leftPlayerControls = document.querySelectorAll('.controls-left-player');
+		const $rightPlayerControls = document.querySelectorAll('.controls-right-player');
+		$leftPlayerControls?.forEach(el => {
+			el.classList.toggle('!hidden', !left || !isMobileDevice);
+			el.classList.toggle('flex-col', right);
+		});
+		$rightPlayerControls?.forEach(el =>{
+			el.classList.toggle('!hidden', !right || !isMobileDevice);
+			el.classList.toggle('flex-col', left);
+		});
+
+		if (!left && !right) {
+			document.querySelector(`${this.id}-mobile-controls`)?.classList.add('!hidden');
+		} else {
+			document.querySelector(`${this.id}-mobile-controls`)?.classList.remove('!hidden');
+		}
 	}
 
 	/**
@@ -171,10 +241,15 @@ export class GameComponent extends ComponentController {
 	 * @param direction player direction
 	 * @returns void
 	 */
-	public movePlayer(side: GameKeyBindings[string]['side'], direction: GameKeyBindings[string]['direction']) {
+	public onMovementPressed(side: GameKeyBindings[string]['side'], direction: GameKeyBindings[string]['direction']) {
 		if (side === 'left' && !this.#leftPlayerActive) return;
 		if (side === 'right' && !this.#rightPlayerActive) return;
-		this.#onMovement?.(side, direction);
+		this.onMovement?.(side, direction, 'press');
+	}
+	public onMovementReleased(side: GameKeyBindings[string]['side'], direction: GameKeyBindings[string]['direction']) {
+		if (side === 'left' && !this.#leftPlayerActive) return;
+		if (side === 'right' && !this.#rightPlayerActive) return;
+		this.onMovement?.(side, direction, 'release');
 	}
 
 	public updateKeyBindings(bindings: GameKeyBindings) {
@@ -188,12 +263,12 @@ export class GameComponent extends ComponentController {
 		return /*html*/`
 			<div id="${this.id}-game" class="relative w-full h-full aspect-square flex flex-col bg-black/50">
 				<!-- TODO: debug info, remove it later -->
-				<div id="${this.id}-debug-container" class="absolute top-0 left-0 hidden">
+				<div id="${this.id}-debug-container" class="absolute top-0 left-0 hidden text-sm">
 					<span class="font-bold text-xl">DBG GAME STATE</span>
 					<p id="${this.id}-game-state">${this.#gameState}</p>
 				</div>
 				<div class="flex flex-col grow bg-black/50 w-full items-center justify-center">
-					<canvas id="${this.id}-game-canvas" class="w-full aspect-[4/3]"></canvas>
+					<canvas id="${this.id}-game-canvas" class="w-full aspect-[4/3] border border-white"></canvas>
 				</div>
 				<div id="${this.id}-error-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
 					<h4 id="${this.id}-error-message" class="text-red-500"></h4>
@@ -202,13 +277,36 @@ export class GameComponent extends ComponentController {
 						Go back
 					</a>
 				</div>
+
+				<!-- Mobile Controls -->
+				<div id="${this.id}-mobile-controls" class="flex justify-evenly w-full p-4 pb-8">
+					<!-- Left Controls -->
+					<div class="flex flex-col gap-2 controls-left-player grow justify-evenly items-center">
+						<button data-side="left" data-direction="up" class="w-16 h-16 bg-zinc-800/80 rounded-xl active:bg-zinc-700 flex items-center justify-center touch-none select-none">
+							<i class="fa fa-arrow-up text-2xl"></i>
+						</button>
+						<button data-side="left" data-direction="down" class="w-16 h-16 bg-zinc-800/80 rounded-xl active:bg-zinc-700 flex items-center justify-center touch-none select-none">
+							<i class="fa fa-arrow-down text-2xl"></i>
+						</button>
+					</div>
+
+					<!-- Right Controls -->
+					<div class="flex flex-col gap-2 controls-right-player grow justify-evenly items-center">
+						<button data-side="right" data-direction="up" class="w-16 h-16 bg-zinc-800/80 rounded-xl active:bg-zinc-700 flex items-center justify-center touch-none select-none">
+							<i class="fa fa-arrow-up text-2xl"></i>
+						</button>
+						<button data-side="right" data-direction="down" class="w-16 h-16 bg-zinc-800/80 rounded-xl active:bg-zinc-700 flex items-center justify-center touch-none select-none">
+							<i class="fa fa-arrow-down text-2xl"></i>
+						</button>
+					</div>
+				</div>
 			</div>
 		`;
 	}
 
 	protected async postRender() {
-		this.#gameCanvas = document.getElementById(`${this.id}-game-canvas`)! as HTMLCanvasElement;
-		this.#ctx = this.#gameCanvas.getContext('2d')!;
+		this.#canvas = document.getElementById(`${this.id}-game-canvas`)! as HTMLCanvasElement;
+		this.#ctx = this.#canvas.getContext('2d')!;
 
 		this.#initCanvasData();
 
@@ -216,6 +314,42 @@ export class GameComponent extends ComponentController {
 
 		document.addEventListener('keydown', this.#handleKeyDown);
 		document.addEventListener('keyup', this.#handleKeyUp);
+
+		this.#setupMobileControls();
+	}
+
+	#setupMobileControls() {
+		const buttons = document.querySelectorAll('[data-side][data-direction]');
+
+		buttons.forEach(button => {
+			button.addEventListener('mousedown', this.#handleButtonStart);
+			button.addEventListener('mouseup', this.#handleButtonEnd);
+			button.addEventListener('mouseleave', this.#handleButtonEnd);
+			button.addEventListener('touchstart', this.#handleButtonStart);
+			button.addEventListener('touchend', this.#handleButtonEnd);
+			button.addEventListener('touchcancel', this.#handleButtonEnd);
+		});
+	}
+
+	private handleButtonStart(e: Event) {
+		e.preventDefault();
+		const button = e.currentTarget as HTMLElement;
+		const side = button.dataset.side as 'left' | 'right';
+		const direction = button.dataset.direction as 'up' | 'down';
+
+		if (!side || !direction) return;
+
+		this.onMovementPressed(side, direction);
+	}
+
+	private handleButtonEnd(e: Event) {
+		const button = e.currentTarget as HTMLElement;
+		const side = button.dataset.side as 'left' | 'right';
+		const direction = button.dataset.direction as 'up' | 'down';
+
+		if (!side || !direction) return;
+
+		this.onMovementReleased(side, direction);
 	}
 
 	private handleKeyDown(event: KeyboardEvent) {
@@ -227,17 +361,23 @@ export class GameComponent extends ComponentController {
 		// Prevent default behavior for game keys
 		event.preventDefault();
 
-		this.movePlayer(binding.side, binding.direction);
+		this.onMovementPressed(binding.side, binding.direction);
 	}
 
-	// TODO: maybe not needed
 	private handleKeyUp(event: KeyboardEvent) {
+		const key = event.key.toLowerCase();
+		const binding = this.#keyBindings[key];
 
+		if (!binding) return;
+
+		event.preventDefault();
+
+		this.onMovementReleased(binding.side, binding.direction);
 	}
 
 
 	#initCanvasData() {
-		const canvas = this.#gameCanvas!;
+		const canvas = this.#canvas!;
 		const ctx = this.#ctx!;
 		canvas.width = canvas.clientWidth;
 		canvas.height = canvas.clientHeight;
@@ -248,7 +388,7 @@ export class GameComponent extends ComponentController {
 
 	#drawPaddles(paddles: Game['Paddles']) {
 		const ctx = this.#ctx!;
-		const canvas = this.#gameCanvas!;
+		const canvas = this.#canvas!;
 
 		ctx.fillStyle = '#FFF';
 		const paddleHeight = canvas.height / 100 * 20; // 20% of height
@@ -272,7 +412,7 @@ export class GameComponent extends ComponentController {
 
 	#drawBall(ball: Game['Ball']) {
 		const ctx = this.#ctx!;
-		const canvas = this.#gameCanvas!;
+		const canvas = this.#canvas!;
 
 		ctx.fillStyle = '#FFF';
 		ctx.beginPath();
@@ -288,7 +428,7 @@ export class GameComponent extends ComponentController {
 
 	#drawScore(scores: Game['Scores']) {
 		const ctx = this.#ctx!;
-		const canvas = this.#gameCanvas!;
+		const canvas = this.#canvas!;
 
 		ctx.fillStyle = '#FFF';
 		ctx.font = 'bold 16px Arial';
@@ -317,10 +457,20 @@ export class GameComponent extends ComponentController {
 		window.removeEventListener('keydown', this.#handleKeyDown);
 		window.removeEventListener('keyup', this.#handleKeyUp);
 
-		this.#gameCanvas = null;
+		const buttons = document.querySelectorAll('[data-side][data-direction]');
+		buttons.forEach(button => {
+			button.removeEventListener('mousedown', this.#handleButtonStart);
+			button.removeEventListener('mouseup', this.#handleButtonEnd);
+			button.removeEventListener('mouseleave', this.#handleButtonEnd);
+			button.removeEventListener('touchstart', this.#handleButtonStart);
+			button.removeEventListener('touchend', this.#handleButtonEnd);
+			button.removeEventListener('touchcancel', this.#handleButtonEnd);
+		});
+
+		this.#canvas = null;
 		this.#ctx = null;
 		this.#gameState = null;
-		this.#onMovement = undefined;
+		this.onMovement = undefined;
 		this.#keyBindings = {};
 	}
 }

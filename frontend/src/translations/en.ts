@@ -23,6 +23,11 @@ export const en = {
 		online_mode_explanation: 'Play on a server, with a matchmaking system and match history tracking.',
 		offline_mode_explanation: 'Play on the same computer, without tracking the matches.',
 		online_mode_login_needed: 'You need to login to play online.',
+		loading: 'Loading...',
+		currently_active_games: 'Currently Active Games',
+		notifications: 'Notifications',
+		last_20_matches: 'Last 20 Matches',
+
 	},
 
 	game_modes: {
@@ -49,6 +54,14 @@ export const en = {
 		tournaments: 'Tournaments',
 		start_playing: 'Start Playing',
 		fullscreen_mode: 'Fullscreen mode',
+		landing_page: 'Landing Page',
+	},
+	play: {
+		enter_your_username: 'Enter Your Username',
+		start_game: 'Start Game',
+		enter_players_usernames: 'Enter Players Usernames',
+		left_player_input_label: 'Left Player (W, S keys)',
+		right_player_input_label: 'Right Player (↑, ↓ keys)',
 	},
 
 	settings: {
@@ -65,7 +78,23 @@ export const en = {
 				success: 'Avatar updated successfully',
 			}
 		}
-	}
+	},
+
+
+	page_titles: {
+		play: {
+			online: {
+				"1v1_game": '1 VS 1 - online game',
+				"1v1_matchmaking": '1 VS 1 Matchmaking - online',
+				"tournaments": 'Tournaments - online',
+			},
+			offline: {
+				"1vAI": '1 VS AI - offline',
+				"1v1": '1 VS 1 - offline',
+				"tournaments": 'Tournaments - offline',
+			}
+		}
+	},
 };
 
 

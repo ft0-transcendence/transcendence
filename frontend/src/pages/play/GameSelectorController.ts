@@ -9,7 +9,6 @@ export class GameSelectorController extends RouteController {
 	#isUserLoggedIn = false;
 
 	#onlineModeLoginButtons: NodeListOf<HTMLElement> | null = null;
-	// #socket: Socket | null = null;
 
 	constructor() {
 		super();
@@ -23,16 +22,6 @@ export class GameSelectorController extends RouteController {
 
 	protected async preRender() {
 		this.#isUserLoggedIn = await authManager.isUserLoggedIn();
-		// this.#socket = io({
-		// 	withCredentials: true,
-		// });
-
-		// this.#socket.on('connect', () => {
-		// 	console.debug('Socket connected to server');
-
-		// });
-
-		// this.#socket!.emit('join-matchmaking');
 	}
 
 	private renderGameMode(gameType: GameType, location: 'online' | 'local', route: `/${string}`, description?: string | null, fa_icon?: string | null) {

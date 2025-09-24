@@ -4,7 +4,7 @@ import { TranslationSchema } from "./en";
  * This is the Italian translation file.
  */
 export const it: TranslationSchema = {
-	generic:{
+	generic: {
 		or: 'Oppure',
 		choose_game_mode: 'Scegli una modalità di gioco',
 		online: 'ONLINE',
@@ -24,6 +24,10 @@ export const it: TranslationSchema = {
 		more_actions: 'Altre azioni',
 		view_profile: 'Vedi profilo',
 		send: 'Invia',
+		currently_active_games: 'Giochi attualmente in corso',
+		notifications: 'Notifiche',
+		last_20_matches: 'Ultime 20 partite',
+		loading: 'Caricamento...',
 	},
 	game_modes: {
 		ai: '1 vs IA',
@@ -47,6 +51,14 @@ export const it: TranslationSchema = {
 		tournaments: 'Tornei',
 		start_playing: 'Inizia a giocare',
 		fullscreen_mode: 'Schermo intero',
+		landing_page: 'Pagina iniziale',
+	},
+	play: {
+		enter_your_username: 'Inserisci il tuo nome utente',
+		start_game: 'Inizia la partita',
+		enter_players_usernames: 'Inserisci i nomi utente dei giocatori',
+		left_player_input_label: 'Giocatore sinistro (tasti W, S)',
+		right_player_input_label: 'Giocatore destro (tasti ↑, ↓)',
 	},
 	settings: {
 		title: 'Impostazioni del profilo',
@@ -60,6 +72,22 @@ export const it: TranslationSchema = {
 			avatar: {
 				title: 'Aggiornamento avatar',
 				success: 'Avatar aggiornato con successo',
+			}
+		}
+	},
+
+
+	page_titles: {
+		play: {
+			online: {
+				"1v1_game": '1 vs 1 - partita online',
+				"1v1_matchmaking": '1 vs 1 Matchmaking - online',
+				"tournaments": 'Tornei - online',
+			},
+			offline: {
+				"1vAI": '1 vs IA - offline',
+				"1v1": '1 vs 1 - offline',
+				"tournaments": 'Tornei - offline',
 			}
 		}
 	}
