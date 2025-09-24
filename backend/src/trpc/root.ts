@@ -1,6 +1,7 @@
 import {createTRPCRouter, t} from "./trpc";
 import {testRouter} from "./routes/test";
 import {userRouter} from "./routes/user";
+import {friendshipRouter} from "./routes/friendship";
 import {inferRouterInputs, inferRouterOutputs} from "@trpc/server";
 
 /**
@@ -10,7 +11,8 @@ import {inferRouterInputs, inferRouterOutputs} from "@trpc/server";
  */
 export const appRouter = createTRPCRouter({
 	test: testRouter,
-	user: userRouter
+	user: userRouter,
+	friendship: friendshipRouter
 })
 
 export type AppRouter = typeof appRouter;

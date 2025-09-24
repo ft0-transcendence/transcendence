@@ -3,6 +3,8 @@ import { Game } from "../game/game";
 import { OnlineGame } from "../game/onlineGame";
 import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
+import { db } from "./trpc/db";
+import { fastify } from "../main";
 
 export type Cache = {
 	matchmaking: {
@@ -10,6 +12,8 @@ export type Cache = {
 		queuedPlayers: TypedSocket[];
 	},
 	activeGames: Map<string, OnlineGame>;
+	onlineUsers: Map<User['id'], TypedSocket>;
+	userSockets: Map<User['id'], Set<TypedSocket>>;
 }
 
 /**
@@ -22,7 +26,9 @@ export const cache: Cache = {
 		connectedUsers: new Set(),
 		queuedPlayers: []
 	},
-	activeGames: new Map()
+	activeGames: new Map(),
+	onlineUsers: new Map(),
+	userSockets: new Map()
 }
 
 
@@ -60,4 +66,144 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 	}
 
 	fastify.log.info(`Loaded ${activeGames.length} active games into cache`);
+}
+
+export function addUserToOnlineCache(userId: User['id'], socket: TypedSocket) {
+	if (!cache.userSockets.has(userId)) {
+		cache.userSockets.set(userId, new Set());
+	}
+	cache.userSockets.get(userId)!.add(socket);
+
+	if (cache.userSockets.get(userId)!.size === 1) {
+		cache.onlineUsers.set(userId, socket);
+		notifyFriendsUserOnline(userId);
+	}
+}
+
+export function removeUserFromOnlineCache(userId: User['id'], socket: TypedSocket) {
+	const userSockets = cache.userSockets.get(userId);
+	if (userSockets) {
+		userSockets.delete(socket);
+
+		if (userSockets.size === 0) {
+			cache.userSockets.delete(userId);
+			cache.onlineUsers.delete(userId);
+			notifyFriendsUserOffline(userId);
+		}
+	}
+}
+
+export function isUserOnline(userId: User['id']): boolean {
+	return cache.onlineUsers.has(userId);
+}
+
+export function getOnlineFriends(userId: User['id']): User['id'][] {
+	// Questa funzione sarà implementata nel socket handler so x ora array vuoto 
+	return [];
+}
+
+async function notifyFriendsUserOnline(userId: User['id']) {
+	try {
+		const friends = await db.friend.findMany({
+			where: {
+				OR: [
+					{ userId: userId, state: 'ACCEPTED' },
+					{ friendId: userId, state: 'ACCEPTED' }
+				]
+			},
+			select: { 
+				userId: true,
+				friendId: true
+			}
+		});
+
+		const user = await db.user.findFirst({
+			where: { id: userId },
+			select: {
+				id: true,
+				username: true,
+				imageUrl: true,
+				imageBlob: true,
+				imageBlobMimeType: true
+			}
+		});
+
+		if (!user) return;
+
+		const friendData = {
+			id: user.id,
+			username: user.username,
+			imageUrl: user.imageUrl,
+			imageBlob: user.imageBlob,
+			imageBlobMimeType: user.imageBlobMimeType,
+			state: 'online' as const
+		};
+
+		for (const friend of friends) {
+			const friendUserId = friend.userId === userId ? friend.friendId : friend.userId;
+			const friendSocket = cache.onlineUsers.get(friendUserId);
+			if (friendSocket) {
+				friendSocket.emit('friend-updated', friendData);
+				friendSocket.emit('notification', {
+					type: 'info',
+					message: `${user.username} is online`
+				});
+			}
+		}
+
+		fastify.log.debug('Notified friends that user %s went online', userId);
+	} catch (error) {
+		fastify.log.error('Error notifying friends of user online:', error);
+	}
+}
+
+async function notifyFriendsUserOffline(userId: User['id']) {
+	try {
+		const friends = await db.friend.findMany({
+			where: {
+				OR: [
+					{ userId: userId, state: 'ACCEPTED' },
+					{ friendId: userId, state: 'ACCEPTED' }
+				]
+			},
+			select: { 
+				userId: true,
+				friendId: true
+			}
+		});
+
+		const user = await db.user.findFirst({
+			where: { id: userId },
+			select: {
+				id: true,
+				username: true,
+				imageUrl: true,
+				imageBlob: true,
+				imageBlobMimeType: true
+			}
+		});
+
+		if (!user) return;
+
+		const friendData = {
+			id: user.id,
+			username: user.username,
+			imageUrl: user.imageUrl,
+			imageBlob: user.imageBlob,
+			imageBlobMimeType: user.imageBlobMimeType,
+			state: 'offline' as const
+		};
+
+		for (const friend of friends) {
+			const friendUserId = friend.userId === userId ? friend.friendId : friend.userId;
+			const friendSocket = cache.onlineUsers.get(friendUserId);
+			if (friendSocket) {
+				friendSocket.emit('friend-updated', friendData);
+			}
+		}
+
+		fastify.log.debug('Notified friends that user %s went offline', userId);
+	} catch (error) {
+		fastify.log.error('Error notifying friends of user offline:', error);
+	}
 }

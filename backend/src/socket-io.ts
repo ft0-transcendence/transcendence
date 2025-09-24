@@ -1,7 +1,7 @@
 import { User, GameType } from '@prisma/client';
 
 import { DefaultEventsMap, Server, Socket } from "socket.io";
-import { cache } from './cache';
+import { cache, addUserToOnlineCache, removeUserFromOnlineCache, isUserOnline } from './cache';
 import { Game, GameUserInfo, MovePaddleAction } from '../game/game';
 import { OnlineGame } from '../game/onlineGame';
 import { fastify } from '../main';
@@ -24,15 +24,21 @@ export function setupSocketHandlers(io: Server) {
 
 	setupMatchmakingNamespace(io);
 	setupOnlineVersusGameNamespace(io);
-
+	setupFriendshipNamespace(io);
 
 	fastify.log.info("Setting up Socket.IO handlers");
-	io.on("connection", (socket: TypedSocket) => {
+	io.on("connection", async (socket: TypedSocket) => {
 		fastify.log.info("Socket connected. id=%s, username=%s", socket.id, socket.data.user.username);
+		addUserToOnlineCache(socket.data.user.id, socket);
+
+		await sendFriendsListToUser(socket.data.user.id, socket);
 	});
 
-	io.on("disconnect", (socket) => {
+	io.on("disconnect", async (socket) => {
 		fastify.log.info("Socket disconnected %s", socket.id);
+		if (socket.data?.user) {
+			removeUserFromOnlineCache(socket.data.user.id, socket);
+		}
 	});
 
 	io.on("error", (err) => {
@@ -303,3 +309,108 @@ function setupOnlineVersusGameNamespace(io: Server) {
 
 	});
 }
+
+function setupFriendshipNamespace(io: Server) {
+	const friendshipNamespace = io.of("/friendship");
+	applySocketAuth(friendshipNamespace);
+
+	friendshipNamespace.on("connection", (socket: TypedSocket) => {
+		const { user } = socket.data;
+		fastify.log.info("Friendship socket connected. id=%s, username=%s", socket.id, user.username);
+
+		socket.on("get-online-friends", async () => {
+			try {
+				const friends = await db.friend.findMany({
+					where: {
+						userId: user.id,
+						state: 'ACCEPTED'
+					},
+					include: {
+						friend: {
+							select: {
+								id: true,
+								username: true,
+								imageUrl: true,
+								imageBlob: true,
+								imageBlobMimeType: true
+							}
+						}
+					}
+				});
+
+				const onlineFriends = friends
+					.filter(f => isUserOnline(f.friend.id))
+					.map(f => ({
+						id: f.friend.id,
+						username: f.friend.username,
+						imageUrl: f.friend.imageUrl,
+						imageBlob: f.friend.imageBlob,
+						imageBlobMimeType: f.friend.imageBlobMimeType,
+						isOnline: true
+					}));
+
+				socket.emit("online-friends", onlineFriends);
+			} catch (error) {
+				fastify.log.error("Error getting online friends:", error);
+				socket.emit("error", "Error retrieving online friend list");
+			}
+		});
+
+		socket.on("disconnect", () => {
+			fastify.log.info("Friendship socket disconnected %s", socket.id);
+		});
+	});
+}
+
+async function sendFriendsListToUser(userId: User['id'], socket: TypedSocket) {
+	try {
+		const friendRelations = await db.friend.findMany({
+			where: {
+				OR: [
+					{ userId: userId, state: 'ACCEPTED' },
+					{ friendId: userId, state: 'ACCEPTED' }
+				]
+			},
+			include: {
+				user: {
+					select: {
+						id: true,
+						username: true,
+						imageUrl: true,
+						imageBlob: true,
+						imageBlobMimeType: true
+					}
+				},
+				friend: {
+					select: {
+						id: true,
+						username: true,
+						imageUrl: true,
+						imageBlob: true,
+						imageBlobMimeType: true
+					}
+				}
+			}
+		});
+
+		const friendsList = friendRelations.map(relation => {
+			const friend = relation.userId === userId ? relation.friend : relation.user;
+			
+			return {
+				id: friend.id,
+				username: friend.username,
+				imageUrl: friend.imageUrl,
+				imageBlob: friend.imageBlob,
+				imageBlobMimeType: friend.imageBlobMimeType,
+				state: isUserOnline(friend.id) ? 'online' : 'offline'
+			};
+		});
+
+		socket.emit('friends-list', friendsList);
+		fastify.log.debug('Sent friends list to user %s: %d friends', userId, friendsList.length);
+	} catch (error) {
+		fastify.log.error('Error sending friends list to user %s:', userId, error);
+	}
+}
+
+
