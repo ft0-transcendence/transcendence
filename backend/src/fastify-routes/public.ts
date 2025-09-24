@@ -10,18 +10,27 @@ export const publicRoutes: FastifyPluginAsync = async (fastify) => {
 
 	fastify.get("/auth/login", {
 		handler: fastifyPassport.authenticate("google", {
-			scope: ["profile", "email"],
+			scope: ["profile", "email"]
+		},
+		async (req, reply) => {
+			const redirectTo = getRequestOrigin(req, 'frontend');
+			reply.redirect(redirectTo);
 		})
 	});
 
 	fastify.get(GOOGLE_AUTH_CALLBACK_ENDPOINT.replace(/^\/api/, ''), {
 		preHandler: fastifyPassport.authenticate("google", {
 			scope: ["profile", "email"],
+		},
+		async (req, reply) => {
+			const redirectTo = getRequestOrigin(req, 'frontend');
+			reply.redirect(redirectTo);
 		}),
 		handler: async (req, reply) => {
 			const redirectTo = getRequestOrigin(req, 'frontend');
 			reply.redirect(redirectTo);
-		}
+		},
+
 	});
 
 	fastify.get("/auth/logout", async (req, reply) => {
