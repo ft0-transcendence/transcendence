@@ -37,12 +37,13 @@ enum FriendState {
 }
 
 model Friend {
-    id       String      @id @default(cuid())
-    state    FriendState
-    userId   String
-    user     User        @relation("friends", fields: [userId], references: [id])
-    friendId String
-    friend   User        @relation("friendOf", fields: [friendId], references: [id])
+    id        String      @id @default(cuid())
+    createdAt DateTime    @default(now())
+    state     FriendState
+    userId    String
+    user      User        @relation("friends", fields: [userId], references: [id])
+    friendId  String
+    friend    User        @relation("friendOf", fields: [friendId], references: [id])
 }
 
 enum TournamentType {

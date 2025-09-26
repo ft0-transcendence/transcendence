@@ -4,58 +4,82 @@ import { FriendState } from "@prisma/client";
 import { isUserOnline, cache } from "../../cache";
 import { fastify } from "../../../main";
 import { TRPCError } from "@trpc/server";
+import { RouterOutputs } from "../root";
 
 export const friendshipRouter = t.router({
 	getFriends: protectedProcedure
 		.query(async ({ctx}) => {
-			const friendRelations = await ctx.db.friend.findMany({
-				where: {
-					friendId: ctx.user!.id,
-					state: FriendState.ACCEPTED,
-					userId: ctx.user!.id
-				},
+			const userWithFriends = await ctx.db.user.findFirst({
+				where: { id: ctx.user!.id },
 				include: {
-					friend: {
+					friends: {
+						where: {
+							state: FriendState.ACCEPTED,
+						},
 						select: {
 							id: true,
-							username: true,
+							user: {
+								select: {
+									id: true,
+									username: true,
+								}
+							}
 						}
 					}
 				}
 			});
 
-			return friendRelations.map(user => {
+			// shouldn't happen
+			if (!userWithFriends) throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+
+			const friendsList = userWithFriends.friends;
+			const mappedFriendsList = friendsList.map(f=>{
 				return {
-					...user,
-					isOnline: isUserOnline(user.id)
+					id: f.user.id,
+					username: f.user.username,
+					friendRelationId: f.id,
+					isOnline: isUserOnline(f.user.id),
 				}
 			});
+			mappedFriendsList.sort((a, b) => a.username.localeCompare(b.username));
+			return mappedFriendsList;
 		}),
 
 	getPendingRequests: protectedProcedure
 		.query(async ({ctx}) => {
-			const pendingRequests = await ctx.db.friend.findMany({
-				where: {
-					friendId: ctx.user!.id,
-					state: FriendState.PENDING
-				},
+			const userWithFriends = await ctx.db.user.findFirst({
+				where: { id: ctx.user!.id },
 				include: {
-					user: {
+					friends: {
+						where: {
+							state: FriendState.PENDING,
+						},
 						select: {
 							id: true,
-							username: true,
+							user: {
+								select: {
+									id: true,
+									username: true,
+								}
+							}
 						}
 					}
 				}
 			});
 
-			return pendingRequests.map(f => ({
-				id: f.id,
-				user: {
+			// shouldn't happen
+			if (!userWithFriends) throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+
+			const friendsList = userWithFriends.friends;
+			const mappedFriendsList = friendsList.map(f=>{
+				return {
 					id: f.user.id,
 					username: f.user.username,
+					friendRelationId: f.id,
 				}
-			}));
+			});
+			mappedFriendsList.sort((a, b) => a.username.localeCompare(b.username));
+			return mappedFriendsList;
 		}),
 
 	sendFriendRequest: protectedProcedure
@@ -66,9 +90,7 @@ export const friendshipRouter = t.router({
 			// Trova l'utente da aggiungere
 			const targetUser = await ctx.db.user.findFirst({
 				where: {
-					username: {
-						equals: input.username,
-					},
+					username: input.username,
 				}
 			});
 
@@ -88,8 +110,16 @@ export const friendshipRouter = t.router({
 
 			const existingRequest = await ctx.db.friend.findFirst({
 				where: {
-					userId: ctx.user!.id,
-					friendId: targetUser.id
+					OR: [
+						{
+							userId: ctx.user!.id,
+							friendId: targetUser.id
+						},
+						{
+							userId: targetUser.id,
+							friendId: ctx.user!.id
+						}
+					]
 				}
 			});
 
@@ -99,12 +129,34 @@ export const friendshipRouter = t.router({
 						code: 'BAD_REQUEST',
 						message: 'You already have a friendship with this user'
 					});
-				} else if (existingRequest.state === FriendState.PENDING) {
+				}
+
+				if (existingRequest.state === FriendState.PENDING) {
 					throw new TRPCError({
 						code: 'BAD_REQUEST',
 						message: 'You already sent a friend request to this user'
 					});
 				}
+				else if (existingRequest.userId !== ctx.user!.id) {
+					await ctx.db.friend.update({
+						where: { id: existingRequest.id },
+						data: { state: FriendState.ACCEPTED }
+					});
+					await ctx.db.friend.create({
+						data: {
+							userId: ctx.user!.id,
+							friendId: targetUser.id,
+							state: FriendState.ACCEPTED
+						},
+					});
+
+					await notifyFriendshipAccepted(targetUser.id, ctx.user!.id);
+
+					return {
+						message: `Now you're friend of ${targetUser.username}`
+					};
+				}
+
 			}
 
 			const friendRequest = await ctx.db.friend.create({
@@ -124,7 +176,7 @@ export const friendshipRouter = t.router({
 
 	acceptFriendRequest: protectedProcedure
 		.input(z.object({
-			requestId: z.string()
+			requestId: z.string().min(1)
 		}))
 		.mutation(async ({ctx, input}) => {
 			const request = await ctx.db.friend.findFirst({
@@ -157,9 +209,6 @@ export const friendshipRouter = t.router({
 				select: {
 					id: true,
 					username: true,
-					imageUrl: true,
-					imageBlob: true,
-					imageBlobMimeType: true
 				}
 			});
 
@@ -223,7 +272,6 @@ export const friendshipRouter = t.router({
 			await notifyFriendshipRemoved(ctx.user!.id, input.friendId);
 
 			return {
-				success: true,
 				message: "Friend removed from your list"
 			};
 		}),
@@ -245,11 +293,7 @@ export const friendshipRouter = t.router({
 				select: {
 					id: true,
 					username: true,
-					imageUrl: true,
-					imageBlob: true,
-					imageBlobMimeType: true
-				},
-				take: 10
+				}
 			});
 
 			return users;
@@ -263,9 +307,6 @@ async function notifyFriendRequestReceived(recipientId: string, senderId: string
 			select: {
 				id: true,
 				username: true,
-				imageUrl: true,
-				imageBlob: true,
-				imageBlobMimeType: true
 			}
 		});
 
@@ -298,9 +339,6 @@ async function notifyFriendshipAccepted(accepterId: string, requesterId: string)
 				select: {
 					id: true,
 					username: true,
-					imageUrl: true,
-					imageBlob: true,
-					imageBlobMimeType: true
 				}
 			}),
 			fastify.prisma.user.findFirst({
@@ -308,9 +346,6 @@ async function notifyFriendshipAccepted(accepterId: string, requesterId: string)
 				select: {
 					id: true,
 					username: true,
-					imageUrl: true,
-					imageBlob: true,
-					imageBlobMimeType: true
 				}
 			})
 		]);
@@ -320,24 +355,19 @@ async function notifyFriendshipAccepted(accepterId: string, requesterId: string)
 		const accepterFriend = {
 			id: accepter.id,
 			username: accepter.username,
-			imageUrl: accepter.imageUrl,
-			imageBlob: accepter.imageBlob,
-			imageBlobMimeType: accepter.imageBlobMimeType,
 			state: isUserOnline(accepter.id) ? 'online' : 'offline'
 		};
 
 		const requesterFriend = {
 			id: requester.id,
 			username: requester.username,
-			imageUrl: requester.imageUrl,
-			imageBlob: requester.imageBlob,
-			imageBlobMimeType: requester.imageBlobMimeType,
 			state: isUserOnline(requester.id) ? 'online' : 'offline'
 		};
 
 		const accepterSocket = cache.onlineUsers.get(accepterId);
 		if (accepterSocket) {
 			accepterSocket.emit('friend-updated', requesterFriend);
+			// README: serve? notification nella lista oppure notification come toast in alto a destra?
 			accepterSocket.emit('notification', {
 				type: 'success',
 				message: `Ora sei amico di ${requester.username}`
