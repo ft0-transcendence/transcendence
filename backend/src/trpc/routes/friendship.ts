@@ -50,7 +50,7 @@ export const friendshipRouter = t.router({
 			const userWithFriends = await ctx.db.user.findFirst({
 				where: { id: ctx.user!.id },
 				include: {
-					friends: {
+					friendOf: {
 						where: {
 							state: FriendState.PENDING,
 						},
@@ -70,7 +70,7 @@ export const friendshipRouter = t.router({
 			// shouldn't happen
 			if (!userWithFriends) throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
 
-			const friendsList = userWithFriends.friends;
+			const friendsList = userWithFriends.friendOf;
 			const mappedFriendsList = friendsList.map(f=>{
 				return {
 					id: f.user.id,
