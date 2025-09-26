@@ -376,14 +376,16 @@ export class Game {
 	#loopAnimationFrame: number | null = null;
 	private startLoop() {
 		this.lastTick = Date.now();
-		this.#loopAnimationFrame = requestAnimationFrame(this.#loop);
+		this.#loopAnimationFrame = requestAnimationFrame(this.loop);
 	}
+	private loop = this.#loop.bind(this);
 
 	#loop(){
 		const now = Date.now();
 		const delta = Math.max(0, now - (this.lastTick ?? now));
 		this.lastTick = now;
 		this.update(delta);
+		this.#loopAnimationFrame = requestAnimationFrame(this.loop);
 	}
 
 	private stopLoop() {
