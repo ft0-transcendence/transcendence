@@ -3,50 +3,32 @@ import { z } from "zod";
 import { FriendState } from "@prisma/client";
 import { isUserOnline, cache } from "../../cache";
 import { fastify } from "../../../main";
+import { TRPCError } from "@trpc/server";
 
 export const friendshipRouter = t.router({
 	getFriends: protectedProcedure
 		.query(async ({ctx}) => {
 			const friendRelations = await ctx.db.friend.findMany({
 				where: {
-					OR: [
-						{ userId: ctx.user!.id, state: FriendState.ACCEPTED },
-						{ friendId: ctx.user!.id, state: FriendState.ACCEPTED }
-					]
+					friendId: ctx.user!.id,
+					state: FriendState.ACCEPTED,
+					userId: ctx.user!.id
 				},
 				include: {
-					user: {
-						select: {
-							id: true,
-							username: true,
-							imageUrl: true,
-							imageBlob: true,
-							imageBlobMimeType: true
-						}
-					},
 					friend: {
 						select: {
 							id: true,
 							username: true,
-							imageUrl: true,
-							imageBlob: true,
-							imageBlobMimeType: true
 						}
 					}
 				}
 			});
 
-			return friendRelations.map(relation => {
-				const friend = relation.userId === ctx.user!.id ? relation.friend : relation.user;
-				
+			return friendRelations.map(user => {
 				return {
-					id: friend.id,
-					username: friend.username,
-					imageUrl: friend.imageUrl,
-					imageBlob: friend.imageBlob,
-					imageBlobMimeType: friend.imageBlobMimeType,
-					isOnline: isUserOnline(friend.id)
-				};
+					...user,
+					isOnline: isUserOnline(user.id)
+				}
 			});
 		}),
 
@@ -62,9 +44,6 @@ export const friendshipRouter = t.router({
 						select: {
 							id: true,
 							username: true,
-							imageUrl: true,
-							imageBlob: true,
-							imageBlobMimeType: true
 						}
 					}
 				}
@@ -75,9 +54,6 @@ export const friendshipRouter = t.router({
 				user: {
 					id: f.user.id,
 					username: f.user.username,
-					imageUrl: f.user.imageUrl,
-					imageBlob: f.user.imageBlob,
-					imageBlobMimeType: f.user.imageBlobMimeType
 				}
 			}));
 		}),
@@ -89,37 +65,45 @@ export const friendshipRouter = t.router({
 		.mutation(async ({ctx, input}) => {
 			// Trova l'utente da aggiungere
 			const targetUser = await ctx.db.user.findFirst({
-				where: { username: input.username }
+				where: {
+					username: {
+						equals: input.username,
+					},
+				}
 			});
 
 			if (!targetUser) {
-				throw new Error("USER_NOT_FOUND");
+				throw new TRPCError({
+					code: 'NOT_FOUND',
+					message: 'User not found'
+				});
 			}
 
 			if (targetUser.id === ctx.user!.id) {
-				throw new Error("CANNOT_ADD_SELF");
+				throw new TRPCError({
+					code: 'BAD_REQUEST',
+					message: 'You cannot send a friend request to yourself'
+				});
 			}
 
 			const existingRequest = await ctx.db.friend.findFirst({
 				where: {
-					OR: [
-						{
-							userId: ctx.user!.id,
-							friendId: targetUser.id
-						},
-						{
-							userId: targetUser.id,
-							friendId: ctx.user!.id
-						}
-					]
+					userId: ctx.user!.id,
+					friendId: targetUser.id
 				}
 			});
 
 			if (existingRequest) {
 				if (existingRequest.state === FriendState.ACCEPTED) {
-					throw new Error("ALREADY_FRIENDS");
+					throw new TRPCError({
+						code: 'BAD_REQUEST',
+						message: 'You already have a friendship with this user'
+					});
 				} else if (existingRequest.state === FriendState.PENDING) {
-					throw new Error("REQUEST_ALREADY_SENT");
+					throw new TRPCError({
+						code: 'BAD_REQUEST',
+						message: 'You already sent a friend request to this user'
+					});
 				}
 			}
 
@@ -134,7 +118,6 @@ export const friendshipRouter = t.router({
 			await notifyFriendRequestReceived(targetUser.id, ctx.user!.id, friendRequest.id);
 
 			return {
-				success: true,
 				message: `Friend request sent to ${targetUser.username}`
 			};
 		}),
@@ -256,7 +239,7 @@ export const friendshipRouter = t.router({
 						contains: input.username,
 					},
 					id: {
-						not: ctx.user!.id 
+						not: ctx.user!.id
 					}
 				},
 				select: {
@@ -294,7 +277,7 @@ async function notifyFriendRequestReceived(recipientId: string, senderId: string
 				id: requestId,
 				user: sender
 			});
-			
+
 			recipientSocket.emit('notification', {
 				type: 'info',
 				message: `${sender.username} sent you a frien request`

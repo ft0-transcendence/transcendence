@@ -71,8 +71,8 @@ export class Game {
 
         initialVelocity: 0.050,
         velocityIncrease: 0.0000003,
-        maxVelocity: 0.12,
-        paddleSpeed: 3.0,
+        maxVelocity: 0.13,
+        paddleSpeed: 1.5,
         movementSensitivity: 0.7,
         maxScore: 10,
 
