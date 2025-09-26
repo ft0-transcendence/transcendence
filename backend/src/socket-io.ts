@@ -99,7 +99,7 @@ function setupMatchmakingNamespace(io: Server) {
 
 				if (activeGameWithCurrentUser) {
 					// se NON è in cache, è stale → chiudi e continua con nuovo matchmaking
-					if (!cache.activeGames.has(activeGameWithCurrentUser.id)) {
+					if (!cache.active_1v1_games.has(activeGameWithCurrentUser.id)) {
 						fastify.log.warn('Stale active game found in DB. Closing it.', activeGameWithCurrentUser.id);
 						await db.game.update({
 							where: { id: activeGameWithCurrentUser.id },
@@ -155,7 +155,7 @@ function setupMatchmakingNamespace(io: Server) {
 									rightPlayerScore: state.scores.right,
 								},
 							});
-							cache.activeGames.delete(gameId);
+							cache.active_1v1_games.delete(gameId);
 							fastify.log.info("Game %s persisted and removed from cache.", gameId);
 						}
 					);
@@ -174,7 +174,7 @@ function setupMatchmakingNamespace(io: Server) {
 
 					newGame.setPlayers(player1Data, player2Data);
 
-					cache.activeGames.set(gameId, newGame);
+					cache.active_1v1_games.set(gameId, newGame);
 				}
 			})();
 		});
@@ -195,7 +195,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 
 		socket.on("join-game", async (gameId: string) => {
 			// maybe add to the game (OnlineGame class) the instance of this socket namespace, so it can call the socket to emit the game's state.
-			const game = cache.activeGames.get(gameId);
+			const game = cache.active_1v1_games.get(gameId);
 
 			let gameUserInfo: GameUserInfo = {
 				id: user.id,
@@ -259,7 +259,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				return;
 			}
 
-			const game = cache.activeGames.get(gameId);
+			const game = cache.active_1v1_games.get(gameId);
 			if (!game) {
 				socket.emit('error', 'Game not found');
 				return;
@@ -289,7 +289,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				socket.emit('error', 'Not in any game room');
 				return;
 			}
-			const game = cache.activeGames.get(gameId);
+			const game = cache.active_1v1_games.get(gameId);
 			if (!game) {
 				socket.emit('error', 'Game not found');
 				return;
@@ -313,7 +313,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 			fastify.log.info(`User ${user.username} left game room ${gameId}`);
 			socket.to(gameId).emit("player-left", { userId: user.id });
 
-			const g = cache.activeGames.get(gameId) as OnlineGame | undefined;
+			const g = cache.active_1v1_games.get(gameId) as OnlineGame | undefined;
 			if (g && g.isPlayerInGame(user.id)) {
 				// Start grace period instead of finishing immediately
 				g.markPlayerDisconnected(user.id);
@@ -329,7 +329,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				isPlayer: false,
 			}
 
-			cache.activeGames.forEach((game, gameId) => {
+			cache.active_1v1_games.forEach((game, gameId) => {
 				const removed = game.removeConnectedUser(userGameInfo);
 				if (removed) {
 					socket.to(gameId).emit('player-left', userGameInfo);
@@ -430,7 +430,7 @@ async function sendFriendsListToUser(userId: User['id'], socket: TypedSocket) {
 
 		const friendsList = friendRelations.map(relation => {
 			const friend = relation.userId === userId ? relation.friend : relation.user;
-			
+
 			return {
 				id: friend.id,
 				username: friend.username,

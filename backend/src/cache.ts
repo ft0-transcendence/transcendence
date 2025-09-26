@@ -11,7 +11,7 @@ export type Cache = {
 		connectedUsers: Set<User['id']>;
 		queuedPlayers: TypedSocket[];
 	},
-	activeGames: Map<string, OnlineGame>;
+	active_1v1_games: Map<string, OnlineGame>;
 	onlineUsers: Map<User['id'], TypedSocket>;
 	userSockets: Map<User['id'], Set<TypedSocket>>;
 }
@@ -26,7 +26,7 @@ export const cache: Cache = {
 		connectedUsers: new Set(),
 		queuedPlayers: []
 	},
-	activeGames: new Map(),
+	active_1v1_games: new Map(),
 	onlineUsers: new Map(),
 	userSockets: new Map()
 }
@@ -54,7 +54,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 						rightPlayerScore: state.scores.right,
 					},
 				});
-				cache.activeGames.delete(game.id);
+				cache.active_1v1_games.delete(game.id);
 				fastify.log.info("Game %s persisted and removed from cache.", game.id);
 			}
 		);
@@ -62,7 +62,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		gameInstance.scores.left = game.leftPlayerScore;
 		gameInstance.scores.right = game.rightPlayerScore;
 
-		cache.activeGames.set(game.id, gameInstance);
+		cache.active_1v1_games.set(game.id, gameInstance);
 	}
 
 	fastify.log.info(`Loaded ${activeGames.length} active games into cache`);
@@ -98,7 +98,7 @@ export function isUserOnline(userId: User['id']): boolean {
 }
 
 export function getOnlineFriends(userId: User['id']): User['id'][] {
-	// Questa funzione sarà implementata nel socket handler so x ora array vuoto 
+	// Questa funzione sarà implementata nel socket handler so x ora array vuoto
 	return [];
 }
 
@@ -111,7 +111,7 @@ async function notifyFriendsUserOnline(userId: User['id']) {
 					{ friendId: userId, state: 'ACCEPTED' }
 				]
 			},
-			select: { 
+			select: {
 				userId: true,
 				friendId: true
 			}
@@ -166,7 +166,7 @@ async function notifyFriendsUserOffline(userId: User['id']) {
 					{ friendId: userId, state: 'ACCEPTED' }
 				]
 			},
-			select: { 
+			select: {
 				userId: true,
 				friendId: true
 			}

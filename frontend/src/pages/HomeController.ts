@@ -81,12 +81,12 @@ export class HomeController extends RouteController {
 
 				<!-- content -->
 				<div class="grow flex flex-col w-full text-center md:h-full md:col-span-4 md:border-l md:border-l-white/15 md:overflow-hidden">
-					<section class="hidden md:flex flex-col w-full justify-center h-44 px-4 pt-2 border-b border-b-white/15 shrink-0 relative">
+					<section class="hidden md:flex flex-col w-full justify-center h-44 px-4 pt-2 border-b border-b-white/15 shrink-0 relative overflow-x-auto">
 						<h4 class="capitalize font-bold" data-i18n="${k('generic.currently_active_games')}">Currently Active Games</h4>
 						<!-- Active games will be listed here -->
-						<div id="${this.id}-active-games" class="flex flex-row gap-4 w-full items-center justify-center grow">
+						<ul id="${this.id}-active-games" class="flex flex-row gap-4 w-full items-center justify-center grow overflow-x-auto">
 							<span>N/A</span>
-						</div>
+						</ul>
 
 
 						<!-- Loading Overlay -->
@@ -142,21 +142,21 @@ export class HomeController extends RouteController {
 		}
 
 		// TODO: REMOVE THIS MOCK DATA ---------------------
-		const friendsMock: SocketFriendInfo[] = [
-			{ id: '1', username: 'Leo (mock)', state: 'online', imageUrl: 'https://picsum.photos/id/10/200/200', imageBlob: null, imageBlobMimeType: null, email: 'leo@example.com', createdAt: new Date() },
-			{ id: '2', username: 'Pasquale (mock)', state: 'online', imageUrl: 'https://picsum.photos/id/100/200/200', imageBlob: null, imageBlobMimeType: null, email: 'pasquale@example.com', createdAt: new Date() },
-			{ id: '3', username: 'Luca (mock)', state: 'offline', imageUrl: 'https://picsum.photos/id/101/200/200', imageBlob: null, imageBlobMimeType: null, email: 'luca@example.com', createdAt: new Date() },
-			{ id: '4', username: 'Giulia (mock)', state: 'online', imageUrl: 'https://picsum.photos/id/102/200/200', imageBlob: null, imageBlobMimeType: null, email: 'giulia@example.com', createdAt: new Date() },
-		]
-		for (const friend of friendsMock) {
-			console.debug('Friend mock', friend);
-			this.#upsertFriend(friend);
-		}
+		// const friendsMock: SocketFriendInfo[] = [
+		// 	{ id: '1', username: 'Leo (mock)', state: 'online', imageUrl: 'https://picsum.photos/id/10/200/200', imageBlob: null, imageBlobMimeType: null, email: 'leo@example.com', createdAt: new Date() },
+		// 	{ id: '2', username: 'Pasquale (mock)', state: 'online', imageUrl: 'https://picsum.photos/id/100/200/200', imageBlob: null, imageBlobMimeType: null, email: 'pasquale@example.com', createdAt: new Date() },
+		// 	{ id: '3', username: 'Luca (mock)', state: 'offline', imageUrl: 'https://picsum.photos/id/101/200/200', imageBlob: null, imageBlobMimeType: null, email: 'luca@example.com', createdAt: new Date() },
+		// 	{ id: '4', username: 'Giulia (mock)', state: 'online', imageUrl: 'https://picsum.photos/id/102/200/200', imageBlob: null, imageBlobMimeType: null, email: 'giulia@example.com', createdAt: new Date() },
+		// ]
+		// for (const friend of friendsMock) {
+		// 	console.debug('Friend mock', friend);
+		// 	this.#upsertFriend(friend);
+		// }
 
-		setTimeout(() => {
-			friendsMock[0].state = 'offline';
-			this.#upsertFriend(friendsMock[0]);
-		}, 10000);
+		// setTimeout(() => {
+		// 	friendsMock[0].state = 'offline';
+		// 	this.#upsertFriend(friendsMock[0]);
+		// }, 10000);
 		// TODO: REMOVE THIS MOCK DATA------------------------
 
 		this.#updateFriendsCount();
@@ -231,10 +231,10 @@ export class HomeController extends RouteController {
 			this.#last20MatchesContainer.appendChild(matchElement);
 		}
 		if (matches.length === 0) {
-			this.#last20MatchesContainer.innerHTML = `
-			<div class="flex flex-col items-center justify-center w-full grow">
-				<span class="text-lg text-gray-400">No matches found</span>
-			</div>
+			this.#last20MatchesContainer.innerHTML = /*html*/ `
+				<div class="flex flex-col items-center justify-center w-full grow">
+					<span class="text-lg text-gray-400" data-i18n="${k('generic.no_matches')}">No matches found</span>
+				</div>
 			`;
 		}
 	}
@@ -243,12 +243,54 @@ export class HomeController extends RouteController {
 
 	// ACTIVE GAMES FUNCTIONS ---------------------------------------------------------------------------------------
 	#activeGamesContainer: HTMLElement | null = null;
-	#fetchAndRenderActiveGames() {
+	async #fetchAndRenderActiveGames() {
 		if (!this.#activeGamesContainer) return;
 		this.#loadingOverlays.activeGames.show();
-		// const activeGames = await api.game.getActiveGames.query();
-		// this.#renderActiveGames(activeGames);
-		// this.#loadingOverlays.activeGames.hide();
+		const activeGames = await api.game.getActiveGames.query();
+		this.#renderActiveGames(activeGames);
+		this.#loadingOverlays.activeGames.hide();
+	}
+
+	#renderActiveGames(activeGames: RouterOutputs['game']['getActiveGames']) {
+		if (!this.#activeGamesContainer) return;
+
+		this.#activeGamesContainer.innerHTML = ``;
+		for (const game of activeGames) {
+			const gameElement = document.createElement('li');
+			gameElement.className = 'shrink-0 bg-black hover:bg-black/90 game-item group transition-colors rounded-lg even:bg-zinc-500/5 h-full flex items-center justify-center';
+			gameElement.id = `game-${game.id}`;
+			gameElement.innerHTML = /*html*/`
+			<div class="flex items-center justify-center px-1 py-2">
+				<div class="grid grid-cols-3 gap-1 items-center col-span-4">
+					<div class="flex flex-col justify-center items-center gap-1 text-xs">
+						<img src="${getProfilePictureUrlByUserId(game.leftPlayer.id)}"
+						 alt="${game.leftPlayer.username}'s avatar"
+						 class="w-6 h-6 rounded-full object-cover match-image ring-1 ring-white/10">
+						<span>${game.leftPlayer.username}</span>
+					</div>
+					<div class="text-base font-bold flex items-center justify-center">
+						<span class="${game.leftPlayerScore > game.rightPlayerScore ? 'text-green-500' : 'text-red-500'}">${game.leftPlayerScore}</span>
+						<span>:</span>
+						<span class="${game.leftPlayerScore > game.rightPlayerScore ? 'text-red-500' : 'text-green-500'}">${game.rightPlayerScore}</span>
+					</div>
+					<div class="flex flex-col justify-center items-center gap-1 text-xs">
+						<img src="${getProfilePictureUrlByUserId(game.rightPlayer.id)}"
+						 alt="${game.rightPlayer.username}'s avatar"
+						 class="w-6 h-6 rounded-full object-cover match-image ring-1 ring-white/10">
+						 <span>${game.rightPlayer.username}</span>
+					</div>
+				</div>
+			</div>
+		`;
+			this.#activeGamesContainer.appendChild(gameElement);
+		}
+		if (activeGames.length === 0) {
+			this.#activeGamesContainer.innerHTML = /*html*/ `
+				<div class="flex flex-col items-center justify-center w-full grow">
+					<span class="text-lg text-gray-400" data-i18n="${k('generic.no_games')}">No games found</span>
+				</div>
+			`;
+		}
 	}
 
 	// END ACTIVE GAMES FUNCTIONS --------------------------------------------------------------------------------------
@@ -290,10 +332,10 @@ export class HomeController extends RouteController {
 			this.#notificationsContainer.appendChild(friendElement);
 		}
 		if (pendingFriendsRequests.length === 0) {
-			this.#notificationsContainer.innerHTML = `
-			<div class="flex flex-col items-center justify-center w-full grow">
-				<span class="text-lg text-gray-400">Nothing here</span>
-			</div>
+			this.#notificationsContainer.innerHTML = /*html*/`
+				<div class="flex flex-col items-center justify-center w-full grow">
+					<span class="text-lg text-gray-400" data-i18n="${k('generic.no_notifications')}">Nothing here</span>
+				</div>
 			`;
 		}
 	}

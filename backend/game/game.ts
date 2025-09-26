@@ -80,6 +80,8 @@ export class Game {
 		enableInternalLoop: true,
 	}
 
+	#gameId: string = '';
+
 
 	get currentConfig() {
 		return this.#config;
@@ -91,7 +93,6 @@ export class Game {
 	};
 
 	// Internal loop management
-	private loopHandle: ReturnType<typeof setInterval> | null = null;
 	private lastTick: number | null = null;
 
 	public state: GameState;
@@ -143,7 +144,7 @@ export class Game {
 		if (this.state === GameState.TOSTART || this.state === GameState.FINISH) {
 			this.state = GameState.RUNNING;
 			this.reset();
-			if (!this.loopHandle) {
+			if (!this.#loopAnimationFrame) {
 				this.startLoop();
 			}
 		}
@@ -371,20 +372,26 @@ export class Game {
 		return this._rightPlayer ?? { id: '2', username: 'Pasquale' };
 	}
 
+
+	#loopAnimationFrame: number | null = null;
 	private startLoop() {
-		const TICK_MS = 16; // ~60fps
 		this.lastTick = Date.now();
-		this.loopHandle = setInterval(() => {
-			const now = Date.now();
-			const delta = Math.max(0, now - (this.lastTick ?? now));
-			this.lastTick = now;
-			this.update(delta);
-		}, TICK_MS);
+		this.#loopAnimationFrame = requestAnimationFrame(this.#loop);
 	}
+
+	#loop(){
+		const now = Date.now();
+		const delta = Math.max(0, now - (this.lastTick ?? now));
+		this.lastTick = now;
+		this.update(delta);
+	}
+
 	private stopLoop() {
-		if (this.loopHandle) {
-			clearInterval(this.loopHandle);
-			this.loopHandle = null;
+		if (this.#loopAnimationFrame) {
+			if (this.#loopAnimationFrame) {
+				cancelAnimationFrame(this.#loopAnimationFrame);
+			}
+			this.#loopAnimationFrame = null;
 		}
 	}
 	private stopLoopIfNeeded() {

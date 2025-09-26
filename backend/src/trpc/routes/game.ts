@@ -1,7 +1,31 @@
+import { cache } from "@backend/src/cache";
 import {protectedProcedure, publicProcedure, t} from "../trpc";
 import {z} from "zod";
 
 export const gameRouter = t.router({
+
+	getActiveGames: protectedProcedure
+		.query(async ({ ctx }) => {
+			const activeGames = await ctx.db.game.findMany({
+				where: { endDate: null, tournamentId: null, nextGameId: null },
+				include: {
+					leftPlayer: {
+						select: {
+							id: true,
+							username: true,
+						}
+					},
+					rightPlayer: {
+						select: {
+							id: true,
+							username: true,
+						}
+					}
+				}
+			})
+			return activeGames;
+		}),
+
 	lastNMatches: protectedProcedure
 		.input(z.object({
 			quantity: z.number().min(1).max(100).optional().default(20),
@@ -22,7 +46,12 @@ export const gameRouter = t.router({
 					OR: [
 						{ leftPlayerId: id },
 						{ rightPlayerId: id },
-					]
+					],
+					endDate: {
+						not: null,
+					},
+					tournamentId: null,
+					nextGameId: null,
 				},
 				include: {
 					leftPlayer: {
@@ -44,7 +73,6 @@ export const gameRouter = t.router({
 				const mySide: "left" | "right" = m.leftPlayerId === id ? 'left' : 'right';
 				const winner = m.leftPlayerScore > m.rightPlayerScore ? m.leftPlayer : m.rightPlayer;
 				const result: "W" | "L" = winner.id === id ? 'W' : 'L';
-
 				return {
 					...m,
 					result,
