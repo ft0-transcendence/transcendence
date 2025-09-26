@@ -230,6 +230,13 @@ export class HomeController extends RouteController {
 		`;
 			this.#last20MatchesContainer.appendChild(matchElement);
 		}
+		if (matches.length === 0) {
+			this.#last20MatchesContainer.innerHTML = `
+			<div class="flex flex-col items-center justify-center w-full grow">
+				<span class="text-lg text-gray-400">No matches found</span>
+			</div>
+			`;
+		}
 	}
 	// END LAST 20 MATCHES FUNCTIONS -------------------------------------------------------------------------------------
 
@@ -248,12 +255,47 @@ export class HomeController extends RouteController {
 
 	// NOTIFICATIONS FUNCTIONS -----------------------------------------------------------------------------------------
 	#notificationsContainer: HTMLElement | null = null;
-	#fetchAndRenderNotifications() {
+	async #fetchAndRenderNotifications() {
 		if (!this.#notificationsContainer) return;
 		this.#loadingOverlays.notifications.show();
-		// const notifications = await api.notification.getNotifications.query();
-		// this.#renderNotifications(notifications);
-		// this.#loadingOverlays.notifications.hide();
+		const pendingFriendsRequests = await api.friendship.getPendingRequests.query();
+		this.#renderNotifications(pendingFriendsRequests);
+		this.#loadingOverlays.notifications.hide();
+	}
+	#renderNotifications(pendingFriendsRequests: RouterOutputs['friendship']['getPendingRequests']) {
+		if (!this.#notificationsContainer) return;
+		this.#notificationsContainer.innerHTML = ``;
+		for (const friend of pendingFriendsRequests) {
+			const friendElement = document.createElement('li');
+			friendElement.className = 'friend-item group hover:bg-white/5 transition-colors rounded-lg';
+			friendElement.id = `frien-list-item-${friend.id}`;
+			friendElement.innerHTML = /*html*/`
+			<div class="flex items-center gap-3 p-2">
+				<!-- Friend Avatar -->
+				<div class="relative">
+					<img src="${getProfilePictureUrlByUserId(friend.id)}"
+						 alt="${friend.username}'s avatar"
+						 class="w-10 h-10 rounded-full object-cover friend-image ring-1 ring-white/10">
+				</div>
+				<div class="flex flex-col grow">
+					<span class="text-sm font-semibold friend-username">${friend.username}</span>
+					</div>
+				<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+					<button class="py-1 px-2 cursor-pointer rounded-full hover:bg-white/10 transition-colors friend-action-button">
+						<i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+					</button>
+				</div>
+			</div>
+		`;
+			this.#notificationsContainer.appendChild(friendElement);
+		}
+		if (pendingFriendsRequests.length === 0) {
+			this.#notificationsContainer.innerHTML = `
+			<div class="flex flex-col items-center justify-center w-full grow">
+				<span class="text-lg text-gray-400">Nothing here</span>
+			</div>
+			`;
+		}
 	}
 
 
