@@ -17,10 +17,6 @@ export class LocalVersusPlayerGameController extends RouteController {
 		super(params);
 		this.#game = new GameClass({
 			gameStartCountdown: 3000,
-			maxScore: 10,
-			initialVelocity: 0.025,
-			velocityIncrease: 0.000005,
-			maxVelocity: 0.175,
 			debug: false
 		});
 

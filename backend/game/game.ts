@@ -72,9 +72,9 @@ export class Game {
         initialVelocity: 0.075,
         velocityIncrease: 0.0000005,
         maxVelocity: 0.12,
-        paddleSpeed: 4.2,
-        movementSensitivity: 0.7,
-        maxScore: 10,
+        paddleSpeed: 2.8,
+        movementSensitivity: 0.5,
+        maxScore: 7,
 
         paddleHeightPercentage: 20,
         enableInternalLoop: true,
@@ -153,21 +153,19 @@ export class Game {
         this._leftPlayer = player1;
         this._rightPlayer = player2;
     }
-    public playerReady(_player: GameUserInfo): void {
-
-        // TODO: aggiungere logica per startare il gioco quando entrambi i giocatori sono pronti
-        if (this.leftPlayer && this.leftPlayer.id === _player.id) {
+    public playerReady(player: GameUserInfo): void {
+        if (this.leftPlayer && this.leftPlayer.id === player.id) {
             this.leftPlayerReady = true;
-        } else if (this.rightPlayer && this.rightPlayer.id === _player.id) {
+        } else if (this.rightPlayer && this.rightPlayer.id === player.id) {
             this.rightPlayerReady = true;
         }
         if (this.leftPlayerReady && this.rightPlayerReady) {
             this.start();
-            /*if (this.state === GameState.TOSTART) {
-                this.start();*/
         }
     }
-    public isPlayerInGame(_id: GameUserInfo['id']): boolean { return false; }
+    public isPlayerInGame(id: GameUserInfo['id']): boolean {
+        return id === this._leftPlayer?.id || id === this._rightPlayer?.id;
+    }
 
     public movePaddle(player: "left" | "right", direction: MovePaddleAction): void {
         if (this.state !== GameState.RUNNING) return;
@@ -387,7 +385,9 @@ export class Game {
             this.loopHandle = null;
         }
     }
-    private stopLoopIfNeeded() { /* no-op: keep loop running */ }
+    private stopLoopIfNeeded() {
+        // Keep loop running for external systems to handle cleanup
+    }
 
     public onTick(callback: (state: GameStatus, now: number) => void): () => void {
         this.tickListeners.push(callback);
