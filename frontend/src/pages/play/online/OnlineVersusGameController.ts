@@ -1,6 +1,7 @@
 import { Game } from "@shared";
 import { GameComponent } from "@src/components/GameComponent";
 import { authManager } from "@src/tools/AuthManager";
+import { t } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
 import { io, Socket } from "socket.io-client";
@@ -43,6 +44,11 @@ export class OnlineVersusGameController extends RouteController {
 		});
 		this.registerChildComponent(this.#gameComponent);
 
+		this.updateTitleSuffix();
+	}
+
+	override updateTitleSuffix() {
+		this.titleSuffix = t('page_titles.play.online.1v1_game') || '1 VS 1 - game';
 	}
 
 	#setupSocketEvents() {
@@ -155,7 +161,7 @@ export class OnlineVersusGameController extends RouteController {
 		console.debug('Listening for errors');
 
 		this.#gameComponent.setMovementHandler((side, direction, type) => {
-			if (this.#gameState?.state !== 'RUNNING') return;
+			// if (this.#gameState?.state !== 'RUNNING') return;
 			const event = type === 'press' ? 'player-press' : 'player-release';
 			this.#gameSocket.emit(event, direction);
 		});

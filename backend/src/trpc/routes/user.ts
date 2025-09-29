@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import {protectedProcedure, t} from "../trpc";
+import {protectedProcedure, publicProcedure, t} from "../trpc";
 import { z } from "zod";
 
 const MAX_PROFILE_PICTURE_SIZE_MB = 2.5;
@@ -12,6 +12,11 @@ export const userRouter = t.router({
 				where: {
 					id: ctx.user!.id,
 				},
+				omit: {
+					imageBlob: true,
+					imageBlobMimeType: true,
+					imageUrl: true,
+				}
 			});
 			return user;
 		}),

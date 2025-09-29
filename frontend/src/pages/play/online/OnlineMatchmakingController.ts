@@ -1,20 +1,28 @@
 import { router } from "@src/pages/_router";
+import { t } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
+import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
 import { io, Socket } from "socket.io-client";
 
 export class OnlineMatchmakingController extends RouteController {
 	#redirectToGameSeconds = 5;
 	#matchmakingSocket: Socket;
 
-	constructor() {
-		super();
+	constructor(params?: Record<string, string>) {
+		super(params);
+
 		this.#matchmakingSocket = io('/matchmaking', {
 			withCredentials: true,
 		});
 		this.#matchmakingSocket.on('connect', () => {
 			console.debug('Matchmaking Socket connected to server');
 		});
+		this.updateTitleSuffix();
+	}
+
+	override updateTitleSuffix() {
+		this.titleSuffix = t('page_titles.play.online.1v1_matchmaking') || '1 VS 1 Matchmaking - online';
 	}
 
 	async preRender() {
@@ -115,8 +123,7 @@ export class OnlineMatchmakingController extends RouteController {
 
 			$lookingForMatch.classList.add('hidden');
 
-			const blob = new Blob([data.opponent.imageBlob], { type: data.opponent.imageBlobMimeType });
-			$opponentImage.src = URL.createObjectURL(blob);
+			$opponentImage.src = getProfilePictureUrlByUserId(data.opponent.id);
 			$opponentUsername.innerText = data.opponent.username;
 
 			this.#matchmakingSocket?.close();
@@ -125,7 +132,7 @@ export class OnlineMatchmakingController extends RouteController {
 
 			const timeLeft = new Date(Date.now() + (this.#redirectToGameSeconds * 1000));
 			this.#animateRedirectTimer(timeLeft, () => {
-				window.location.href = `/play/online/1v1/${data.gameId}`;
+				router.navigate(`/play/online/1v1/${data.gameId}`);
 			});
 		});
 
@@ -133,7 +140,7 @@ export class OnlineMatchmakingController extends RouteController {
 			console.warn('Error', data);
 			toast.error('Error', data);
 			this.#matchmakingSocket.emit('leave-matchmaking');
-			window.location.href = '/play';
+			router.navigate('/play/');
 		});
 	}
 

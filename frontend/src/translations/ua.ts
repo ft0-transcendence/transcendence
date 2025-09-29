@@ -24,6 +24,10 @@ export const ua: TranslationSchema = {
 		view_profile: 'Переглянути профіль',
 		send: 'Надіслати',
 		sending_request: 'Надсилання запиту...',
+		currently_active_games: 'Поточні активні гри',
+		notifications: 'Сповіщення',
+		last_20_matches: 'Останні 20 матчів',
+		loading: 'Завантаження...',
 	},
 	game_modes: {
 		ai: '1 vs AI',
@@ -47,6 +51,7 @@ export const ua: TranslationSchema = {
 		tournaments: 'Турніри',
 		start_playing: 'Почати грати',
 		fullscreen_mode: 'Повноекранний режим',
+		landing_page: 'Головна сторінка',
 	},
 	play: {
 		enter_your_username: 'Введіть своє ім’я користувача',
@@ -69,5 +74,19 @@ export const ua: TranslationSchema = {
 				success: 'Аватар оновлено успішно',
 			}
 		}
-	}
+	},
+	page_titles: {
+		play: {
+			online: {
+				"1v1_game": '1 vs 1 - гра онлайн',
+				"1v1_matchmaking": '1 vs 1 Matchmaking - онлайн',
+				"tournaments": 'Турніри - онлайн',
+			},
+			offline: {
+				"1vAI": '1 vs AI - оффлайн',
+				"1v1": '1 vs 1 - оффлайн',
+				"tournaments": 'Турніри - оффлайн',
+			}
+		}
+	},
 }

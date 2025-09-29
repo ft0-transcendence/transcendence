@@ -2,7 +2,7 @@ import { RouteController } from '@tools/ViewController';
 import { Game, GameClass } from '@shared';
 import { GameComponent } from '@src/components/GameComponent';
 import { authManager } from '@src/tools/AuthManager';
-import { k } from '@src/tools/i18n';
+import { k, t } from '@src/tools/i18n';
 
 export class LocalVersusAiGameController extends RouteController {
 	#game: GameClass;
@@ -40,6 +40,12 @@ export class LocalVersusAiGameController extends RouteController {
 		});
 		this.#gameComponent.updateKeyBindings({})
 		this.registerChildComponent(this.#gameComponent);
+
+		this.updateTitleSuffix();
+	}
+
+	override updateTitleSuffix() {
+		this.titleSuffix = t('page_titles.play.offline.1vAI') || '1 VS AI - offline';
 	}
 
 	async render() {

@@ -1,7 +1,9 @@
 import { Game } from "@shared";
+import { authManager } from "@src/tools/AuthManager";
 import { k } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { ComponentController } from "@src/tools/ViewController";
+import { isMobile } from '../utils/agentUtils';
 
 export type GameComponentProps = {
 
@@ -89,6 +91,7 @@ export class GameComponent extends ComponentController {
 
 	public updateGameState(state: Game['GameStatus']) {
 		this.#gameState = state;
+
 		const $debugContainer = document.getElementById(`${this.id}-debug-container`);
 
 		if (!$debugContainer){
@@ -100,6 +103,12 @@ export class GameComponent extends ComponentController {
 			} else {
 				$debugContainer.classList.add('hidden');
 			}
+		}
+		if (!state.rightPlayer?.isPlayer){
+			this.#rightPlayerActive = false;
+		}
+		if (!state.leftPlayer?.isPlayer){
+			this.#leftPlayerActive = false;
 		}
 
 
@@ -206,11 +215,24 @@ export class GameComponent extends ComponentController {
 		this.#leftPlayerActive = left;
 		this.#rightPlayerActive = right;
 
+		const isMobileDevice = isMobile();
+
 		const $leftPlayerControls = document.querySelectorAll('.controls-left-player');
 		const $rightPlayerControls = document.querySelectorAll('.controls-right-player');
+		$leftPlayerControls?.forEach(el => {
+			el.classList.toggle('!hidden', !left || !isMobileDevice);
+			el.classList.toggle('flex-col', right);
+		});
+		$rightPlayerControls?.forEach(el =>{
+			el.classList.toggle('!hidden', !right || !isMobileDevice);
+			el.classList.toggle('flex-col', left);
+		});
 
-		$leftPlayerControls?.forEach(el => el.classList.toggle('invisible', !left));
-		$rightPlayerControls?.forEach(el => el.classList.toggle('invisible', !right));
+		if (!left && !right) {
+			document.querySelector(`${this.id}-mobile-controls`)?.classList.add('!hidden');
+		} else {
+			document.querySelector(`${this.id}-mobile-controls`)?.classList.remove('!hidden');
+		}
 	}
 
 	/**
@@ -246,7 +268,7 @@ export class GameComponent extends ComponentController {
 					<p id="${this.id}-game-state">${this.#gameState}</p>
 				</div>
 				<div class="flex flex-col grow bg-black/50 w-full items-center justify-center">
-					<canvas id="${this.id}-game-canvas" class="w-full aspect-[4/3]"></canvas>
+					<canvas id="${this.id}-game-canvas" class="w-full aspect-[4/3] border border-white"></canvas>
 				</div>
 				<div id="${this.id}-error-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
 					<h4 id="${this.id}-error-message" class="text-red-500"></h4>
@@ -257,9 +279,9 @@ export class GameComponent extends ComponentController {
 				</div>
 
 				<!-- Mobile Controls -->
-				<div class="flex sm:hidden justify-between w-full p-4 pb-8">
+				<div id="${this.id}-mobile-controls" class="flex justify-evenly w-full p-4 pb-8">
 					<!-- Left Controls -->
-					<div class="flex gap-2 controls-left-player">
+					<div class="flex flex-col gap-2 controls-left-player grow justify-evenly items-center">
 						<button data-side="left" data-direction="up" class="w-16 h-16 bg-zinc-800/80 rounded-xl active:bg-zinc-700 flex items-center justify-center touch-none select-none">
 							<i class="fa fa-arrow-up text-2xl"></i>
 						</button>
@@ -269,7 +291,7 @@ export class GameComponent extends ComponentController {
 					</div>
 
 					<!-- Right Controls -->
-					<div class="flex gap-2 controls-right-player">
+					<div class="flex flex-col gap-2 controls-right-player grow justify-evenly items-center">
 						<button data-side="right" data-direction="up" class="w-16 h-16 bg-zinc-800/80 rounded-xl active:bg-zinc-700 flex items-center justify-center touch-none select-none">
 							<i class="fa fa-arrow-up text-2xl"></i>
 						</button>

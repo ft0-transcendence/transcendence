@@ -1,7 +1,7 @@
 import { User, GameType } from '@prisma/client';
 
 import { DefaultEventsMap, Server, Socket } from "socket.io";
-import { cache } from './cache';
+import { cache, addUserToOnlineCache, removeUserFromOnlineCache, isUserOnline } from './cache';
 import { Game, GameUserInfo, MovePaddleAction } from '../game/game';
 import { OnlineGame } from '../game/onlineGame';
 import { fastify } from '../main';
@@ -24,15 +24,21 @@ export function setupSocketHandlers(io: Server) {
 
 	setupMatchmakingNamespace(io);
 	setupOnlineVersusGameNamespace(io);
-
+	setupFriendshipNamespace(io);
 
 	fastify.log.info("Setting up Socket.IO handlers");
-	io.on("connection", (socket: TypedSocket) => {
+	io.on("connection", async (socket: TypedSocket) => {
 		fastify.log.info("Socket connected. id=%s, username=%s", socket.id, socket.data.user.username);
+		addUserToOnlineCache(socket.data.user.id, socket);
+
+		await sendFriendsListToUser(socket.data.user.id, socket);
 	});
 
-	io.on("disconnect", (socket) => {
+	io.on("disconnect", async (socket) => {
 		fastify.log.info("Socket disconnected %s", socket.id);
+		if (socket.data?.user) {
+			removeUserFromOnlineCache(socket.data.user.id, socket);
+		}
 	});
 
 	io.on("error", (err) => {
@@ -88,12 +94,12 @@ function setupMatchmakingNamespace(io: Server) {
 							{ rightPlayerId: user.id },
 						],
 					},
-					include: { leftPlayer: true, rightPlayer: true },
+					include: { leftPlayer: {select: {id: true, username: true}}, rightPlayer: {select: {id: true, username: true}} },
 				});
 
 				if (activeGameWithCurrentUser) {
 					// se NON è in cache, è stale → chiudi e continua con nuovo matchmaking
-					if (!cache.activeGames.has(activeGameWithCurrentUser.id)) {
+					if (!cache.active_1v1_games.has(activeGameWithCurrentUser.id)) {
 						fastify.log.warn('Stale active game found in DB. Closing it.', activeGameWithCurrentUser.id);
 						await db.game.update({
 							where: { id: activeGameWithCurrentUser.id },
@@ -105,11 +111,13 @@ function setupMatchmakingNamespace(io: Server) {
 							? activeGameWithCurrentUser.rightPlayer
 							: activeGameWithCurrentUser.leftPlayer;
 
+						const opponentData: GameUserInfo = { id: opponent.id, username: opponent.username, isPlayer: true };
+
 						fastify.log.info('User already in active game, skipping matchmaking', user.username);
 
 						socket.emit('match-found', {
 							gameId: activeGameWithCurrentUser.id,
-							opponent: opponent,
+							opponent: opponentData,
 						});
 						return;
 					}
@@ -131,8 +139,8 @@ function setupMatchmakingNamespace(io: Server) {
 					const player1Data: GameUserInfo = { id: player1.data.user.id, username: player1.data.user.username, isPlayer: true };
 					const player2Data: GameUserInfo = { id: player2.data.user.id, username: player2.data.user.username, isPlayer: true };
 
-					player1.emit('match-found', { gameId, opponent: player2.data.user });
-					player2.emit('match-found', { gameId, opponent: player1.data.user });
+					player1.emit('match-found', { gameId, opponent: player2Data });
+					player2.emit('match-found', { gameId, opponent: player1Data });
 
 					const newGame = new OnlineGame(
 						gameId,
@@ -147,7 +155,7 @@ function setupMatchmakingNamespace(io: Server) {
 									rightPlayerScore: state.scores.right,
 								},
 							});
-							cache.activeGames.delete(gameId);
+							cache.active_1v1_games.delete(gameId);
 							fastify.log.info("Game %s persisted and removed from cache.", gameId);
 						}
 					);
@@ -166,7 +174,7 @@ function setupMatchmakingNamespace(io: Server) {
 
 					newGame.setPlayers(player1Data, player2Data);
 
-					cache.activeGames.set(gameId, newGame);
+					cache.active_1v1_games.set(gameId, newGame);
 				}
 			})();
 		});
@@ -187,7 +195,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 
 		socket.on("join-game", async (gameId: string) => {
 			// maybe add to the game (OnlineGame class) the instance of this socket namespace, so it can call the socket to emit the game's state.
-			const game = cache.activeGames.get(gameId);
+			const game = cache.active_1v1_games.get(gameId);
 
 			let gameUserInfo: GameUserInfo = {
 				id: user.id,
@@ -251,7 +259,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				return;
 			}
 
-			const game = cache.activeGames.get(gameId);
+			const game = cache.active_1v1_games.get(gameId);
 			if (!game) {
 				socket.emit('error', 'Game not found');
 				return;
@@ -281,7 +289,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				socket.emit('error', 'Not in any game room');
 				return;
 			}
-			const game = cache.activeGames.get(gameId);
+			const game = cache.active_1v1_games.get(gameId);
 			if (!game) {
 				socket.emit('error', 'Game not found');
 				return;
@@ -305,7 +313,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 			fastify.log.info(`User ${user.username} left game room ${gameId}`);
 			socket.to(gameId).emit("player-left", { userId: user.id });
 
-			const g = cache.activeGames.get(gameId) as OnlineGame | undefined;
+			const g = cache.active_1v1_games.get(gameId) as OnlineGame | undefined;
 			if (g && g.isPlayerInGame(user.id)) {
 				// Start grace period instead of finishing immediately
 				g.markPlayerDisconnected(user.id);
@@ -321,7 +329,7 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				isPlayer: false,
 			}
 
-			cache.activeGames.forEach((game, gameId) => {
+			cache.active_1v1_games.forEach((game, gameId) => {
 				const removed = game.removeConnectedUser(userGameInfo);
 				if (removed) {
 					socket.to(gameId).emit('player-left', userGameInfo);
@@ -336,3 +344,108 @@ function setupOnlineVersusGameNamespace(io: Server) {
 
 	});
 }
+
+function setupFriendshipNamespace(io: Server) {
+	const friendshipNamespace = io.of("/friendship");
+	applySocketAuth(friendshipNamespace);
+
+	friendshipNamespace.on("connection", (socket: TypedSocket) => {
+		const { user } = socket.data;
+		fastify.log.info("Friendship socket connected. id=%s, username=%s", socket.id, user.username);
+
+		socket.on("get-online-friends", async () => {
+			try {
+				const friends = await db.friend.findMany({
+					where: {
+						userId: user.id,
+						state: 'ACCEPTED'
+					},
+					include: {
+						friend: {
+							select: {
+								id: true,
+								username: true,
+								imageUrl: true,
+								imageBlob: true,
+								imageBlobMimeType: true
+							}
+						}
+					}
+				});
+
+				const onlineFriends = friends
+					.filter(f => isUserOnline(f.friend.id))
+					.map(f => ({
+						id: f.friend.id,
+						username: f.friend.username,
+						imageUrl: f.friend.imageUrl,
+						imageBlob: f.friend.imageBlob,
+						imageBlobMimeType: f.friend.imageBlobMimeType,
+						isOnline: true
+					}));
+
+				socket.emit("online-friends", onlineFriends);
+			} catch (error) {
+				fastify.log.error("Error getting online friends:", error);
+				socket.emit("error", "Error retrieving online friend list");
+			}
+		});
+
+		socket.on("disconnect", () => {
+			fastify.log.info("Friendship socket disconnected %s", socket.id);
+		});
+	});
+}
+
+async function sendFriendsListToUser(userId: User['id'], socket: TypedSocket) {
+	try {
+		const friendRelations = await db.friend.findMany({
+			where: {
+				OR: [
+					{ userId: userId, state: 'ACCEPTED' },
+					{ friendId: userId, state: 'ACCEPTED' }
+				]
+			},
+			include: {
+				user: {
+					select: {
+						id: true,
+						username: true,
+						imageUrl: true,
+						imageBlob: true,
+						imageBlobMimeType: true
+					}
+				},
+				friend: {
+					select: {
+						id: true,
+						username: true,
+						imageUrl: true,
+						imageBlob: true,
+						imageBlobMimeType: true
+					}
+				}
+			}
+		});
+
+		const friendsList = friendRelations.map(relation => {
+			const friend = relation.userId === userId ? relation.friend : relation.user;
+
+			return {
+				id: friend.id,
+				username: friend.username,
+				imageUrl: friend.imageUrl,
+				imageBlob: friend.imageBlob,
+				imageBlobMimeType: friend.imageBlobMimeType,
+				state: isUserOnline(friend.id) ? 'online' : 'offline'
+			};
+		});
+
+		socket.emit('friends-list', friendsList);
+		fastify.log.debug('Sent friends list to user %s: %d friends', userId, friendsList.length);
+	} catch (error) {
+		fastify.log.error('Error sending friends list to user %s:', userId, error);
+	}
+}
+
+

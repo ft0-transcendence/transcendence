@@ -81,6 +81,7 @@ export const protectedProcedure = t.procedure.use(({ctx, next}) => {
 		ctx: {
 			// infers the `session` as non-nullable
 			session: {...ctx},
+			user: ctx.user!,
 		},
 	});
 });
