@@ -69,7 +69,7 @@ export class Game {
         debug: true,
         gameStartCountdown: 3000,
 
-        initialVelocity: 0.075,
+        initialVelocity: 0.035,
         velocityIncrease: 0.0000005,
         maxVelocity: 0.12,
         paddleSpeed: 2.8,

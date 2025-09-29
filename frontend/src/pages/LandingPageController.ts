@@ -23,7 +23,7 @@ export class LandingPageController extends RouteController {
 
 		this.#game = new GameClass({
 			gameStartCountdown: 0,
-			initialVelocity: 0.025,
+			initialVelocity: 0.035,
 			velocityIncrease: 0.000005,
 			maxVelocity: 0.175,
 			paddleSpeed: 0.69,

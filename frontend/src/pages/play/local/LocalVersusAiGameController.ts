@@ -24,10 +24,10 @@ export class LocalVersusAiGameController extends RouteController {
 		super(params);
 		this.#game = new GameClass({
 			gameStartCountdown: 3000,
-			maxScore: 10,
-			initialVelocity: 0.025,
+			maxScore: 7,
+			initialVelocity: 0.035,
 			velocityIncrease: 0.000005,
-			maxVelocity: 0.175,
+			maxVelocity: 0.12,
 			debug: false
 		});
 
