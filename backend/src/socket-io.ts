@@ -13,6 +13,8 @@ type SocketData = {
 }
 
 export type SocketFriendInfo = {
+	id: string;
+	username: string;
 	state: 'online' | 'offline';
 	// lastSeen: Date;
 } & User
@@ -32,14 +34,16 @@ export function setupSocketHandlers(io: Server) {
 		addUserToOnlineCache(socket.data.user.id, socket);
 
 		await sendFriendsListToUser(socket.data.user.id, socket);
+
+		socket.on("disconnect", async (reason) => {
+			fastify.log.info("Socket disconnected %s", socket.id);
+			if (socket.data?.user) {
+				removeUserFromOnlineCache(socket.data.user.id, socket);
+			}
+		});
 	});
 
-	io.on("disconnect", async (socket) => {
-		fastify.log.info("Socket disconnected %s", socket.id);
-		if (socket.data?.user) {
-			removeUserFromOnlineCache(socket.data.user.id, socket);
-		}
-	});
+
 
 	io.on("error", (err) => {
 		console.error("Socket error", err);
@@ -365,9 +369,6 @@ function setupFriendshipNamespace(io: Server) {
 							select: {
 								id: true,
 								username: true,
-								imageUrl: true,
-								imageBlob: true,
-								imageBlobMimeType: true
 							}
 						}
 					}
@@ -378,9 +379,6 @@ function setupFriendshipNamespace(io: Server) {
 					.map(f => ({
 						id: f.friend.id,
 						username: f.friend.username,
-						imageUrl: f.friend.imageUrl,
-						imageBlob: f.friend.imageBlob,
-						imageBlobMimeType: f.friend.imageBlobMimeType,
 						isOnline: true
 					}));
 
@@ -401,28 +399,19 @@ async function sendFriendsListToUser(userId: User['id'], socket: TypedSocket) {
 	try {
 		const friendRelations = await db.friend.findMany({
 			where: {
-				OR: [
-					{ userId: userId, state: 'ACCEPTED' },
-					{ friendId: userId, state: 'ACCEPTED' }
-				]
+				userId: userId, state: 'ACCEPTED',
 			},
 			include: {
 				user: {
 					select: {
 						id: true,
 						username: true,
-						imageUrl: true,
-						imageBlob: true,
-						imageBlobMimeType: true
 					}
 				},
 				friend: {
 					select: {
 						id: true,
 						username: true,
-						imageUrl: true,
-						imageBlob: true,
-						imageBlobMimeType: true
 					}
 				}
 			}
@@ -434,9 +423,6 @@ async function sendFriendsListToUser(userId: User['id'], socket: TypedSocket) {
 			return {
 				id: friend.id,
 				username: friend.username,
-				imageUrl: friend.imageUrl,
-				imageBlob: friend.imageBlob,
-				imageBlobMimeType: friend.imageBlobMimeType,
 				state: isUserOnline(friend.id) ? 'online' : 'offline'
 			};
 		});

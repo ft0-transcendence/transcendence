@@ -53,7 +53,7 @@ export const publicRoutes: FastifyPluginAsync = async (fastify) => {
 	});
 	// --------------------------------------------------------------------------
 
-	fastify.get("/avatar/:userId", async (req, reply) => {
+	fastify.get("/avatar/:userId", {logLevel: 'silent'}, async (req, reply) => {
 		const { userId } = req.params as { userId: string | undefined };
 		if (!userId || userId?.trim()?.length === 0) {
 			reply.status(400).send("Missing userId");

@@ -1,5 +1,4 @@
 import { PrismaClient, User } from "@prisma/client";
-import { Game } from "../game/game";
 import { OnlineGame } from "../game/onlineGame";
 import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
@@ -39,6 +38,19 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 	});
 
 	for (const game of activeGames) {
+
+		const LEASE_TIME = 1000 * 60;
+
+		const now = new Date();
+		const limitDate = new Date(game.startDate.getTime() + LEASE_TIME);
+		if (now > limitDate) {
+			fastify.log.warn('Game %s is expired, removing from cache', game.id);
+			await db.game.delete({
+				where: { id: game.id }
+			});
+			continue;
+		}
+
 		const gameInstance = new OnlineGame(
 			game.id,
 			null, // socketNamespace will be set when needed
@@ -76,8 +88,8 @@ export function addUserToOnlineCache(userId: User['id'], socket: TypedSocket) {
 
 	if (cache.userSockets.get(userId)!.size === 1) {
 		cache.onlineUsers.set(userId, socket);
-		notifyFriendsUserOnline(userId);
 	}
+	notifyFriendsUserOnline(userId);
 }
 
 export function removeUserFromOnlineCache(userId: User['id'], socket: TypedSocket) {
@@ -86,8 +98,9 @@ export function removeUserFromOnlineCache(userId: User['id'], socket: TypedSocke
 		userSockets.delete(socket);
 
 		if (userSockets.size === 0) {
-			cache.userSockets.delete(userId);
+			fastify.log.debug("User %s fully disconnected, removing from online users cache", userId);
 			cache.onlineUsers.delete(userId);
+			cache.userSockets.delete(userId);
 			notifyFriendsUserOffline(userId);
 		}
 	}
@@ -104,54 +117,45 @@ export function getOnlineFriends(userId: User['id']): User['id'][] {
 
 async function notifyFriendsUserOnline(userId: User['id']) {
 	try {
-		const friends = await db.friend.findMany({
-			where: {
-				OR: [
-					{ userId: userId, state: 'ACCEPTED' },
-					{ friendId: userId, state: 'ACCEPTED' }
-				]
-			},
-			select: {
-				userId: true,
-				friendId: true
-			}
-		});
-
 		const user = await db.user.findFirst({
 			where: { id: userId },
 			select: {
 				id: true,
 				username: true,
-				imageUrl: true,
-				imageBlob: true,
-				imageBlobMimeType: true
-			}
+				friends: {
+					where: {
+						state: 'ACCEPTED'
+					}
+				}
+			},
 		});
 
-		if (!user) return;
+		if (!user) {
+			fastify.log.warn('User %s not found', userId);
+			return;
+		};
 
 		const friendData = {
 			id: user.id,
 			username: user.username,
-			imageUrl: user.imageUrl,
-			imageBlob: user.imageBlob,
-			imageBlobMimeType: user.imageBlobMimeType,
 			state: 'online' as const
 		};
 
-		for (const friend of friends) {
+		for (const friend of user.friends) {
 			const friendUserId = friend.userId === userId ? friend.friendId : friend.userId;
-			const friendSocket = cache.onlineUsers.get(friendUserId);
-			if (friendSocket) {
-				friendSocket.emit('friend-updated', friendData);
-				friendSocket.emit('notification', {
-					type: 'info',
-					message: `${user.username} is online`
-				});
+			const friendSockets = cache.userSockets.get(friendUserId);
+			if (friendSockets) {
+				for (const friendSocket of friendSockets) {
+					friendSocket.emit('friend-updated', friendData);
+					friendSocket.emit('notification', {
+						type: 'info',
+						message: `${user.username} is online`
+					});
+				}
 			}
 		}
 
-		fastify.log.debug('Notified friends that user %s went online', userId);
+		fastify.log.debug('Notified %s friends that user %s went online', user.friends.length, userId);
 	} catch (error) {
 		fastify.log.error('Error notifying friends of user online:', error);
 	}
@@ -159,27 +163,16 @@ async function notifyFriendsUserOnline(userId: User['id']) {
 
 async function notifyFriendsUserOffline(userId: User['id']) {
 	try {
-		const friends = await db.friend.findMany({
-			where: {
-				OR: [
-					{ userId: userId, state: 'ACCEPTED' },
-					{ friendId: userId, state: 'ACCEPTED' }
-				]
-			},
-			select: {
-				userId: true,
-				friendId: true
-			}
-		});
-
 		const user = await db.user.findFirst({
 			where: { id: userId },
 			select: {
 				id: true,
 				username: true,
-				imageUrl: true,
-				imageBlob: true,
-				imageBlobMimeType: true
+				friends: {
+					where: {
+						state: 'ACCEPTED'
+					}
+				}
 			}
 		});
 
@@ -188,17 +181,20 @@ async function notifyFriendsUserOffline(userId: User['id']) {
 		const friendData = {
 			id: user.id,
 			username: user.username,
-			imageUrl: user.imageUrl,
-			imageBlob: user.imageBlob,
-			imageBlobMimeType: user.imageBlobMimeType,
 			state: 'offline' as const
 		};
 
-		for (const friend of friends) {
+		for (const friend of user.friends) {
 			const friendUserId = friend.userId === userId ? friend.friendId : friend.userId;
-			const friendSocket = cache.onlineUsers.get(friendUserId);
-			if (friendSocket) {
-				friendSocket.emit('friend-updated', friendData);
+			const friendSockets = cache.userSockets.get(friendUserId);
+			if (friendSockets) {
+				for (const friendSocket of friendSockets) {
+					friendSocket.emit('friend-updated', friendData);
+					friendSocket.emit('notification', {
+						type: 'info',
+						message: `${user.username} is offline`
+					});
+				}
 			}
 		}
 

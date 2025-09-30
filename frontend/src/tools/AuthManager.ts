@@ -3,7 +3,7 @@ import {RouterOutputs, SocketFriendInfo} from "@shared";
 import {api} from "@main";
 import { io, Socket } from 'socket.io-client';
 import { router } from "@src/pages/_router";
-import { getImageByUrlOrBlob, getProfilePictureUrlByUserId } from "@src/utils/getImage";
+import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
 
 export const AUTH_DOM_IDS = {
 	userMenuButton: 'user_menu_button',

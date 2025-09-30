@@ -33,8 +33,6 @@ export class HomeController extends RouteController {
 
 
 	async preRender() {
-		console.log('Home controller pre-render');
-
 	}
 
 	async render() {
@@ -371,18 +369,10 @@ export class HomeController extends RouteController {
 		if (statusField) {
 			statusField.setAttribute('data-i18n', friend.state === 'online' ? k('generic.online') : k('generic.offline'));
 		}
-
 		const imageField = friendElement.querySelector('.friend-image') as HTMLImageElement;
-		if (imageField) {
-			let src = friend.imageUrl;
-			if (friend.imageBlob) {
-				const uint8Array = new Uint8Array(friend.imageBlob) as unknown as ArrayBuffer;
-				const blob = new Blob([uint8Array], { type: friend.imageBlobMimeType ?? "image/png" });
-				src = URL.createObjectURL(blob);
-			}
-			imageField.src = src!;
+		if (imageField){
+			imageField.src = getProfilePictureUrlByUserId(friend.id);
 		}
-
 
 		const statusIcon = friendElement.querySelector('.friend-status-icon');
 		statusIcon?.classList.remove('friend-status-icon-online', 'friend-status-icon-offline');
@@ -413,7 +403,7 @@ export class HomeController extends RouteController {
 		<div class="flex items-center gap-3 p-2">
 			<!-- Friend Avatar -->
 			<div class="relative">
-				<img src="${friend.imageUrl}"
+				<img src="${getProfilePictureUrlByUserId(friend.id)}"
 					 alt="${friend.username}'s avatar"
 					 class="w-10 h-10 rounded-full object-cover friend-image ring-1 ring-white/10">
 				<div class="friend-status-icon absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-zinc-900
