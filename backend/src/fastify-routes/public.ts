@@ -33,7 +33,8 @@ export const publicRoutes: FastifyPluginAsync = async (fastify) => {
 
 
 	fastify.get("/auth/logout", async (req, reply) => {
-		req.logout();
+		await req.session.destroy();
+		await req.logout();
 		const redirectTo = getRequestOrigin(req, 'frontend');
 		reply.redirect(redirectTo);
 	});
