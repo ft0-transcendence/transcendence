@@ -17,6 +17,7 @@ export class LandingPageController extends RouteController {
 		paddleHeightPercentage: 20,
 		debug: false,
 		enableInternalLoop: true,
+		shouldUseRequestAnimationFrame: true,
 	});;
 	#gameComponent: GameComponent = new GameComponent({
 		gameId: "demo",

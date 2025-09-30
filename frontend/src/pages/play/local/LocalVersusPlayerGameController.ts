@@ -17,7 +17,8 @@ export class LocalVersusPlayerGameController extends RouteController {
 		super(params);
 		this.#game = new GameClass({
 			gameStartCountdown: 3000,
-			debug: false
+			debug: false,
+			shouldUseRequestAnimationFrame: true,
 		});
 
 		this.#gameComponent = new GameComponent({

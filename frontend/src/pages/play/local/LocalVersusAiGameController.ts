@@ -28,7 +28,8 @@ export class LocalVersusAiGameController extends RouteController {
 			initialVelocity: 0.035,
 			velocityIncrease: 0.000005,
 			maxVelocity: 0.12,
-			debug: false
+			debug: false,
+			shouldUseRequestAnimationFrame: true,
 		});
 
 
