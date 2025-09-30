@@ -144,7 +144,7 @@ export class Game {
         if (this.state === GameState.TOSTART || this.state === GameState.FINISH) {
             this.state = GameState.RUNNING;
             this.reset();
-            if (!this.#loopAnimationFrame) {
+            if (!this.#loopAnimationInterval) {
                 this.startLoop();
             }
         }
@@ -371,27 +371,27 @@ export class Game {
     }
 
 
-    #loopAnimationFrame: number | null = null;
+    #loopAnimationInterval: NodeJS.Timeout | null = null;
     private startLoop() {
         this.lastTick = Date.now();
-        this.#loopAnimationFrame = requestAnimationFrame(this.loop);
+		if (this.#loopAnimationInterval){
+			clearInterval(this.#loopAnimationInterval);
+		}
+        this.#loopAnimationInterval = setInterval(()=>this.#loop(), 1000 / 60);
     }
-    private loop = this.#loop.bind(this);
-
     #loop() {
         const now = Date.now();
         const delta = Math.max(0, now - (this.lastTick ?? now));
         this.lastTick = now;
         this.update(delta);
-        this.#loopAnimationFrame = requestAnimationFrame(this.loop);
     }
 
     private stopLoop() {
-        if (this.#loopAnimationFrame) {
-            if (this.#loopAnimationFrame) {
-                cancelAnimationFrame(this.#loopAnimationFrame);
+        if (this.#loopAnimationInterval) {
+            if (this.#loopAnimationInterval) {
+				clearInterval(this.#loopAnimationInterval);
             }
-            this.#loopAnimationFrame = null;
+            this.#loopAnimationInterval = null;
         }
     }
     private stopLoopIfNeeded() {
