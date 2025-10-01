@@ -142,7 +142,7 @@ async function notifyFriendsUserOnline(userId: User['id']) {
 		};
 
 		for (const friend of user.friends) {
-			const friendUserId = friend.userId === userId ? friend.friendId : friend.userId;
+			const friendUserId = friend.friendId;
 			const friendSockets = cache.userSockets.get(friendUserId);
 			if (friendSockets) {
 				for (const friendSocket of friendSockets) {
@@ -185,7 +185,7 @@ async function notifyFriendsUserOffline(userId: User['id']) {
 		};
 
 		for (const friend of user.friends) {
-			const friendUserId = friend.userId === userId ? friend.friendId : friend.userId;
+			const friendUserId = friend.friendId;
 			const friendSockets = cache.userSockets.get(friendUserId);
 			if (friendSockets) {
 				for (const friendSocket of friendSockets) {

@@ -418,12 +418,10 @@ async function sendFriendsListToUser(userId: User['id'], socket: TypedSocket) {
 		});
 
 		const friendsList = friendRelations.map(relation => {
-			const friend = relation.userId === userId ? relation.friend : relation.user;
-
 			return {
-				id: friend.id,
-				username: friend.username,
-				state: isUserOnline(friend.id) ? 'online' : 'offline'
+				id: relation.friend.id,
+				username: relation.friend.username,
+				state: isUserOnline(relation.friend.id) ? 'online' : 'offline'
 			};
 		});
 
