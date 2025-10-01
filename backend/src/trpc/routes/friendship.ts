@@ -73,9 +73,9 @@ export const friendshipRouter = t.router({
 			const friendsList = userWithFriends.friendOf;
 			const mappedFriendsList = friendsList.map(f=>{
 				return {
-					id: f.user.id,
+					id: f.id,
 					username: f.user.username,
-					friendRelationId: f.id,
+					friendRelationId: f.user.id,
 				}
 			});
 			mappedFriendsList.sort((a, b) => a.username.localeCompare(b.username));
@@ -316,7 +316,8 @@ async function notifyFriendRequestReceived(recipientId: string, senderId: string
 		if (recipientSocket) {
 			recipientSocket.emit('friend-request-received', {
 				id: requestId,
-				user: sender
+				username: sender.username,
+				friendRelationId: recipientId,
 			});
 
 			recipientSocket.emit('notification', {

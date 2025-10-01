@@ -28,6 +28,11 @@ export const ua: TranslationSchema = {
 		notifications: 'Сповіщення',
 		last_20_matches: 'Останні 20 матчів',
 		loading: 'Завантаження...',
+		no_matches: 'Не знайдено матчів',
+		no_games: 'Секція пуста',
+		no_notifications: 'Немає сповіщень',
+		accept_friend_request: 'Прийняти',
+		reject_friend_request: 'Відхилити',
 	},
 	game_modes: {
 		ai: '1 vs AI',

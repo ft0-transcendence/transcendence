@@ -27,7 +27,11 @@ export const en = {
 		currently_active_games: 'Currently Active Games',
 		notifications: 'Notifications',
 		last_20_matches: 'Last 20 Matches',
-
+		no_matches: 'No matches found',
+		no_games: 'No games found',
+		no_notifications: 'Nothing here',
+		accept_friend_request: 'Accept',
+		reject_friend_request: 'Reject',
 	},
 
 	game_modes: {

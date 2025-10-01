@@ -1,10 +1,15 @@
 import { api } from "../../main";
 import { RouteController } from "@tools/ViewController";
 import { authManager } from "@tools/AuthManager";
-import { RouterOutputs, SocketFriendInfo } from "@shared";
+import { RouterInputs, RouterOutputs, SocketFriendInfo } from "@shared";
 import { k, t, updateDOMTranslations } from "@src/tools/i18n";
 import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
 import { LoadingOverlay } from "@src/components/LoadingOverlay";
+import { TRPCError } from "@trpc/server";
+import toast from "@src/tools/Toast";
+import { TRPCClientError } from "@trpc/client";
+import { ZodError } from "zod";
+import { isMobile } from "@src/utils/agentUtils";
 
 export class HomeController extends RouteController {
 
@@ -17,10 +22,10 @@ export class HomeController extends RouteController {
 		notifications: LoadingOverlay,
 		last20Matches: LoadingOverlay,
 	} = {
-		activeGames: new LoadingOverlay('active-games'),
-		notifications: new LoadingOverlay('notifications'),
-		last20Matches: new LoadingOverlay('last-20-matches'),
-	}
+			activeGames: new LoadingOverlay('active-games'),
+			notifications: new LoadingOverlay('notifications'),
+			last20Matches: new LoadingOverlay('last-20-matches'),
+		}
 
 	constructor() {
 		super();
@@ -59,9 +64,9 @@ export class HomeController extends RouteController {
 							<div class="flex items-center gap-2">
 								<h2 class="text-lg font-semibold text-gray-300" data-i18n="${k('generic.friends')}">Friends</h2>
 								<button id="${this.id}-add-friend-btn"
-										class="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+										class="cursor-pointer w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
 										title="${t('generic.add_friend')}">
-									<i class="fa fa-plus text-sm"></i>
+									<i class="toggle-friend-add-icon fa fa-plus text-sm"></i>
 								</button>
 							</div>
 							<span class="text-sm text-gray-400">
@@ -69,6 +74,17 @@ export class HomeController extends RouteController {
 								<span data-i18n="${k('generic.online')}">ONLINE</span>
 							</span>
 						</div>
+						<form id="${this.id}-add-friend-form" class="text-left pb-2 relative hidden">
+							<hr class="horiz-divider border-0"/>
+
+							<label for="${this.id}-add-friend-input" class="text-sm text-gray-400" data-i18n="${k('generic.add_friend')}">Add Friend</label>
+							<div class="flex relative border border-gray-300/5 bg-white/5 p-2 text-sm focus-within:border-teal-500 rounded-md focus-within:ring-teal-500">
+								<input id="${this.id}-add-friend-input" type="text" class="ring-0 border-0 outline-0 text-white w-full" placeholder="username">
+								<button type="submit" class="cursor-pointer hover:text-gray-200 active:text-white"><i class="fa fa-send text-sm"></i><span class="hidden sm:flex" data-i18n="${k('generic.send')}">Send</span></button>
+							</div>
+						</form>
+
+						<hr class="horiz-divider border-0"/>
 
 						<div class="flex-grow overflow-y-auto min-h-0">
 							<ul id="${this.id}-friends-list" class="flex flex-col gap-2 w-full">
@@ -94,8 +110,8 @@ export class HomeController extends RouteController {
 						<div class="flex flex-col w-full md:w-1/5 min-w-3xs bg-zinc-950 md:h-full p-2 min-h-32 relative">
 							<h4 class="capitalize font-bold" data-i18n="${k('generic.notifications')}">Notifications</h4>
 							<!-- Notifications will be listed here -->
-							<div id="${this.id}-notifications" class="grow flex flex-col w-full p-2 md:overflow-y-auto">
-							</div>
+							<ul id="${this.id}-notifications" class="grow flex flex-col w-full p-2 md:overflow-y-auto">
+							</ul>
 
 							<!-- Loading Overlay -->
 							${await this.#loadingOverlays.notifications.silentRender()}
@@ -118,6 +134,15 @@ export class HomeController extends RouteController {
 	}
 
 	async postRender() {
+		this.#addFriendForm = document.querySelector(`#${this.id}-add-friend-form`);
+		this.#toggleFriendAddButton = document.querySelector(`#${this.id}-add-friend-btn`);
+		this.#toggleFriendAddIcon = document.querySelector(`.toggle-friend-add-icon`);
+		this.#toggleFriendInput = document.querySelector(`#${this.id}-add-friend-input`);
+
+		this.#toggleFriendAddButton?.addEventListener('click', this.toggleFriendAddClickEvent);
+		this.#addFriendForm?.addEventListener('submit', this.handleFriendAddSubmitEvent);
+
+
 		this.#friendsListContainer = document.querySelector(`#${this.id}-friends-list`);
 		const baseSocket = authManager.getBaseSocketConnection();
 		if (baseSocket) {
@@ -135,27 +160,13 @@ export class HomeController extends RouteController {
 				console.debug('Friend updated', friend);
 				this.#upsertFriend(friend);
 			});
+			baseSocket.on('friend-request-received', (friendRequest) => {
+				console.debug('Friend request received', friendRequest);
+				this.#renderNotification(friendRequest);
+			});
 		} else {
 			console.warn('No socket connection. Something weird happened...');
 		}
-
-		// TODO: REMOVE THIS MOCK DATA ---------------------
-		// const friendsMock: SocketFriendInfo[] = [
-		// 	{ id: '1', username: 'Leo (mock)', state: 'online', imageUrl: 'https://picsum.photos/id/10/200/200', imageBlob: null, imageBlobMimeType: null, email: 'leo@example.com', createdAt: new Date() },
-		// 	{ id: '2', username: 'Pasquale (mock)', state: 'online', imageUrl: 'https://picsum.photos/id/100/200/200', imageBlob: null, imageBlobMimeType: null, email: 'pasquale@example.com', createdAt: new Date() },
-		// 	{ id: '3', username: 'Luca (mock)', state: 'offline', imageUrl: 'https://picsum.photos/id/101/200/200', imageBlob: null, imageBlobMimeType: null, email: 'luca@example.com', createdAt: new Date() },
-		// 	{ id: '4', username: 'Giulia (mock)', state: 'online', imageUrl: 'https://picsum.photos/id/102/200/200', imageBlob: null, imageBlobMimeType: null, email: 'giulia@example.com', createdAt: new Date() },
-		// ]
-		// for (const friend of friendsMock) {
-		// 	console.debug('Friend mock', friend);
-		// 	this.#upsertFriend(friend);
-		// }
-
-		// setTimeout(() => {
-		// 	friendsMock[0].state = 'offline';
-		// 	this.#upsertFriend(friendsMock[0]);
-		// }, 10000);
-		// TODO: REMOVE THIS MOCK DATA------------------------
 
 		this.#updateFriendsCount();
 
@@ -172,13 +183,63 @@ export class HomeController extends RouteController {
 		this.#last20MatchesContainer = document.querySelector(`#${this.id}-game-history`);
 		this.#fetchAndRenderLast20Matches();
 
-
 		document.addEventListener('click', this.#handleFriendActionClickEvent);
 	}
 
 	async destroy() {
 		document.removeEventListener('click', this.#handleFriendActionClickEvent);
 	}
+
+
+	// FRIEND ADD FUNCTIONS ---------------------------------------------------------------------------------------
+
+	#friendAddIsOpen: boolean = false;
+	#addFriendForm: HTMLElement | null = null;
+	#toggleFriendAddButton: HTMLElement | null = null;
+	#toggleFriendAddIcon: HTMLElement | null = null;
+	#toggleFriendInput: HTMLInputElement | null = null;
+
+
+	private toggleFriendAddClickEvent = this.#toggleFriendAdd.bind(this);
+	#toggleFriendAdd() {
+		this.#friendAddIsOpen = !this.#friendAddIsOpen;
+		this.#toggleFriendAddIcon?.classList.toggle('fa-plus', !this.#friendAddIsOpen);
+		this.#toggleFriendAddIcon?.classList.toggle('fa-minus', this.#friendAddIsOpen);
+		this.#addFriendForm?.classList.toggle('hidden', !this.#friendAddIsOpen);
+	}
+
+	private handleFriendAddSubmitEvent = this.#handleFriendAddSubmitEvent.bind(this);
+	async #handleFriendAddSubmitEvent(ev: SubmitEvent) {
+		ev.preventDefault();
+		const username = this.#toggleFriendInput?.value ?? "";
+
+		console.debug('Friend add request for user=', username);
+		const request = api.friendship.sendFriendRequest;
+		try {
+			const result = await request.mutate({ username })
+
+			console.debug('Friend add result=', result);
+			toast.success(t('generic.add_friend'), result.message);
+			this.#toggleFriendInput!.value = '';
+		} catch (err) {
+
+			if (err instanceof TRPCClientError) {
+				console.warn('Friend add error', err);
+
+				const zodError = err.data?.zodError;
+				if (zodError && zodError.fieldErrors) {
+					const values = Object.values(zodError.fieldErrors);
+					for (const err of values) {
+						toast.error(t('generic.add_friend'), err as string);
+					}
+				} else {
+					toast.warn(t('generic.add_friend'), err.message);
+					console.debug('Friend add error', err);
+				}
+			}
+		}
+	}
+
 
 	// LAST 20 MATCHES FUNCTIONS ---------------------------------------------------------------------------------------
 	#last20MatchesContainer: HTMLElement | null = null;
@@ -235,6 +296,7 @@ export class HomeController extends RouteController {
 				</div>
 			`;
 		}
+		updateDOMTranslations(this.#last20MatchesContainer);
 	}
 	// END LAST 20 MATCHES FUNCTIONS -------------------------------------------------------------------------------------
 
@@ -289,6 +351,7 @@ export class HomeController extends RouteController {
 				</div>
 			`;
 		}
+		updateDOMTranslations(this.#activeGamesContainer);
 	}
 
 	// END ACTIVE GAMES FUNCTIONS --------------------------------------------------------------------------------------
@@ -305,29 +368,8 @@ export class HomeController extends RouteController {
 	#renderNotifications(pendingFriendsRequests: RouterOutputs['friendship']['getPendingRequests']) {
 		if (!this.#notificationsContainer) return;
 		this.#notificationsContainer.innerHTML = ``;
-		for (const friend of pendingFriendsRequests) {
-			const friendElement = document.createElement('li');
-			friendElement.className = 'friend-item group hover:bg-white/5 transition-colors rounded-lg';
-			friendElement.id = `frien-list-item-${friend.id}`;
-			friendElement.innerHTML = /*html*/`
-			<div class="flex items-center gap-3 p-2">
-				<!-- Friend Avatar -->
-				<div class="relative">
-					<img src="${getProfilePictureUrlByUserId(friend.id)}"
-						 alt="${friend.username}'s avatar"
-						 class="w-10 h-10 rounded-full object-cover friend-image ring-1 ring-white/10">
-				</div>
-				<div class="flex flex-col grow">
-					<span class="text-sm font-semibold friend-username">${friend.username}</span>
-					</div>
-				<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-					<button class="py-1 px-2 cursor-pointer rounded-full hover:bg-white/10 transition-colors friend-action-button">
-						<i class="fa fa-ellipsis-v" aria-hidden="true"></i>
-					</button>
-				</div>
-			</div>
-		`;
-			this.#notificationsContainer.appendChild(friendElement);
+		for (const friendRequest of pendingFriendsRequests) {
+			this.#renderNotification(friendRequest);
 		}
 		if (pendingFriendsRequests.length === 0) {
 			this.#notificationsContainer.innerHTML = /*html*/`
@@ -336,6 +378,105 @@ export class HomeController extends RouteController {
 				</div>
 			`;
 		}
+		updateDOMTranslations(this.#notificationsContainer);
+	}
+
+	#renderNotification(friendRequest: RouterOutputs['friendship']['getPendingRequests'][number]) {
+		if (!this.#notificationsContainer) return;
+
+		const friendElement = document.createElement('li');
+		friendElement.className = `friend-item group ${isMobile() ? 'even:bg-white/5' : 'hover:bg-white/5'} transition-colors rounded-lg`;
+		friendElement.id = `frien-list-item-${friendRequest.id}`;
+		friendElement.setAttribute('data-userid', friendRequest.id);
+		friendElement.innerHTML = /*html*/`
+			<div class="flex items-center gap-3 p-2">
+				<!-- Friend Avatar -->
+				<div class="relative">
+					<img src="${getProfilePictureUrlByUserId(friendRequest.friendRelationId)}"
+						 alt="${friendRequest.username}'s avatar"
+						 class="w-10 h-10 rounded-full object-cover friend-image ring-1 ring-white/10">
+				</div>
+				<div class="flex flex-col grow">
+					<span class="text-sm font-semibold friend-username">${friendRequest.username}</span>
+					</div>
+				<div class="flex gap-2 ${isMobile() ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity">
+					<button title="${t('generic.accept_friend_request') ?? "Accept"}" class="flex justify-center items-center accept-friend-btn rounded-full bg-black w-8 h-8 hover:text-green-500 cursor-pointer">
+						<i class="fa fa-check" aria-hidden="true"></i>
+					</button>
+					<button title="${t('generic.reject_friend_request') ?? "Reject"}" class="flex justify-center items-center reject-friend-btn rounded-full bg-black w-8 h-8 hover:text-red-500 cursor-pointer">
+						<i class="fa fa-times" aria-hidden="true"></i>
+					</button>
+				</div>
+			</div>
+		`;
+
+		this.#notificationsContainer.appendChild(friendElement);
+
+		friendElement.querySelector('.accept-friend-btn')?.addEventListener('click', () => {
+			this.#acceptFriendRequest({ requestId: friendRequest.id })
+				.then(result => {
+					if (result) {
+						friendElement.remove();
+					}
+				});
+		}, { once: true });
+		friendElement.querySelector('.reject-friend-btn')?.addEventListener('click', () => {
+			this.#rejectFriendRequest({ requestId: friendRequest.id })
+				.then(result => {
+					if (result) {
+						friendElement.remove();
+					}
+				});
+		}, { once: true });
+		updateDOMTranslations(this.#notificationsContainer);
+
+	}
+
+	async #acceptFriendRequest(dto: RouterInputs['friendship']['acceptFriendRequest']) {
+		try {
+			const result = await api.friendship.acceptFriendRequest.mutate(dto);
+			console.debug('Friend request accepted', result);
+			toast.success(t('generic.accept_friend_request'), result.message);
+			return true;
+		} catch (err) {
+			if (err instanceof TRPCClientError) {
+				console.warn('Friend accept error', err);
+				const zodError = err.data?.zodError;
+				if (zodError && zodError.fieldErrors) {
+					const values = Object.values(zodError.fieldErrors);
+					for (const err of values) {
+						toast.error(t('generic.accept_friend_request'), err as string);
+					}
+				} else {
+					toast.warn(t('generic.accept_friend_request'), err.message);
+					console.debug('Friend accept error', err);
+				}
+			}
+		}
+		return false;
+	}
+	async #rejectFriendRequest(dto: RouterInputs['friendship']['rejectFriendRequest']) {
+		try {
+			const result = await api.friendship.rejectFriendRequest.mutate(dto);
+			console.debug('Friend request rejected', result);
+			toast.success(t('generic.reject_friend_request'), result.message);
+			return true;
+		} catch (err) {
+			if (err instanceof TRPCClientError) {
+				console.warn('Friend reject error', err);
+				const zodError = err.data?.zodError;
+				if (zodError && zodError.fieldErrors) {
+					const values = Object.values(zodError.fieldErrors);
+					for (const err of values) {
+						toast.error(t('generic.reject_friend_request'), err as string);
+					}
+				} else {
+					toast.warn(t('generic.reject_friend_request'), err.message);
+					console.debug('Friend reject error', err);
+				}
+			}
+		}
+		return false;
 	}
 
 
@@ -370,7 +511,7 @@ export class HomeController extends RouteController {
 			statusField.setAttribute('data-i18n', friend.state === 'online' ? k('generic.online') : k('generic.offline'));
 		}
 		const imageField = friendElement.querySelector('.friend-image') as HTMLImageElement;
-		if (imageField){
+		if (imageField) {
 			imageField.src = getProfilePictureUrlByUserId(friend.id);
 		}
 

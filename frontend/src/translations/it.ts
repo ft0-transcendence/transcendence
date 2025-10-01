@@ -28,6 +28,11 @@ export const it: TranslationSchema = {
 		notifications: 'Notifiche',
 		last_20_matches: 'Ultime 20 partite',
 		loading: 'Caricamento...',
+		no_matches: 'Nessuna partita trovata',
+		no_games: 'Nessun gioco trovato',
+		no_notifications: 'Nessuna notifica',
+		accept_friend_request: 'Accetta',
+		reject_friend_request: 'Rifiuta',
 	},
 	game_modes: {
 		ai: '1 vs IA',
