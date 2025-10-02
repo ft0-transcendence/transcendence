@@ -98,7 +98,7 @@ function setupMatchmakingNamespace(io: Server) {
 							{ rightPlayerId: user.id },
 						],
 					},
-					include: { leftPlayer: {select: {id: true, username: true}}, rightPlayer: {select: {id: true, username: true}} },
+					include: { leftPlayer: { select: { id: true, username: true } }, rightPlayer: { select: { id: true, username: true } } },
 				});
 
 				if (activeGameWithCurrentUser) {
@@ -151,16 +151,35 @@ function setupMatchmakingNamespace(io: Server) {
 						onlineVersusGameNamespace,
 						{ enableInternalLoop: true, debug: false },
 						async (state) => {
+							// Check if game was aborted due to disconnection
+							const isAborted = state.scores.left === 10 && state.scores.right === 0 ||
+								state.scores.left === 0 && state.scores.right === 10;
+
+							const updateData: any = {
+								endDate: new Date(),
+								leftPlayerScore: state.scores.left,
+								rightPlayerScore: state.scores.right,
+							};
+
+							// If aborted due to disconnection, add abort information
+							if (isAborted) {
+								updateData.abortDate = new Date();
+								updateData.abortReason = 'Player disconnection timeout';
+							}
+
 							await db.game.update({
 								where: { id: gameId },
-								data: {
-									endDate: new Date(),
-									leftPlayerScore: state.scores.left,
-									rightPlayerScore: state.scores.right,
-								},
+								data: updateData,
 							});
 							cache.active_1v1_games.delete(gameId);
 							fastify.log.info("Game %s persisted and removed from cache.", gameId);
+						},
+						async () => {
+							// Update game activity timestamp
+							await db.game.update({
+								where: { id: gameId },
+								data: { updatedAt: new Date() }
+							});
 						}
 					);
 

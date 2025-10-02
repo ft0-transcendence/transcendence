@@ -5,13 +5,16 @@ type FinishCallback = (state: GameStatus) => Promise<void> | void;
 export class OnlineGame extends Game {
 	private gameId: string;
 	private socketNamespace: any;
+	private updateGameActivity?: () => Promise<void>;
 
 	private unsubscribeTick: (() => void) | null = null;
 	private finished = false;
 	private onFinish?: FinishCallback;
 
 	private readonly GRACE_MS = 15000; // 15s
+	private readonly ABORT_WARNING_MS = 10000; // 10s before abort (5s remaining)
 	private disconnectedUntil: Map<string, number> = new Map();
+	private abortWarningsSent: Set<string> = new Set();
 
 	private _playerLeft: GameUserInfo | null = null;
 	private _playerRight: GameUserInfo | null = null;
@@ -24,17 +27,20 @@ export class OnlineGame extends Game {
 		socketNamespace: any,
 		config?: Partial<ConstructorParameters<typeof Game>[0]>,
 		onFinish?: FinishCallback,
+		updateGameActivity?: () => Promise<void>,
 	) {
 		super(config);
 		this.gameId = gameId;
 		this.socketNamespace = socketNamespace;
 		this.onFinish = onFinish;
+		this.updateGameActivity = updateGameActivity;
 		this.unsubscribeTick = this.onTick((state, now) => {
 			if (this.socketNamespace) {
 				this.socketNamespace.to(this.gameId).emit("game-state", state);
 			}
-			if (this.state === GameState.FINISH) {
-				this.finish();
+			if (this.state === GameState.FINISH && !this.finished) {
+				// Use setTimeout to avoid blocking the tick loop
+				setTimeout(() => this.finish(), 0);
 			}
 			this.checkGraceAndForfeit(now);
 		});
@@ -81,6 +87,8 @@ export class OnlineGame extends Game {
 		} else if (playerId === this._playerRight?.id) {
 			this.movePaddle("right", direction);
 		}
+		// Update game activity when players interact
+		this.updateGameActivity?.();
 	}
 
 	public addConnectedUser(user: GameUserInfo): void {
@@ -111,10 +119,15 @@ export class OnlineGame extends Game {
 		const deadline = Date.now() + this.GRACE_MS;
 		const hadNoDisconnections = this.disconnectedUntil.size === 0;
 		this.disconnectedUntil.set(playerId, deadline);
+		this.abortWarningsSent.delete(playerId); // Reset warning flag
+
+		const playerName = this.getPlayerName(playerId);
 		if (this.socketNamespace) {
 			this.socketNamespace.to(this.gameId).emit("player-disconnected", {
 				userId: playerId,
+				playerName: playerName,
 				expiresAt: deadline,
+				gracePeriodMs: this.GRACE_MS,
 			});
 		}
 		if (hadNoDisconnections) {
@@ -125,9 +138,13 @@ export class OnlineGame extends Game {
 	public markPlayerReconnected(playerId: string) {
 		if (!this.disconnectedUntil.has(playerId)) return;
 		this.disconnectedUntil.delete(playerId);
+		this.abortWarningsSent.delete(playerId); // Clear warning flag
+
+		const playerName = this.getPlayerName(playerId);
 		if (this.socketNamespace) {
 			this.socketNamespace.to(this.gameId).emit("player-reconnected", {
 				userId: playerId,
+				playerName: playerName,
 			});
 		}
 		if (this.disconnectedUntil.size === 0 && this.state !== GameState.FINISH) {
@@ -143,11 +160,52 @@ export class OnlineGame extends Game {
 		return null;
 	}
 
+	private getPlayerName(playerId: string): string | null {
+		if (this.leftPlayer?.id === playerId) return this.leftPlayer.username;
+		if (this.rightPlayer?.id === playerId) return this.rightPlayer.username;
+		return null;
+	}
+
+	// Override update to ensure finish() is called when game ends naturally
+	public update(delta: number): void {
+		const wasFinished = this.state === GameState.FINISH;
+		super.update(delta);
+
+		// If the game just finished (wasn't finished before but is now), call finish
+		if (!wasFinished && this.state === GameState.FINISH && !this.finished) {
+			console.log(`Game ${this.gameId} ended naturally with score ${this.scores.left}-${this.scores.right}`);
+			setTimeout(() => this.finish(), 0);
+		}
+	}
+
 	private checkGraceAndForfeit(now: number) {
 		if (!this.finished && this.disconnectedUntil.size > 0) {
 			for (const [playerId, until] of this.disconnectedUntil.entries()) {
+				const timeLeft = until - now;
+
+				// Send abort warning when 5 seconds are left
+				if (timeLeft <= 5000 && timeLeft > 0 && !this.abortWarningsSent.has(playerId)) {
+					this.abortWarningsSent.add(playerId);
+					const playerName = this.getPlayerName(playerId);
+					const opponentName = this.getPlayerName(this.getOpponentPlayerId(playerId) ?? '');
+
+					if (this.socketNamespace) {
+						this.socketNamespace.to(this.gameId).emit("game-abort-warning", {
+							disconnectedPlayerId: playerId,
+							disconnectedPlayerName: playerName,
+							opponentName: opponentName,
+							timeLeftMs: timeLeft,
+							message: `Il gioco terminerà tra ${Math.ceil(timeLeft / 1000)} secondi se ${playerName} non si riconnette`
+						});
+					}
+				}
+
+				// Forfeit when time is up
 				if (now >= until) {
 					const opponentId = this.getOpponentPlayerId(playerId);
+					const playerName = this.getPlayerName(playerId);
+					const opponentName = this.getPlayerName(opponentId ?? '');
+
 					if (opponentId) {
 						const FORFEIT_WIN = 10;
 						const FORFEIT_LOSS = 0;
@@ -161,9 +219,19 @@ export class OnlineGame extends Game {
 							}
 						}
 					}
+
 					this.disconnectedUntil.delete(playerId);
+					this.abortWarningsSent.delete(playerId);
 					this.state = GameState.FINISH;
+
 					if (this.socketNamespace) {
+						this.socketNamespace.to(this.gameId).emit("game-aborted", {
+							reason: "player-disconnection-timeout",
+							disconnectedPlayerId: playerId,
+							disconnectedPlayerName: playerName,
+							winnerName: opponentName,
+							message: `Il gioco è terminato perché ${playerName} non si è riconnesso in tempo`
+						});
 						this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
 					}
 					this.finish();
@@ -176,16 +244,27 @@ export class OnlineGame extends Game {
 	public async finish() {
 		if (this.finished) return;
 		this.finished = true;
+
+		console.log(`Game ${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
+
 		if (this.unsubscribeTick) {
 			this.unsubscribeTick();
 			this.unsubscribeTick = null;
 		}
+
 		const state = this.getState();
 		if (this.socketNamespace) {
 			this.socketNamespace.to(this.gameId).emit("game-finished", state);
 		}
+
 		if (this.onFinish) {
-			await this.onFinish(state);
+			try {
+				console.log(`Game ${this.gameId} calling onFinish callback`);
+				await this.onFinish(state);
+				console.log(`Game ${this.gameId} onFinish callback completed`);
+			} catch (error) {
+				console.error(`Game ${this.gameId} onFinish callback failed:`, error);
+			}
 		}
 	}
 }
