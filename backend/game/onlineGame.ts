@@ -87,7 +87,6 @@ export class OnlineGame extends Game {
 		} else if (playerId === this._playerRight?.id) {
 			this.movePaddle("right", direction);
 		}
-		// Update game activity when players interact
 		this.updateGameActivity?.();
 	}
 
@@ -110,11 +109,9 @@ export class OnlineGame extends Game {
 		return [...this.connectedUsers];
 	}
 
-	// Override player getters
 	public get leftPlayer(): GameUserInfo | null { return this._playerLeft; }
 	public get rightPlayer(): GameUserInfo | null { return this._playerRight; }
 
-	// Disconnection handling
 	public markPlayerDisconnected(playerId: string) {
 		const deadline = Date.now() + this.GRACE_MS;
 		const hadNoDisconnections = this.disconnectedUntil.size === 0;
@@ -123,12 +120,13 @@ export class OnlineGame extends Game {
 
 		const playerName = this.getPlayerName(playerId);
 		if (this.socketNamespace) {
-			this.socketNamespace.to(this.gameId).emit("player-disconnected", {
-				userId: playerId,
-				playerName: playerName,
-				expiresAt: deadline,
-				gracePeriodMs: this.GRACE_MS,
-			});
+			   this.socketNamespace.to(this.gameId).emit("player-disconnected", {
+				   userId: playerId,
+				   playerName: playerName,
+				   expiresAt: deadline,
+				   gracePeriodMs: this.GRACE_MS,
+				   timeLeftMs: this.GRACE_MS,
+			   });
 		}
 		if (hadNoDisconnections) {
 			this.pause();
@@ -166,12 +164,11 @@ export class OnlineGame extends Game {
 		return null;
 	}
 
-	// Override update to ensure finish() is called when game ends naturally
+	// Override finish() con fine game normale (risolto problema online game)
 	public update(delta: number): void {
 		const wasFinished = this.state === GameState.FINISH;
 		super.update(delta);
 
-		// If the game just finished (wasn't finished before but is now), call finish
 		if (!wasFinished && this.state === GameState.FINISH && !this.finished) {
 			console.log(`Game ${this.gameId} ended naturally with score ${this.scores.left}-${this.scores.right}`);
 			setTimeout(() => this.finish(), 0);
@@ -200,7 +197,7 @@ export class OnlineGame extends Game {
 					}
 				}
 
-				// Forfeit when time is up
+				// Forfeit 
 				if (now >= until) {
 					const opponentId = this.getOpponentPlayerId(playerId);
 					const playerName = this.getPlayerName(playerId);
