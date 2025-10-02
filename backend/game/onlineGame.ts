@@ -120,12 +120,13 @@ export class OnlineGame extends Game {
 
 		const playerName = this.getPlayerName(playerId);
 		if (this.socketNamespace) {
-			this.socketNamespace.to(this.gameId).emit("player-disconnected", {
-				userId: playerId,
-				playerName: playerName,
-				expiresAt: deadline,
-				gracePeriodMs: this.GRACE_MS,
-			});
+			   this.socketNamespace.to(this.gameId).emit("player-disconnected", {
+				   userId: playerId,
+				   playerName: playerName,
+				   expiresAt: deadline,
+				   gracePeriodMs: this.GRACE_MS,
+				   timeLeftMs: this.GRACE_MS,
+			   });
 		}
 		if (hadNoDisconnections) {
 			this.pause();
