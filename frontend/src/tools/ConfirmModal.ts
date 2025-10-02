@@ -37,7 +37,7 @@ export class ConfirmModal {
 		const confirmButtonClass = options.invertConfirmAndCancelColors ? 'bg-red-700 hover:bg-red-800 active:bg-red-600' : 'bg-green-600 hover:bg-green-700 active:bg-green-500';
 		const cancelButtonClass = options.invertConfirmAndCancelColors ? 'bg-gray-600 hover:bg-gray-700 active:bg-gray-500' : 'bg-red-600 hover:bg-red-700 active:bg-red-500';
 		this.modalContainer.innerHTML = /*html*/`
-			<div class="max-w-xl w-full max-h-screen flex flex-col bg-gray-800 text-white rounded-sm">
+			<div class="max-w-xl w-full max-h-screen flex flex-col bg-zinc-800 text-white rounded-sm">
 				<header class="flex px-4 py-3 text-2xl font-medium items-center">
 					<span class="modal-title grow"></span>
 					<button class="modal-close-button p-2 cursor-pointer text-xl"><i class="fa fa-times" aria-hidden="true"></i></button>
@@ -45,14 +45,14 @@ export class ConfirmModal {
 				<div class="py-10 px-4">
 					<span class="modal-message"></span>
 				</div>
-				<footer class="flex gap-1 justify-end items-center px-4 py-5">
-					<button class="modal-confirm-button cursor-pointer px-2 py-1 text-xl ${confirmButtonClass} rounded-md"></button>
-					<button class="modal-cancel-button cursor-pointer px-2 py-1 text-xl ${cancelButtonClass} rounded-md"></button>
+				<footer class="flex gap-3 justify-end items-center px-4 py-5">
+					<button class="modal-confirm-button cursor-pointer px-2 py-1 text-xl min-w-24 font-medium ${confirmButtonClass} rounded-md"></button>
+					<button class="modal-cancel-button cursor-pointer px-2 py-1 text-xl min-w-24 font-medium ${cancelButtonClass} rounded-md"></button>
 				</footer>
 			</div>
 		`;
 
-		this.modalContainer.className = `modal hidden w-dvw h-dvh flex flex-col justify-center items-center bg-black/50`;
+		this.modalContainer.className = `modal hidden w-dvw h-dvh flex flex-col justify-center items-center bg-black/50 px-2 py-5`;
 		this.titleElement = document.createElement('h3');
 		this.messageElement = document.createElement('p');
 		this.confirmButtonElement = this.modalContainer.querySelector('.modal-confirm-button')!;
