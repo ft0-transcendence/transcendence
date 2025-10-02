@@ -132,30 +132,32 @@ export const friendshipRouter = t.router({
 				}
 
 				if (existingRequest.state === FriendState.PENDING) {
-					throw new TRPCError({
-						code: 'BAD_REQUEST',
-						message: 'You already sent a friend request to this user'
-					});
-				}
-				else if (existingRequest.userId !== ctx.user!.id) {
-					await ctx.db.friend.update({
-						where: { id: existingRequest.id },
-						data: { state: FriendState.ACCEPTED }
-					});
-					await ctx.db.friend.create({
-						data: {
-							userId: ctx.user!.id,
-							friendId: targetUser.id,
-							state: FriendState.ACCEPTED
-						},
-					});
+					if (existingRequest.userId === ctx.user!.id) {
+						throw new TRPCError({
+							code: 'BAD_REQUEST',
+							message: 'You already sent a friend request to this user'
+						});
+					} else {
+						await ctx.db.friend.update({
+							where: { id: existingRequest.id },
+							data: { state: FriendState.ACCEPTED }
+						});
+						await ctx.db.friend.create({
+							data: {
+								userId: ctx.user!.id,
+								friendId: targetUser.id,
+								state: FriendState.ACCEPTED
+							},
+						});
 
-					await notifyFriendshipAccepted(targetUser.id, ctx.user!.id);
+						await notifyFriendshipAccepted(targetUser.id, ctx.user!.id);
 
-					return {
-						message: `Now you're friend of ${targetUser.username}`
-					};
+						return {
+							message: `Now you're friend of ${targetUser.username}`
+						};
+					}
 				}
+
 
 			}
 
@@ -238,9 +240,8 @@ export const friendshipRouter = t.router({
 				throw new Error("REQUEST_NOT_FOUND");
 			}
 
-			await ctx.db.friend.update({
-				where: { id: input.requestId },
-				data: { state: FriendState.REJECTED }
+			await ctx.db.friend.delete({
+				where: { id: input.requestId }
 			});
 
 			return {
