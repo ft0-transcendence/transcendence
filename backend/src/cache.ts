@@ -39,14 +39,20 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 
 	for (const game of activeGames) {
 
-		const LEASE_TIME = 1000 * 60;
+		const LEASE_TIME = 1000 * 60; // 1 min
 
 		const now = new Date();
-		const limitDate = new Date(game.startDate.getTime() + LEASE_TIME);
+		// Use updatedAt instead of startDate for better tracking of game activity
+		const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);
 		if (now > limitDate) {
-			fastify.log.warn('Game %s is expired, removing from cache', game.id);
-			await db.game.delete({
-				where: { id: game.id }
+			fastify.log.warn('Game %s is expired (last updated: %s), removing from cache', game.id, game.updatedAt.toISOString());
+			await db.game.update({
+				where: { id: game.id },
+				data: {
+					endDate: new Date(),
+					abortDate: new Date(),
+					abortReason: 'Game expired due to inactivity'
+				}
 			});
 			continue;
 		}
@@ -58,16 +64,35 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				maxScore: game.scoreGoal,
 			},
 			async (state) => {
+				// Check if game was aborted due to disconnection
+				const isAborted = state.scores.left === 10 && state.scores.right === 0 ||
+					state.scores.left === 0 && state.scores.right === 10;
+
+				const updateData: any = {
+					endDate: new Date(),
+					leftPlayerScore: state.scores.left,
+					rightPlayerScore: state.scores.right,
+				};
+
+				// If aborted due to disconnection, add abort information
+				if (isAborted) {
+					updateData.abortDate = new Date();
+					updateData.abortReason = 'Player disconnection timeout';
+				}
+
 				await db.game.update({
 					where: { id: game.id },
-					data: {
-						endDate: new Date(),
-						leftPlayerScore: state.scores.left,
-						rightPlayerScore: state.scores.right,
-					},
+					data: updateData,
 				});
 				cache.active_1v1_games.delete(game.id);
 				fastify.log.info("Game %s persisted and removed from cache.", game.id);
+			},
+			async () => {
+				// Update game activity timestamp
+				await db.game.update({
+					where: { id: game.id },
+					data: { updatedAt: new Date() }
+				});
 			}
 		);
 		gameInstance.setPlayers({ ...game.leftPlayer }, { ...game.rightPlayer });

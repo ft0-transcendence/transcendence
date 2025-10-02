@@ -82,7 +82,10 @@ model Game {
     id               String      @id @default(cuid())
     type             GameType
     startDate        DateTime
+    updatedAt        DateTime    @default(now()) @updatedAt
     endDate          DateTime?
+    abortDate        DateTime?
+    abortReason      String?
     scoreGoal        Int         @default(7)
     leftPlayerScore  Int         @default(0)
     leftPlayerId     String
