@@ -32,6 +32,13 @@ export const en = {
 		no_notifications: 'Nothing here',
 		accept_friend_request: 'Accept',
 		reject_friend_request: 'Reject',
+		friend_requests: 'Friend Requests',
+		no_friend_requests: 'No friend requests so far',
+		remove_friend: 'Remove Friend',
+		remove_friend_confirm: 'Are you sure you want to remove {{username}} from your friends list? This action cannot be undone.',
+		confirm: 'Confirm',
+		cancel: 'Cancel',
+		remove_friend_success: 'Friend removed successfully',
 	},
 
 	game_modes: {

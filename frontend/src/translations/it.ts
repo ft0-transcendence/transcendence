@@ -33,6 +33,13 @@ export const it: TranslationSchema = {
 		no_notifications: 'Nessuna notifica',
 		accept_friend_request: 'Accetta',
 		reject_friend_request: 'Rifiuta',
+		friend_requests: 'Richieste di amicizia',
+		no_friend_requests: 'Nessuna richiesta di amicizia',
+		remove_friend: 'Rimuovi amico',
+		remove_friend_confirm: 'Sei sicuro di voler rimuovere {{username}} dalla tua lista di amici? Questa azione non può essere annullata.',
+		confirm: 'Conferma',
+		cancel: 'Annulla',
+		remove_friend_success: 'Amico rimosso con successo',
 	},
 	game_modes: {
 		ai: '1 vs IA',

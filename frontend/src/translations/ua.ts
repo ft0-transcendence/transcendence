@@ -33,6 +33,13 @@ export const ua: TranslationSchema = {
 		no_notifications: 'Немає сповіщень',
 		accept_friend_request: 'Прийняти',
 		reject_friend_request: 'Відхилити',
+		friend_requests: 'Запити на дружбу',
+		no_friend_requests: 'Немає запитів на дружбу',
+		remove_friend: 'Видалити друга',
+		remove_friend_confirm: 'Ви впевнені, що хочете видалити {{username}} зі своєї списку друзів? Цю дію неможливо скасувати.',
+		confirm: 'Підтвердити',
+		cancel: 'Скасувати',
+		remove_friend_success: 'Друг успішно видалений',
 	},
 	game_modes: {
 		ai: '1 vs AI',
