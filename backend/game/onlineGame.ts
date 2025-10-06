@@ -12,7 +12,7 @@ export class OnlineGame extends Game {
 	protected onFinish?: FinishCallback;
 
 	private readonly GRACE_MS = 15000; // 15s
-	private readonly ABORT_WARNING_MS = 10000; // 10s before abort (5s remaining)
+	private readonly ABORT_WARNING_AT_MS = 5000; // Warning quando rimangono 5s
 	private disconnectedUntil: Map<string, number> = new Map();
 	private abortWarningsSent: Set<string> = new Set();
 	protected warningIntervals: Map<string, NodeJS.Timeout> = new Map();
@@ -211,8 +211,8 @@ export class OnlineGame extends Game {
 			for (const [playerId, until] of this.disconnectedUntil.entries()) {
 				const timeLeft = until - now;
 
-				// Send abort warning when 5 seconds are left
-				if (timeLeft <= 5000 && timeLeft > 0 && !this.abortWarningsSent.has(playerId)) {
+				// Send abort warning when time reaches ABORT_WARNING_AT_MS
+				if (timeLeft <= this.ABORT_WARNING_AT_MS && timeLeft > 0 && !this.abortWarningsSent.has(playerId)) {
 					this.abortWarningsSent.add(playerId);
 					const playerName = this.getPlayerName(playerId);
 					const opponentName = this.getPlayerName(this.getOpponentPlayerId(playerId) ?? '');

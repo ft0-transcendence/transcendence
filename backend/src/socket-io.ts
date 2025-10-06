@@ -4,6 +4,7 @@ import { DefaultEventsMap, Server, Socket } from "socket.io";
 import { cache, addUserToOnlineCache, removeUserFromOnlineCache, isUserOnline } from './cache';
 import { Game, GameUserInfo, MovePaddleAction } from '../game/game';
 import { OnlineGame } from '../game/onlineGame';
+import { BracketGenerator } from '../game/bracketGenerator';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
@@ -550,6 +551,89 @@ function setupTournamentNamespace(io: Server) {
 
 			} catch (error) {
 				fastify.log.error('Error leaving tournament:', error);
+			}
+		});
+
+		socket.on("start-tournament", async (tournamentId: string) => {
+			try {
+				const tournament = await db.tournament.findUnique({
+					where: { id: tournamentId },
+					include: { pariticipants: { include: { user: true } } }
+				});
+
+				if (!tournament) {
+					socket.emit('error', 'Tournament not found');
+					return;
+				}
+
+				// check se l'utente è il creatore
+				if (tournament.createdById !== user.id) {
+					socket.emit('error', 'Only creator can start tournament');
+					return;
+				}
+
+				// check numero partecipanti
+				const expectedPlayers = 8; // Solo tornei da 8 per ora
+				if (tournament.pariticipants.length !== expectedPlayers) {
+					socket.emit('error', `Need exactly ${expectedPlayers} players to start`);
+					return;
+				}
+
+				// Genera bracket
+				const bracketGen = new BracketGenerator(db);
+				const participantIds = tournament.pariticipants.map(p => p.userId);
+
+				fastify.log.info('Generating bracket for tournament %s with participants: %o', tournamentId, participantIds);
+
+				const bracket = await bracketGen.generateAndCreateBracket(
+					tournamentId,
+					participantIds,
+					'EIGHT'
+				);
+
+				// Debug: stampa bracket
+				bracketGen.printBracket(bracket);
+
+				// Aggiorna DB
+				await db.tournament.update({
+					where: { id: tournamentId },
+					data: { startDate: new Date() }
+				});
+
+				// Aggiorna cache
+				const tournamentInfo = cache.tournaments.active.get(tournamentId);
+				if (tournamentInfo) {
+					tournamentInfo.status = 'IN_PROGRESS';
+				}
+
+				const firstRoundGames = bracketGen.getFirstRoundGames(bracket);
+
+				tournamentNamespace.to(tournamentId).emit('tournament-started', {
+					tournamentId,
+					name: tournament.name,
+					startDate: new Date(),
+					bracket: bracket.map(g => ({
+						gameId: g.gameId,
+						round: g.round,
+						position: g.position,
+						leftPlayerId: g.leftPlayerId,
+						rightPlayerId: g.rightPlayerId,
+						nextGameId: g.nextGameId
+					})),
+					firstRoundGames: firstRoundGames.map(g => ({
+						gameId: g.gameId,
+						leftPlayerId: g.leftPlayerId,
+						rightPlayerId: g.rightPlayerId,
+						round: g.round,
+						position: g.position
+					}))
+				});
+
+				fastify.log.info('Tournament %s started with %d players', tournamentId, participantIds.length);
+
+			} catch (error) {
+				fastify.log.error('Error starting tournament:', error);
+				socket.emit('error', 'Failed to start tournament');
 			}
 		});
 
