@@ -1,0 +1,23 @@
+sequenza logica torneo
+    U => User
+    S => Socket
+    C => Cache
+    D => Database
+    G => TournamentGame
+    
+    U->>S: join-tournament
+    S->>D: Verifica torneo
+    S->>C: Aggiungi a lobby
+    S->>U: tournament-joined
+    S->>S: Notifica altri utenti
+    
+    Note over G: Partita inizia
+    G->>G: Game logic
+    G->>D: Salva risultato
+    G->>S: tournament-game-completed
+    S->>U: Notifica avanzamento
+    
+    Note over G: Torneo completo
+    G->>D: Aggiorna torneo
+    G->>S: tournament-completed
+    S->>U: Notifica vincitore
