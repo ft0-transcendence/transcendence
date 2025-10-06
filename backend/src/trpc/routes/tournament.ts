@@ -1,4 +1,4 @@
-// backend/src/trpc/routes/tournament.ts
+// TODO: da fare join-tournament-game
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, t } from "../trpc";
 import { z } from "zod";

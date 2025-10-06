@@ -50,20 +50,22 @@ export const cache: Cache = {
 
 
 export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: FastifyInstance) {
-	const activeGames = await db.game.findMany({
-		where: { endDate: null },
+	const activeVSGames = await db.game.findMany({
+		where: {
+			endDate: null,
+			type: 'VS'  // Solo game online 1v1
+		},
 		include: { leftPlayer: true, rightPlayer: true },
 	});
 
-	for (const game of activeGames) {
+	for (const game of activeVSGames) {
 
 		const LEASE_TIME = 1000 * 60; // 1 min
 
 		const now = new Date();
-		// Use updatedAt instead of startDate for better tracking of game activity
 		const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);
 		if (now > limitDate) {
-			fastify.log.warn('Game %s is expired (last updated: %s), removing from cache', game.id, game.updatedAt.toISOString());
+			fastify.log.warn('VS Game %s is expired (last updated: %s), removing from cache', game.id, game.updatedAt.toISOString());
 			await db.game.update({
 				where: { id: game.id },
 				data: {
@@ -77,12 +79,11 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 
 		const gameInstance = new OnlineGame(
 			game.id,
-			null, // socketNamespace will be set when needed
+			null,
 			{
 				maxScore: game.scoreGoal,
 			},
 			async (state) => {
-				// Check if game was aborted due to disconnection
 				const isAborted = state.scores.left === 10 && state.scores.right === 0 ||
 					state.scores.left === 0 && state.scores.right === 10;
 
@@ -92,7 +93,6 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 					rightPlayerScore: state.scores.right,
 				};
 
-				// If aborted due to disconnection, add abort information
 				if (isAborted) {
 					updateData.abortDate = new Date();
 					updateData.abortReason = 'Player disconnection timeout';
@@ -103,10 +103,9 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 					data: updateData,
 				});
 				cache.active_1v1_games.delete(game.id);
-				fastify.log.info("Game %s persisted and removed from cache.", game.id);
+				fastify.log.info("VS Game %s persisted and removed from cache.", game.id);
 			},
 			async () => {
-				// Update game activity timestamp
 				await db.game.update({
 					where: { id: game.id },
 					data: { updatedAt: new Date() }
@@ -120,7 +119,82 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		cache.active_1v1_games.set(game.id, gameInstance);
 	}
 
-	fastify.log.info(`Loaded ${activeGames.length} active games into cache`);
+	// Carica partite TOURNAMENT nella cache dedicata
+	const activeTournamentGames = await db.game.findMany({
+		where: {
+			endDate: null,
+			type: 'TOURNAMENT'
+		},
+		include: { leftPlayer: true, rightPlayer: true, tournament: true },
+	});
+
+	for (const game of activeTournamentGames) {
+		const LEASE_TIME = 1000 * 60; // 1 min
+
+		const now = new Date();
+		const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);
+		if (now > limitDate) {
+			fastify.log.warn('Tournament Game %s is expired (last updated: %s), removing from cache', game.id, game.updatedAt.toISOString());
+			await db.game.update({
+				where: { id: game.id },
+				data: {
+					endDate: new Date(),
+					abortDate: new Date(),
+					abortReason: 'Game expired due to inactivity'
+				}
+			});
+			continue;
+		}
+
+		if (!game.tournamentId) {
+			fastify.log.warn('Tournament Game %s has no tournamentId, skipping', game.id);
+			continue;
+		}
+
+		const gameInstance = new TournamentGame(
+			game.id,
+			game.tournamentId,
+			null,
+			{
+				maxScore: game.scoreGoal,
+			},
+			async (state, tournamentId, gameId) => {
+				const isAborted = state.scores.left === 10 && state.scores.right === 0 ||
+					state.scores.left === 0 && state.scores.right === 10;
+
+				const updateData: any = {
+					endDate: new Date(),
+					leftPlayerScore: state.scores.left,
+					rightPlayerScore: state.scores.right,
+				};
+
+				if (isAborted) {
+					updateData.abortDate = new Date();
+					updateData.abortReason = 'Player disconnection timeout';
+				}
+
+				await db.game.update({
+					where: { id: gameId },
+					data: updateData,
+				});
+				cache.tournaments.activeTournamentGames.delete(gameId);
+				fastify.log.info("Tournament Game %s persisted and removed from cache.", gameId);
+			},
+			async () => {
+				await db.game.update({
+					where: { id: game.id },
+					data: { updatedAt: new Date() }
+				});
+			}
+		);
+		gameInstance.setPlayers({ ...game.leftPlayer }, { ...game.rightPlayer });
+		gameInstance.scores.left = game.leftPlayerScore;
+		gameInstance.scores.right = game.rightPlayerScore;
+
+		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
+	}
+
+	fastify.log.info(`Loaded ${activeVSGames.length} VS games and ${activeTournamentGames.length} tournament games into cache`);
 }
 
 export function addUserToOnlineCache(userId: User['id'], socket: TypedSocket) {
