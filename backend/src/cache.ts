@@ -1,5 +1,6 @@
 import { PrismaClient, User } from "@prisma/client";
 import { OnlineGame } from "../game/onlineGame";
+import { TournamentGame } from "../game/tournamentGame";
 import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
 import { db } from "./trpc/db";
@@ -13,6 +14,18 @@ export type Cache = {
 	active_1v1_games: Map<string, OnlineGame>;
 	onlineUsers: Map<User['id'], TypedSocket>;
 	userSockets: Map<User['id'], Set<TypedSocket>>;
+	tournaments: {
+		active: Map<string, {
+			id: string;
+			name: string;
+			type: 'EIGHT';
+			status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+			participants: Set<User['id']>;
+			connectedUsers: Set<User['id']>;
+		}>;
+		activeTournamentGames: Map<string, OnlineGame>;
+		tournamentLobbies: Map<string, Set<User['id']>>;
+	};
 }
 
 /**
@@ -27,7 +40,12 @@ export const cache: Cache = {
 	},
 	active_1v1_games: new Map(),
 	onlineUsers: new Map(),
-	userSockets: new Map()
+	userSockets: new Map(),
+	tournaments: {
+		active: new Map(),
+		activeTournamentGames: new Map(),
+		tournamentLobbies: new Map()
+	}
 }
 
 
@@ -133,6 +151,36 @@ export function removeUserFromOnlineCache(userId: User['id'], socket: TypedSocke
 
 export function isUserOnline(userId: User['id']): boolean {
 	return cache.onlineUsers.has(userId);
+}
+
+export function addTournamentToCache(tournamentId: string, tournamentInfo: {
+	id: string;
+	name: string;
+	type: 'EIGHT';
+	status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+	participants: Set<User['id']>;
+	connectedUsers: Set<User['id']>;
+}) {
+	cache.tournaments.active.set(tournamentId, tournamentInfo);
+}
+
+export function removeTournamentFromCache(tournamentId: string) {
+	cache.tournaments.active.delete(tournamentId);
+	cache.tournaments.tournamentLobbies.delete(tournamentId);
+
+	for (const [gameId, game] of cache.tournaments.activeTournamentGames) {
+		if (game instanceof TournamentGame && game.tournamentId === tournamentId) {
+			cache.tournaments.activeTournamentGames.delete(gameId);
+		}
+	}
+}
+
+export function addTournamentGameToCache(gameId: string, game: any) {
+	cache.tournaments.activeTournamentGames.set(gameId, game);
+}
+
+export function removeTournamentGameFromCache(gameId: string) {
+	cache.tournaments.activeTournamentGames.delete(gameId);
 }
 
 export function getOnlineFriends(userId: User['id']): User['id'][] {

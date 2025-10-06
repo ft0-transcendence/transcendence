@@ -48,7 +48,6 @@ model Friend {
 
 enum TournamentType {
     EIGHT
-    SIXTEEN
 }
 
 model Tournament {

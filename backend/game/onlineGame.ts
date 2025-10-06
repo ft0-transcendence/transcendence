@@ -3,18 +3,19 @@ import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState } from "./g
 type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
 export class OnlineGame extends Game {
-	private gameId: string;
-	private socketNamespace: any;
-	private updateGameActivity?: () => Promise<void>;
+	protected gameId: string;
+	protected socketNamespace: any;
+	protected updateGameActivity?: () => Promise<void>;
 
-	private unsubscribeTick: (() => void) | null = null;
-	private finished = false;
-	private onFinish?: FinishCallback;
+	protected unsubscribeTick: (() => void) | null = null;
+	protected finished = false;
+	protected onFinish?: FinishCallback;
 
 	private readonly GRACE_MS = 15000; // 15s
 	private readonly ABORT_WARNING_MS = 10000; // 10s before abort (5s remaining)
 	private disconnectedUntil: Map<string, number> = new Map();
 	private abortWarningsSent: Set<string> = new Set();
+	protected warningIntervals: Map<string, NodeJS.Timeout> = new Map();
 
 	private _playerLeft: GameUserInfo | null = null;
 	private _playerRight: GameUserInfo | null = null;
@@ -39,7 +40,6 @@ export class OnlineGame extends Game {
 				this.socketNamespace.to(this.gameId).emit("game-state", state);
 			}
 			if (this.state === GameState.FINISH && !this.finished) {
-				// Use setTimeout to avoid blocking the tick loop
 				setTimeout(() => this.finish(), 0);
 			}
 			this.checkGraceAndForfeit(now);
@@ -119,15 +119,39 @@ export class OnlineGame extends Game {
 		this.abortWarningsSent.delete(playerId); // Reset warning flag
 
 		const playerName = this.getPlayerName(playerId);
+
+		// Invia primo warning
 		if (this.socketNamespace) {
-			   this.socketNamespace.to(this.gameId).emit("player-disconnected", {
-				   userId: playerId,
-				   playerName: playerName,
-				   expiresAt: deadline,
-				   gracePeriodMs: this.GRACE_MS,
-				   timeLeftMs: this.GRACE_MS,
-			   });
+			this.socketNamespace.to(this.gameId).emit("player-disconnected", {
+				userId: playerId,
+				playerName: playerName,
+				expiresAt: deadline,
+				gracePeriodMs: this.GRACE_MS,
+				timeLeftMs: this.GRACE_MS,
+			});
 		}
+
+		// warning periodici 1s
+		const warningInterval = setInterval(() => {
+			const timeLeft = deadline - Date.now();
+			if (timeLeft <= 0 || !this.disconnectedUntil.has(playerId)) {
+				clearInterval(warningInterval);
+				this.warningIntervals.delete(playerId);
+				return;
+			}
+
+			if (this.socketNamespace) {
+				this.socketNamespace.to(this.gameId).emit("disconnection-timer-update", {
+					userId: playerId,
+					playerName: playerName,
+					timeLeftMs: timeLeft,
+					expiresAt: deadline,
+				});
+			}
+		}, 1000);
+
+		this.warningIntervals.set(playerId, warningInterval);
+
 		if (hadNoDisconnections) {
 			this.pause();
 		}
@@ -136,7 +160,14 @@ export class OnlineGame extends Game {
 	public markPlayerReconnected(playerId: string) {
 		if (!this.disconnectedUntil.has(playerId)) return;
 		this.disconnectedUntil.delete(playerId);
-		this.abortWarningsSent.delete(playerId); // Clear warning flag
+		this.abortWarningsSent.delete(playerId);
+
+		// Pulizia timer warning
+		const interval = this.warningIntervals.get(playerId);
+		if (interval) {
+			clearInterval(interval);
+			this.warningIntervals.delete(playerId);
+		}
 
 		const playerName = this.getPlayerName(playerId);
 		if (this.socketNamespace) {
@@ -243,6 +274,12 @@ export class OnlineGame extends Game {
 		this.finished = true;
 
 		console.log(`Game ${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
+
+		// Pulizia warning
+		for (const [playerId, interval] of this.warningIntervals) {
+			clearInterval(interval);
+		}
+		this.warningIntervals.clear();
 
 		if (this.unsubscribeTick) {
 			this.unsubscribeTick();

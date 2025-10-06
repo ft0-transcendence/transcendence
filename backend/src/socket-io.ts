@@ -27,6 +27,7 @@ export function setupSocketHandlers(io: Server) {
 	setupMatchmakingNamespace(io);
 	setupOnlineVersusGameNamespace(io);
 	setupFriendshipNamespace(io);
+	setupTournamentNamespace(io);
 
 	fastify.log.info("Setting up Socket.IO handlers");
 	io.on("connection", async (socket: TypedSocket) => {
@@ -449,6 +450,135 @@ async function sendFriendsListToUser(userId: User['id'], socket: TypedSocket) {
 	} catch (error) {
 		fastify.log.error('Error sending friends list to user %s:', userId, error);
 	}
+}
+
+function setupTournamentNamespace(io: Server) {
+	const tournamentNamespace = io.of("/tournament");
+	applySocketAuth(tournamentNamespace);
+
+	tournamentNamespace.on("connection", (socket: TypedSocket) => {
+		fastify.log.info("Tournament socket connected. id=%s, username=%s", socket.id, socket.data.user.username);
+
+		const { user } = socket.data;
+
+		socket.on("join-tournament", async (tournamentId: string) => {
+			try {
+				const tournament = await db.tournament.findUnique({
+					where: { id: tournamentId },
+					include: { pariticipants: { include: { user: true } } }
+				});
+
+				if (!tournament) {
+					socket.emit('error', 'Tournament not found');
+					return;
+				}
+
+				// add utente lobby del torneo
+				if (!cache.tournaments.tournamentLobbies.has(tournamentId)) {
+					cache.tournaments.tournamentLobbies.set(tournamentId, new Set());
+				}
+				cache.tournaments.tournamentLobbies.get(tournamentId)!.add(user.id);
+
+				// add torneo cache
+				if (!cache.tournaments.active.has(tournamentId)) {
+					cache.tournaments.active.set(tournamentId, {
+						id: tournament.id,
+						name: tournament.name,
+						type: 'EIGHT',
+						status: 'WAITING_PLAYERS',
+						participants: new Set(tournament.pariticipants.map(p => p.userId)),
+						connectedUsers: new Set()
+					});
+				}
+
+				const tournamentInfo = cache.tournaments.active.get(tournamentId)!;
+				tournamentInfo.connectedUsers.add(user.id);
+
+				await socket.join(tournamentId);
+
+				socket.emit('tournament-joined', {
+					tournamentId: tournament.id,
+					name: tournament.name,
+					type: tournament.type || 'EIGHT',
+					participants: tournament.pariticipants.map(p => ({
+						id: p.userId,
+						username: p.user.username
+					})),
+					connectedUsers: Array.from(tournamentInfo.connectedUsers)
+				});
+
+				// Notifica partecipanti
+				socket.to(tournamentId).emit('user-joined-tournament', {
+					userId: user.id,
+					username: user.username
+				});
+
+				fastify.log.info('User %s joined tournament %s', user.username, tournament.name);
+
+			} catch (error) {
+				fastify.log.error('Error joining tournament:', error);
+				socket.emit('error', 'Failed to join tournament');
+			}
+		});
+
+		socket.on("leave-tournament", async (tournamentId: string) => {
+			try {
+				// Rm utente dalla lobby
+				const lobby = cache.tournaments.tournamentLobbies.get(tournamentId);
+				if (lobby) {
+					lobby.delete(user.id);
+					if (lobby.size === 0) {
+						cache.tournaments.tournamentLobbies.delete(tournamentId);
+					}
+				}
+
+				// Rm utente dalla cache del torneo
+				const tournamentInfo = cache.tournaments.active.get(tournamentId);
+				if (tournamentInfo) {
+					tournamentInfo.connectedUsers.delete(user.id);
+				}
+
+				await socket.leave(tournamentId);
+
+				// Notifica partecipanti
+				socket.to(tournamentId).emit('user-left-tournament', {
+					userId: user.id,
+					username: user.username
+				});
+
+				fastify.log.info('User %s left tournament %s', user.username, tournamentId);
+
+			} catch (error) {
+				fastify.log.error('Error leaving tournament:', error);
+			}
+		});
+
+		socket.on("disconnect", async (reason) => {
+			fastify.log.info("Tournament socket disconnected %s, reason: %s", socket.id, reason);
+
+			// Rm utente da tutte le lobby dei tornei
+			for (const [tournamentId, lobby] of cache.tournaments.tournamentLobbies) {
+				if (lobby.has(user.id)) {
+					lobby.delete(user.id);
+					if (lobby.size === 0) {
+						cache.tournaments.tournamentLobbies.delete(tournamentId);
+					}
+
+					socket.to(tournamentId).emit('user-left-tournament', {
+						userId: user.id,
+						username: user.username
+					});
+				}
+			}
+
+			// Rm utente da tutti i tornei attivi
+			for (const [tournamentId, tournamentInfo] of cache.tournaments.active) {
+				if (tournamentInfo.connectedUsers.has(user.id)) {
+					tournamentInfo.connectedUsers.delete(user.id);
+				}
+			}
+		});
+	});
 }
 
 
