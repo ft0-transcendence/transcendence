@@ -358,10 +358,6 @@ async function notifyFriendRequestReceived(recipientId: string, senderId: string
 				id: requestId,
 				username: sender.username,
 				friendRelationId: recipientId,
-			});
-
-			recipientSocket.emit('notification', {
-				type: 'info',
 				message: `${sender.username} sent you a friend request`
 			});
 		}
@@ -391,10 +387,6 @@ async function notifyFriendRequestSent(senderId: string, recipientId: string, re
 				username: recipient.username,
 				friendRelationId: recipientId,
 				type: 'sent' as const,
-			});
-			
-			senderSocket.emit('notification', {
-				type: 'success',
 				message: `Friend request sent to ${recipient.username}`
 			});
 		}
@@ -440,21 +432,19 @@ async function notifyFriendshipAccepted(accepterId: string, requesterId: string,
 
 		const accepterSocket = cache.onlineUsers.get(accepterId);
 		if (accepterSocket) {
-			accepterSocket.emit('friend-updated', requesterFriend);
-			accepterSocket.emit('notification', {
-				type: 'success',
+			accepterSocket.emit('friend-updated', {
+				...requesterFriend,
 				message: `You are now friends with ${requester.username}`
 			});
 		}
 
 		const requesterSocket = cache.onlineUsers.get(requesterId);
 		if (requesterSocket) {
-			requesterSocket.emit('friend-request-accepted', { requestId });
-			requesterSocket.emit('friend-updated', accepterFriend);
-			requesterSocket.emit('notification', {
-				type: 'success',
+			requesterSocket.emit('friend-request-accepted', {
+				requestId,
 				message: `${accepter.username} accepted your friend request`
 			});
+			requesterSocket.emit('friend-updated', accepterFriend);
 		}
 
 		fastify.log.debug('Notified friendship accepted between %s and %s', accepterId, requesterId);
@@ -486,17 +476,18 @@ async function notifyFriendRequestRejected(requesterId: string, rejecterId: stri
 
 		const rejecterSocket = cache.onlineUsers.get(rejecterId);
 		if (rejecterSocket) {
-			rejecterSocket.emit('notification', {
-				type: 'info',
+			rejecterSocket.emit('friend-request-rejected-by-me', {
+				requestId,
+				username: requester.username,
 				message: `You declined ${requester.username}'s friend request`
 			});
 		}
 
 		const requesterSocket = cache.onlineUsers.get(requesterId);
 		if (requesterSocket) {
-			requesterSocket.emit('friend-request-rejected', { requestId });
-			requesterSocket.emit('notification', {
-				type: 'info',
+			requesterSocket.emit('friend-request-rejected', {
+				requestId,
+				username: rejecter.username,
 				message: `${rejecter.username} declined your friend request`
 			});
 		}
@@ -530,18 +521,18 @@ async function notifyFriendshipRemoved(removerId: string, removedId: string) {
 
 		const removerSocket = cache.onlineUsers.get(removerId);
 		if (removerSocket) {
-			removerSocket.emit('friend-removed', { friendId: removedId });
-			removerSocket.emit('notification', {
-				type: 'info',
+			removerSocket.emit('friend-removed', {
+				friendId: removedId,
+				username: removed.username,
 				message: `You removed ${removed.username} from your friends list`
 			});
 		}
 
 		const removedSocket = cache.onlineUsers.get(removedId);
 		if (removedSocket) {
-			removedSocket.emit('friend-removed', { friendId: removerId });
-			removedSocket.emit('notification', {
-				type: 'info',
+			removedSocket.emit('friend-removed', {
+				friendId: removerId,
+				username: remover.username,
 				message: `${remover.username} removed you from their friends list`
 			});
 		}

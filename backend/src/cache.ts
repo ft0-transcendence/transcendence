@@ -163,7 +163,8 @@ async function notifyFriendsUserOnline(userId: User['id']) {
 		const friendData = {
 			id: user.id,
 			username: user.username,
-			state: 'online' as const
+			state: 'online' as const,
+			message: `${user.username} is online`
 		};
 
 		for (const friend of user.friends) {
@@ -172,10 +173,6 @@ async function notifyFriendsUserOnline(userId: User['id']) {
 			if (friendSockets) {
 				for (const friendSocket of friendSockets) {
 					friendSocket.emit('friend-updated', friendData);
-					friendSocket.emit('notification', {
-						type: 'info',
-						message: `${user.username} is online`
-					});
 				}
 			}
 		}
@@ -206,7 +203,8 @@ async function notifyFriendsUserOffline(userId: User['id']) {
 		const friendData = {
 			id: user.id,
 			username: user.username,
-			state: 'offline' as const
+			state: 'offline' as const,
+			message: `${user.username} is offline`
 		};
 
 		for (const friend of user.friends) {
@@ -215,10 +213,6 @@ async function notifyFriendsUserOffline(userId: User['id']) {
 			if (friendSockets) {
 				for (const friendSocket of friendSockets) {
 					friendSocket.emit('friend-updated', friendData);
-					friendSocket.emit('notification', {
-						type: 'info',
-						message: `${user.username} is offline`
-					});
 				}
 			}
 		}

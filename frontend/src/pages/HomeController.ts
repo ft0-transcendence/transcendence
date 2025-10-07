@@ -158,25 +158,46 @@ export class HomeController extends RouteController {
 			baseSocket.on('friend-updated', (friend) => {
 				console.debug('Friend updated', friend);
 				this.#upsertFriend(friend);
+				if (friend.message) {
+					toast.success(t('generic.friends'), friend.message);
+				}
 			});
 			baseSocket.on('friend-removed', (data) => {
 				console.debug('Friend removed', data);
 				this.#removeFriendFromList(data.friendId);
+				if (data.message) {
+					toast.info(t('generic.friends'), data.message);
+				}
 			});
 			baseSocket.on('friend-request-received', (friendRequest) => {
 				console.debug('Friend request received', friendRequest);
 				this.#renderFriendRequest(friendRequest);
+				if (friendRequest.message) {
+					toast.info(t('generic.friend_requests'), friendRequest.message);
+				}
 			});
-			baseSocket.on('notification', (notification) => {
-				console.debug('Notification received', notification);
-				if (notification.type === 'success') {
-					toast.success('Notification', notification.message);
-				} else if (notification.type === 'info') {
-					toast.info('Notification', notification.message);
-				} else if (notification.type === 'warning') {
-					toast.warn('Notification', notification.message);
-				} else if (notification.type === 'error') {
-					toast.error('Notification', notification.message);
+			baseSocket.on('friend-request-sent', (data) => {
+				console.debug('Friend request sent', data);
+				if (data.message) {
+					toast.success(t('generic.friend_requests'), data.message);
+				}
+			});
+			baseSocket.on('friend-request-accepted', (data) => {
+				console.debug('Friend request accepted', data);
+				if (data.message) {
+					toast.success(t('generic.friend_requests'), data.message);
+				}
+			});
+			baseSocket.on('friend-request-rejected', (data) => {
+				console.debug('Friend request rejected', data);
+				if (data.message) {
+					toast.info(t('generic.friend_requests'), data.message);
+				}
+			});
+			baseSocket.on('friend-request-rejected-by-me', (data) => {
+				console.debug('Friend request rejected by me', data);
+				if (data.message) {
+					toast.info(t('generic.friend_requests'), data.message);
 				}
 			});
 		} else {
