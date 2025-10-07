@@ -662,6 +662,63 @@ function setupTournamentNamespace(io: Server) {
 				}
 			}
 		});
+
+		socket.on("join-tournament-game", async (gameId: string) => {
+			try {
+				const game = cache.tournaments.activeTournamentGames.get(gameId);
+
+				if (!game) {
+					socket.emit('error', 'Tournament game not found or not active');
+					return;
+				}
+
+				const isPlayerInGame = game.isPlayerInGame(user.id);
+
+				if (!isPlayerInGame) {
+					socket.emit('error', 'You are not a player in this game');
+					return;
+				}
+
+				game.setSocketNamespace(tournamentNamespace);
+
+				// add utente alla partita
+				const gameUserInfo: GameUserInfo = {
+					id: user.id,
+					username: user.username,
+					isPlayer: true
+				};
+
+				game.addConnectedUser(gameUserInfo);
+
+				// join alla room della partita
+				await socket.join(gameId);
+
+				// set giocatore come ready
+				game.playerReady(gameUserInfo);
+
+				socket.emit('tournament-game-joined', {
+					gameId: gameId,
+					game: {
+						leftPlayer: game.leftPlayer,
+						rightPlayer: game.rightPlayer,
+						state: game.getState()
+					},
+					playerSide: game.leftPlayer?.id === user.id ? 'left' : 'right',
+					isPlayer: true
+				});
+
+				socket.to(gameId).emit('player-joined-tournament-game', {
+					userId: user.id,
+					username: user.username
+				});
+
+				fastify.log.info('User %s joined tournament game %s', user.username, gameId);
+
+			} catch (error) {
+				fastify.log.error('Error joining tournament game:', error);
+				socket.emit('error', 'Failed to join tournament game');
+			}
+		});
 	});
 }
 

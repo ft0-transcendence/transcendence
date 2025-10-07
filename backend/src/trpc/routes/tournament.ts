@@ -418,4 +418,75 @@ export const tournamentRouter = t.router({
                 filledSide,
             };
         }),
+    joinTournamentGame: protectedProcedure
+        .input(z.object({
+            gameId: z.string()
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const { gameId } = input;
+            const userId = ctx.user!.id;
+
+            // check se partita esiste ed è tipo TOURNAMENT
+            const game = await ctx.db.game.findUnique({
+                where: { id: gameId },
+                include: {
+                    leftPlayer: true,
+                    rightPlayer: true,
+                    tournament: {
+                        include: {
+                            participants: {
+                                include: { user: true }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (!game) {
+                throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
+            }
+
+            if (game.type !== GameType.TOURNAMENT) {
+                throw new TRPCError({ code: "BAD_REQUEST", message: "Not a tournament game" });
+            }
+
+            if (!game.tournament) {
+                throw new TRPCError({ code: "BAD_REQUEST", message: "Game has no associated tournament" });
+            }
+
+            // check se utente è partecipante del torneo
+            const isParticipant = game.tournament.participants.some(p => p.userId === userId);
+            if (!isParticipant) {
+                throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this tournament" });
+            }
+
+            // check se utente è nella partita
+            const isPlayerInGame = game.leftPlayerId === userId || game.rightPlayerId === userId;
+            if (!isPlayerInGame) {
+                throw new TRPCError({ code: "FORBIDDEN", message: "You are not a player in this game" });
+            }
+
+            if (game.endDate) {
+                throw new TRPCError({ code: "BAD_REQUEST", message: "Game already finished" });
+            }
+
+            return {
+                game: {
+                    id: game.id,
+                    leftPlayer: game.leftPlayer,
+                    rightPlayer: game.rightPlayer,
+                    leftPlayerScore: game.leftPlayerScore,
+                    rightPlayerScore: game.rightPlayerScore,
+                    startDate: game.startDate,
+                    scoreGoal: game.scoreGoal
+                },
+                tournament: {
+                    id: game.tournament.id,
+                    name: game.tournament.name,
+                    type: game.tournament.type
+                },
+                isPlayer: true,
+                playerSide: game.leftPlayerId === userId ? 'left' : 'right'
+            };
+        }),
 });
