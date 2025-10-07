@@ -99,6 +99,11 @@ export class AuthManager {
 			this.#friendsList = friendsList;
 		});
 
+		this.#baseSocketConnection.on('friend-removed', (data) => {
+			console.debug('Friend removed in AuthManager', data);
+			this.#friendsList = this.#friendsList.filter(f => f.id !== data.friendId);
+		});
+
 		this.#baseSocketConnection.on('disconnect', (reason) => {
 			console.debug('Socket disconnected from server.');
 			if (router.currentRouteNeedsAuth){
