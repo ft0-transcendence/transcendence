@@ -23,16 +23,16 @@ export class BracketGenerator {
     async generateBracket(
         tournamentId: string,
         participants: string[],
-        tournamentType: 'EIGHT' | 'SIXTEEN'
+        tournamentType: 'EIGHT'
     ): Promise<BracketNode[]> {
-        const expectedPlayers = tournamentType === 'EIGHT' ? 8 : 16;
+        const expectedPlayers = 8;
 
         if (participants.length !== expectedPlayers) {
             throw new Error(`Torneo richiede ${expectedPlayers} giocatori`);
         }
 
         const bracket: BracketNode[] = [];
-        const totalRounds = tournamentType === 'EIGHT' ? 3 : 4;
+        const totalRounds = 3;
 
         const gameIdMap = new Map<string, string>();
 

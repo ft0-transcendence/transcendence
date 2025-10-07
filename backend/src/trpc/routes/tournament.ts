@@ -23,7 +23,7 @@ export const tournamentRouter = t.router({
                 },
                 include: {
                     createdBy: true,
-                    pariticipants: {
+                    participants: {
                         include: {
                             user: true
                         }
@@ -51,7 +51,7 @@ export const tournamentRouter = t.router({
             const tournament = await ctx.db.tournament.findUnique({
                 where: { id: input.tournamentId },
                 include: {
-                    pariticipants: true
+                    participants: true
                 }
             });
 
@@ -65,14 +65,14 @@ export const tournamentRouter = t.router({
             }
 
             // check se l'utente è già nel torneo
-            const alreadyJoined = tournament.pariticipants.some(p => p.userId === ctx.user!.id);
+            const alreadyJoined = tournament.participants.some(p => p.userId === ctx.user!.id);
             if (alreadyJoined) {
                 throw new TRPCError({ code: "BAD_REQUEST", message: "Already joined this tournament" });
             }
 
             // check se il torneo è pieno
-            const maxParticipants = tournament.type === TournamentType.EIGHT ? 8 : 16;
-            if (tournament.pariticipants.length >= maxParticipants) {
+            const maxParticipants = 8;
+            if (tournament.participants.length >= maxParticipants) {
                 throw new TRPCError({ code: "BAD_REQUEST", message: "Tournament is full" });
             }
 
@@ -102,14 +102,14 @@ export const tournamentRouter = t.router({
                 orderBy: { startDate: 'desc' },
                 include: {
                     createdBy: true,
-                    pariticipants: {
+                    participants: {
                         include: {
                             user: true
                         }
                     },
                     _count: {
                         select: {
-                            pariticipants: true
+                            participants: true
                         }
                     }
                 }
@@ -136,7 +136,7 @@ export const tournamentRouter = t.router({
                 where: { id: input.tournamentId },
                 include: {
                     createdBy: true,
-                    pariticipants: {
+                    participants: {
                         include: {
                             user: true
                         }
@@ -167,7 +167,7 @@ export const tournamentRouter = t.router({
             const tournament = await ctx.db.tournament.findUnique({
                 where: { id: input.tournamentId },
                 include: {
-                    pariticipants: true,
+                    participants: true,
                     games: true,
                 }
             });
@@ -184,25 +184,18 @@ export const tournamentRouter = t.router({
                 throw new TRPCError({ code: "BAD_REQUEST", message: "Tournament already started" });
             }
 
-            const maxParticipants = tournament.type === TournamentType.EIGHT ? 8 : 16;
-            if (tournament.pariticipants.length < maxParticipants) {
+            const maxParticipants = 8;
+            if (tournament.participants.length < maxParticipants) {
                 throw new TRPCError({ code: "BAD_REQUEST", message: "Tournament is not full" });
             }
 
-            const participantIds = tournament.pariticipants.map(p => p.userId);
-            // shuffle partecipanti
-            for (let i = participantIds.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [participantIds[i], participantIds[j]] = [participantIds[j], participantIds[i]];
-            }
+            const participantIds = tournament.participants.map(p => p.userId);
 
             const size = maxParticipants;
             const roundsCount = Math.log2(size);
 
-            // Creiamo top-down: final -> semifinali -> ... -> primo round
             let parentRoundGameIds: string[] = [];
 
-            // final (1 partita) con placeholder giocatori validi
             const finalGame = await ctx.db.game.create({
                 data: {
                     type: GameType.TOURNAMENT,
@@ -255,7 +248,7 @@ export const tournamentRouter = t.router({
             const updatedTournament = await ctx.db.tournament.findUnique({
                 where: { id: input.tournamentId },
                 include: {
-                    pariticipants: {
+                    participants: {
                         include: { user: true }
                     },
                     games: {
@@ -283,7 +276,7 @@ export const tournamentRouter = t.router({
                             previousGames: { select: { id: true, nextGameId: true } }
                         }
                     },
-                    pariticipants: { include: { user: true } }
+                    participants: { include: { user: true } }
                 }
             });
 
@@ -291,7 +284,7 @@ export const tournamentRouter = t.router({
                 throw new TRPCError({ code: "NOT_FOUND", message: "Tournament not found" });
             }
 
-            const size = t.type === TournamentType.EIGHT ? 8 : 16;
+            const size = 8;
             const gamesById = new Map(t.games.map(g => [g.id, g]));
             const firstRound = t.games.filter(g => g.previousGames.length === 0);
             const rounds = [] as any[][];
@@ -333,7 +326,7 @@ export const tournamentRouter = t.router({
                     type: t.type,
                     startDate: t.startDate,
                     endDate: t.endDate,
-                    participants: t.pariticipants.map(p => ({ id: p.user.id, username: p.user.username }))
+                    participants: t.participants.map(p => ({ id: p.user.id, username: p.user.username }))
                 },
                 rounds: rounds.map(round => round.map(simplify))
             };

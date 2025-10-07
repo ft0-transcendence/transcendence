@@ -466,7 +466,7 @@ function setupTournamentNamespace(io: Server) {
 			try {
 				const tournament = await db.tournament.findUnique({
 					where: { id: tournamentId },
-					include: { pariticipants: { include: { user: true } } }
+					include: { participants: { include: { user: true } } }
 				});
 
 				if (!tournament) {
@@ -487,7 +487,7 @@ function setupTournamentNamespace(io: Server) {
 						name: tournament.name,
 						type: 'EIGHT',
 						status: 'WAITING_PLAYERS',
-						participants: new Set(tournament.pariticipants.map(p => p.userId)),
+						participants: new Set(tournament.participants.map(p => p.userId)),
 						connectedUsers: new Set()
 					});
 				}
@@ -501,7 +501,7 @@ function setupTournamentNamespace(io: Server) {
 					tournamentId: tournament.id,
 					name: tournament.name,
 					type: tournament.type || 'EIGHT',
-					participants: tournament.pariticipants.map(p => ({
+					participants: tournament.participants.map(p => ({
 						id: p.userId,
 						username: p.user.username
 					})),
@@ -558,7 +558,7 @@ function setupTournamentNamespace(io: Server) {
 			try {
 				const tournament = await db.tournament.findUnique({
 					where: { id: tournamentId },
-					include: { pariticipants: { include: { user: true } } }
+					include: { participants: { include: { user: true } } }
 				});
 
 				if (!tournament) {
@@ -574,14 +574,14 @@ function setupTournamentNamespace(io: Server) {
 
 				// check numero partecipanti
 				const expectedPlayers = 8; // Solo tornei da 8 per ora
-				if (tournament.pariticipants.length !== expectedPlayers) {
+				if (tournament.participants.length !== expectedPlayers) {
 					socket.emit('error', `Need exactly ${expectedPlayers} players to start`);
 					return;
 				}
 
 				// Genera bracket
 				const bracketGen = new BracketGenerator(db);
-				const participantIds = tournament.pariticipants.map(p => p.userId);
+				const participantIds = tournament.participants.map(p => p.userId);
 
 				fastify.log.info('Generating bracket for tournament %s with participants: %o', tournamentId, participantIds);
 

@@ -235,7 +235,7 @@ export class OnlineGame extends Game {
 					const opponentName = this.getPlayerName(opponentId ?? '');
 
 					if (opponentId) {
-						const FORFEIT_WIN = 10;
+						const FORFEIT_WIN = 7;
 						const FORFEIT_LOSS = 0;
 						if (this.leftPlayer && this.rightPlayer) {
 							if (opponentId === this.leftPlayer.id) {

@@ -85,8 +85,8 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				maxScore: game.scoreGoal,
 			},
 			async (state) => {
-				const isAborted = state.scores.left === 10 && state.scores.right === 0 ||
-					state.scores.left === 0 && state.scores.right === 10;
+				const isAborted = state.scores.left === 7 && state.scores.right === 0 ||
+					state.scores.left === 0 && state.scores.right === 7;
 
 				const updateData: any = {
 					endDate: new Date(),

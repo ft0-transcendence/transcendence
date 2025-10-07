@@ -51,16 +51,16 @@ enum TournamentType {
 }
 
 model Tournament {
-    id            String                  @id @default(cuid())
-    type          TournamentType?         @default(EIGHT)
-    name          String
-    password      String?
-    startDate     DateTime
-    endDate       DateTime?
-    createdById   String
-    createdBy     User                    @relation("createdTournaments", fields: [createdById], references: [id])
-    pariticipants TournamentParticipant[] @relation("participants")
-    games         Game[]                  @relation("games")
+    id           String                  @id @default(cuid())
+    type         TournamentType?         @default(EIGHT)
+    name         String
+    password     String?
+    startDate    DateTime
+    endDate      DateTime?
+    createdById  String
+    createdBy    User                    @relation("createdTournaments", fields: [createdById], references: [id])
+    participants TournamentParticipant[] @relation("participants")
+    games        Game[]                  @relation("games")
 }
 
 model TournamentParticipant {
