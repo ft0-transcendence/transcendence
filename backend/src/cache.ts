@@ -50,10 +50,11 @@ export const cache: Cache = {
 
 
 export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: FastifyInstance) {
+	// Carica partite VS nel DB
 	const activeVSGames = await db.game.findMany({
 		where: {
 			endDate: null,
-			type: 'VS'  // Solo game online 1v1
+			type: 'VS'
 		},
 		include: { leftPlayer: true, rightPlayer: true },
 	});
@@ -119,7 +120,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		cache.active_1v1_games.set(game.id, gameInstance);
 	}
 
-	// Carica partite TOURNAMENT nella cache dedicata
+	// Carica partite TOURNAMENT nel DB
 	const activeTournamentGames = await db.game.findMany({
 		where: {
 			endDate: null,

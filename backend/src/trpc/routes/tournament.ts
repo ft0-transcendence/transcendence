@@ -371,7 +371,6 @@ export const tournamentRouter = t.router({
 
             const winnerId = leftScore > rightScore ? game.leftPlayerId : game.rightPlayerId;
 
-            //match con i punteggi finali
             const finishedGame = await ctx.db.game.update({
                 where: { id: gameId },
                 data: {
