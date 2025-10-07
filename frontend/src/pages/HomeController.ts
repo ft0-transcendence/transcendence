@@ -158,10 +158,47 @@ export class HomeController extends RouteController {
 			baseSocket.on('friend-updated', (friend) => {
 				console.debug('Friend updated', friend);
 				this.#upsertFriend(friend);
+				if (friend.message) {
+					toast.success(t('generic.friends'), friend.message);
+				}
+			});
+			baseSocket.on('friend-removed', (data) => {
+				console.debug('Friend removed', data);
+				this.#removeFriendFromList(data.friendId);
+				if (data.message) {
+					toast.info(t('generic.friends'), data.message);
+				}
 			});
 			baseSocket.on('friend-request-received', (friendRequest) => {
 				console.debug('Friend request received', friendRequest);
 				this.#renderFriendRequest(friendRequest);
+				if (friendRequest.message) {
+					toast.info(t('generic.friend_requests'), friendRequest.message);
+				}
+			});
+			baseSocket.on('friend-request-sent', (data) => {
+				console.debug('Friend request sent', data);
+				if (data.message) {
+					toast.success(t('generic.friend_requests'), data.message);
+				}
+			});
+			baseSocket.on('friend-request-accepted', (data) => {
+				console.debug('Friend request accepted', data);
+				if (data.message) {
+					toast.success(t('generic.friend_requests'), data.message);
+				}
+			});
+			baseSocket.on('friend-request-rejected', (data) => {
+				console.debug('Friend request rejected', data);
+				if (data.message) {
+					toast.info(t('generic.friend_requests'), data.message);
+				}
+			});
+			baseSocket.on('friend-request-rejected-by-me', (data) => {
+				console.debug('Friend request rejected by me', data);
+				if (data.message) {
+					toast.info(t('generic.friend_requests'), data.message);
+				}
 			});
 		} else {
 			console.warn('No socket connection. Something weird happened...');
@@ -216,7 +253,6 @@ export class HomeController extends RouteController {
 			const result = await request.mutate({ username })
 
 			console.debug('Friend add result=', result);
-			toast.success(t('generic.add_friend'), result.message);
 			this.#toggleFriendInput!.value = '';
 		} catch (err) {
 
@@ -433,7 +469,6 @@ export class HomeController extends RouteController {
 		try {
 			const result = await api.friendship.acceptFriendRequest.mutate(dto);
 			console.debug('Friend request accepted', result);
-			toast.success(t('generic.accept_friend_request'), result.message);
 			return true;
 		} catch (err) {
 			if (err instanceof TRPCClientError) {
@@ -456,7 +491,6 @@ export class HomeController extends RouteController {
 		try {
 			const result = await api.friendship.rejectFriendRequest.mutate(dto);
 			console.debug('Friend request rejected', result);
-			toast.success(t('generic.reject_friend_request'), result.message);
 			return true;
 		} catch (err) {
 			if (err instanceof TRPCClientError) {
@@ -491,6 +525,7 @@ export class HomeController extends RouteController {
 			if (friendElement) {
 				this.#friendsListContainer?.appendChild(friendElement);
 				friendElement.querySelector('.friend-remove-btn')?.addEventListener('click', this.onDeleteFriendClickEvent);
+				setTimeout(() => this.#updateFriendsCount(), 0);
 			}
 		}
 	}
@@ -530,6 +565,14 @@ export class HomeController extends RouteController {
 		if (friendsCount) {
 			const onlineFriends = this.#friendsListContainer?.querySelectorAll('.friend-status-icon-online').length ?? 0;
 			friendsCount.textContent = `${onlineFriends}`;
+		}
+	}
+
+	#removeFriendFromList(friendId: string) {
+		const friendElement = document.querySelector(`#friend-${friendId}`);
+		if (friendElement) {
+			friendElement.remove();
+			this.#updateFriendsCount();
 		}
 	}
 
@@ -594,9 +637,7 @@ export class HomeController extends RouteController {
 				console.debug('Friend remove confirmed', friendId);
 				try {
 					await api.friendship.removeFriend.mutate({ friendId });
-					toast.success(t('generic.remove_friend'), t('generic.remove_friend_success', { username: friendElement.querySelector('.friend-username')?.textContent ?? '' }) ?? "Friend removed successfully");
-					friendElement.remove();
-				} catch(err) {
+				} catch (err) {
 					console.error('Friend remove error', err);
 					if (err instanceof TRPCClientError) {
 						console.warn('Friend remove error', err);
