@@ -392,7 +392,8 @@ export const tournamentRouter = t.router({
                     throw new TRPCError({ code: "NOT_FOUND", message: "Next game not found" });
                 }
 
-                // Determina lo slot: ordina gli id dei due children; il min -> left, max -> right
+                // Determina lo slot: ordina gli id dei due children(uid);
+                // in pratica da uid a ogni game e poi lo sorta e mette il min in left e il max in right in modo da avere un bracket consistente(Esempio: vincitore P1 VS P2 andrà slot sinista e vincitore P3 VS P4 andrà slot destro)
                 if (next.previousGames.length !== 2) {
                     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Malformed bracket (previousGames != 2)" });
                 }
