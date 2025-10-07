@@ -75,10 +75,49 @@ export const friendshipRouter = t.router({
 					id: f.id,
 					username: f.user.username,
 					friendRelationId: f.user.id,
+					type: 'received' as const,
 				}
 			});
 			mappedFriendsList.sort((a, b) => a.username.localeCompare(b.username));
 			return mappedFriendsList;
+		}),
+
+	getSentRequests: protectedProcedure
+		.query(async ({ctx}) => {
+			const userWithSentRequests = await ctx.db.user.findFirst({
+				where: { id: ctx.user!.id },
+				include: {
+					friends: {
+						where: {
+							state: FriendState.PENDING,
+						},
+						select: {
+							id: true,
+							friend: {
+								select: {
+									id: true,
+									username: true,
+								}
+							}
+						}
+					}
+				}
+			});
+
+			// shouldn't happen
+			if (!userWithSentRequests) throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+
+			const sentRequestsList = userWithSentRequests.friends;
+			const mappedSentRequestsList = sentRequestsList.map(f=>{
+				return {
+					id: f.id,
+					username: f.friend.username,
+					friendRelationId: f.friend.id,
+					type: 'sent' as const,
+				}
+			});
+			mappedSentRequestsList.sort((a, b) => a.username.localeCompare(b.username));
+			return mappedSentRequestsList;
 		}),
 
 	sendFriendRequest: protectedProcedure
@@ -149,7 +188,7 @@ export const friendshipRouter = t.router({
 							},
 						});
 
-						await notifyFriendshipAccepted(ctx.user!.id, targetUser.id);
+						await notifyFriendshipAccepted(ctx.user!.id, targetUser.id, existingRequest.id);
 
 						return {
 							success: true
@@ -169,7 +208,7 @@ export const friendshipRouter = t.router({
 			});
 
 			await notifyFriendRequestReceived(targetUser.id, ctx.user!.id, friendRequest.id);
-			await notifyFriendRequestSent(ctx.user!.id, targetUser.id);
+			await notifyFriendRequestSent(ctx.user!.id, targetUser.id, friendRequest.id);
 
 			return {
 				success: true
@@ -214,7 +253,7 @@ export const friendshipRouter = t.router({
 				}
 			});
 
-			await notifyFriendshipAccepted(ctx.user!.id, request.userId);
+			await notifyFriendshipAccepted(ctx.user!.id, request.userId, input.requestId);
 
 			return {
 				success: true,
@@ -243,7 +282,7 @@ export const friendshipRouter = t.router({
 				where: { id: input.requestId }
 			});
 
-			await notifyFriendRequestRejected(request.userId, ctx.user!.id);
+			await notifyFriendRequestRejected(request.userId, ctx.user!.id, input.requestId);
 
 			return {
 				success: true
@@ -333,7 +372,7 @@ async function notifyFriendRequestReceived(recipientId: string, senderId: string
 	}
 }
 
-async function notifyFriendRequestSent(senderId: string, recipientId: string) {
+async function notifyFriendRequestSent(senderId: string, recipientId: string, requestId: string) {
 	try {
 		const recipient = await fastify.prisma.user.findFirst({
 			where: { id: recipientId },
@@ -347,6 +386,13 @@ async function notifyFriendRequestSent(senderId: string, recipientId: string) {
 
 		const senderSocket = cache.onlineUsers.get(senderId);
 		if (senderSocket) {
+			senderSocket.emit('friend-request-sent', {
+				id: requestId,
+				username: recipient.username,
+				friendRelationId: recipientId,
+				type: 'sent' as const,
+			});
+			
 			senderSocket.emit('notification', {
 				type: 'success',
 				message: `Friend request sent to ${recipient.username}`
@@ -359,7 +405,7 @@ async function notifyFriendRequestSent(senderId: string, recipientId: string) {
 	}
 }
 
-async function notifyFriendshipAccepted(accepterId: string, requesterId: string) {
+async function notifyFriendshipAccepted(accepterId: string, requesterId: string, requestId: string) {
 	try {
 		const [accepter, requester] = await Promise.all([
 			fastify.prisma.user.findFirst({
@@ -403,6 +449,7 @@ async function notifyFriendshipAccepted(accepterId: string, requesterId: string)
 
 		const requesterSocket = cache.onlineUsers.get(requesterId);
 		if (requesterSocket) {
+			requesterSocket.emit('friend-request-accepted', { requestId });
 			requesterSocket.emit('friend-updated', accepterFriend);
 			requesterSocket.emit('notification', {
 				type: 'success',
@@ -416,7 +463,7 @@ async function notifyFriendshipAccepted(accepterId: string, requesterId: string)
 	}
 }
 
-async function notifyFriendRequestRejected(requesterId: string, rejecterId: string) {
+async function notifyFriendRequestRejected(requesterId: string, rejecterId: string, requestId: string) {
 	try {
 		const [requester, rejecter] = await Promise.all([
 			fastify.prisma.user.findFirst({
@@ -447,6 +494,7 @@ async function notifyFriendRequestRejected(requesterId: string, rejecterId: stri
 
 		const requesterSocket = cache.onlineUsers.get(requesterId);
 		if (requesterSocket) {
+			requesterSocket.emit('friend-request-rejected', { requestId });
 			requesterSocket.emit('notification', {
 				type: 'info',
 				message: `${rejecter.username} declined your friend request`
