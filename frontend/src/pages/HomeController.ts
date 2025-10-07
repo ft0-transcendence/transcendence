@@ -159,6 +159,10 @@ export class HomeController extends RouteController {
 				console.debug('Friend updated', friend);
 				this.#upsertFriend(friend);
 			});
+			baseSocket.on('friend-removed', (data) => {
+				console.debug('Friend removed', data);
+				this.#removeFriendFromList(data.friendId);
+			});
 			baseSocket.on('friend-request-received', (friendRequest) => {
 				console.debug('Friend request received', friendRequest);
 				this.#renderFriendRequest(friendRequest);
@@ -491,6 +495,7 @@ export class HomeController extends RouteController {
 			if (friendElement) {
 				this.#friendsListContainer?.appendChild(friendElement);
 				friendElement.querySelector('.friend-remove-btn')?.addEventListener('click', this.onDeleteFriendClickEvent);
+				setTimeout(() => this.#updateFriendsCount(), 0);
 			}
 		}
 	}
@@ -530,6 +535,14 @@ export class HomeController extends RouteController {
 		if (friendsCount) {
 			const onlineFriends = this.#friendsListContainer?.querySelectorAll('.friend-status-icon-online').length ?? 0;
 			friendsCount.textContent = `${onlineFriends}`;
+		}
+	}
+
+	#removeFriendFromList(friendId: string) {
+		const friendElement = document.querySelector(`#friend-${friendId}`);
+		if (friendElement) {
+			friendElement.remove();
+			this.#updateFriendsCount();
 		}
 	}
 
@@ -596,6 +609,7 @@ export class HomeController extends RouteController {
 					await api.friendship.removeFriend.mutate({ friendId });
 					toast.success(t('generic.remove_friend'), t('generic.remove_friend_success', { username: friendElement.querySelector('.friend-username')?.textContent ?? '' }) ?? "Friend removed successfully");
 					friendElement.remove();
+					this.#updateFriendsCount();
 				} catch(err) {
 					console.error('Friend remove error', err);
 					if (err instanceof TRPCClientError) {

@@ -37,8 +37,7 @@ export const friendshipRouter = t.router({
 				return {
 					id: f.user.id,
 					username: f.user.username,
-					friendRelationId: f.id,
-					isOnline: isUserOnline(f.user.id),
+					state: isUserOnline(f.user.id) ? 'online' : 'offline'
 				}
 			});
 			mappedFriendsList.sort((a, b) => a.username.localeCompare(b.username));
