@@ -149,10 +149,10 @@ export const friendshipRouter = t.router({
 							},
 						});
 
-						await notifyFriendshipAccepted(targetUser.id, ctx.user!.id);
+						await notifyFriendshipAccepted(ctx.user!.id, targetUser.id);
 
 						return {
-							message: `Now you're friend of ${targetUser.username}`
+							success: true
 						};
 					}
 				}
@@ -169,9 +169,10 @@ export const friendshipRouter = t.router({
 			});
 
 			await notifyFriendRequestReceived(targetUser.id, ctx.user!.id, friendRequest.id);
+			await notifyFriendRequestSent(ctx.user!.id, targetUser.id);
 
 			return {
-				message: `Friend request sent to ${targetUser.username}`
+				success: true
 			};
 		}),
 
@@ -217,7 +218,6 @@ export const friendshipRouter = t.router({
 
 			return {
 				success: true,
-				message: `Now you're friend of ${requester?.username}`,
 				friend: requester
 			};
 		}),
@@ -243,9 +243,10 @@ export const friendshipRouter = t.router({
 				where: { id: input.requestId }
 			});
 
+			await notifyFriendRequestRejected(request.userId, ctx.user!.id);
+
 			return {
-				success: true,
-				message: "Friend request rejected"
+				success: true
 			};
 		}),
 
@@ -272,7 +273,7 @@ export const friendshipRouter = t.router({
 			await notifyFriendshipRemoved(ctx.user!.id, input.friendId);
 
 			return {
-				message: "Friend removed from your list"
+				success: true
 			};
 		}),
 
@@ -322,13 +323,39 @@ async function notifyFriendRequestReceived(recipientId: string, senderId: string
 
 			recipientSocket.emit('notification', {
 				type: 'info',
-				message: `${sender.username} sent you a frien request`
+				message: `${sender.username} sent you a friend request`
 			});
 		}
 
 		fastify.log.debug('Notified friend request received: %s -> %s', senderId, recipientId);
 	} catch (error) {
 		fastify.log.error('Error notifying friend request received:', error);
+	}
+}
+
+async function notifyFriendRequestSent(senderId: string, recipientId: string) {
+	try {
+		const recipient = await fastify.prisma.user.findFirst({
+			where: { id: recipientId },
+			select: {
+				id: true,
+				username: true,
+			}
+		});
+
+		if (!recipient) return;
+
+		const senderSocket = cache.onlineUsers.get(senderId);
+		if (senderSocket) {
+			senderSocket.emit('notification', {
+				type: 'success',
+				message: `Friend request sent to ${recipient.username}`
+			});
+		}
+
+		fastify.log.debug('Notified friend request sent: %s -> %s', senderId, recipientId);
+	} catch (error) {
+		fastify.log.error('Error notifying friend request sent:', error);
 	}
 }
 
@@ -368,10 +395,9 @@ async function notifyFriendshipAccepted(accepterId: string, requesterId: string)
 		const accepterSocket = cache.onlineUsers.get(accepterId);
 		if (accepterSocket) {
 			accepterSocket.emit('friend-updated', requesterFriend);
-			// README: serve? notification nella lista oppure notification come toast in alto a destra?
 			accepterSocket.emit('notification', {
 				type: 'success',
-				message: `Ora sei amico di ${requester.username}`
+				message: `You are now friends with ${requester.username}`
 			});
 		}
 
@@ -390,16 +416,86 @@ async function notifyFriendshipAccepted(accepterId: string, requesterId: string)
 	}
 }
 
+async function notifyFriendRequestRejected(requesterId: string, rejecterId: string) {
+	try {
+		const [requester, rejecter] = await Promise.all([
+			fastify.prisma.user.findFirst({
+				where: { id: requesterId },
+				select: {
+					id: true,
+					username: true,
+				}
+			}),
+			fastify.prisma.user.findFirst({
+				where: { id: rejecterId },
+				select: {
+					id: true,
+					username: true,
+				}
+			})
+		]);
+
+		if (!requester || !rejecter) return;
+
+		const rejecterSocket = cache.onlineUsers.get(rejecterId);
+		if (rejecterSocket) {
+			rejecterSocket.emit('notification', {
+				type: 'info',
+				message: `You declined ${requester.username}'s friend request`
+			});
+		}
+
+		const requesterSocket = cache.onlineUsers.get(requesterId);
+		if (requesterSocket) {
+			requesterSocket.emit('notification', {
+				type: 'info',
+				message: `${rejecter.username} declined your friend request`
+			});
+		}
+
+		fastify.log.debug('Notified friend request rejected: %s -> %s', requesterId, rejecterId);
+	} catch (error) {
+		fastify.log.error('Error notifying friend request rejected:', error);
+	}
+}
+
 async function notifyFriendshipRemoved(removerId: string, removedId: string) {
 	try {
+		const [remover, removed] = await Promise.all([
+			fastify.prisma.user.findFirst({
+				where: { id: removerId },
+				select: {
+					id: true,
+					username: true,
+				}
+			}),
+			fastify.prisma.user.findFirst({
+				where: { id: removedId },
+				select: {
+					id: true,
+					username: true,
+				}
+			})
+		]);
+
+		if (!remover || !removed) return;
+
 		const removerSocket = cache.onlineUsers.get(removerId);
 		if (removerSocket) {
 			removerSocket.emit('friend-removed', { friendId: removedId });
+			removerSocket.emit('notification', {
+				type: 'info',
+				message: `You removed ${removed.username} from your friends list`
+			});
 		}
 
 		const removedSocket = cache.onlineUsers.get(removedId);
 		if (removedSocket) {
 			removedSocket.emit('friend-removed', { friendId: removerId });
+			removedSocket.emit('notification', {
+				type: 'info',
+				message: `${remover.username} removed you from their friends list`
+			});
 		}
 
 		fastify.log.debug('Notified friendship removed between %s and %s', removerId, removedId);
