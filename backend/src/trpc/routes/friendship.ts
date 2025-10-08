@@ -357,7 +357,7 @@ async function notifyFriendRequestReceived(recipientId: string, senderId: string
 			recipientSocket.emit('friend-request-received', {
 				id: requestId,
 				username: sender.username,
-				friendRelationId: recipientId,
+				friendRelationId: senderId,
 				message: `${sender.username} sent you a friend request`
 			});
 		}
@@ -442,6 +442,7 @@ async function notifyFriendshipAccepted(accepterId: string, requesterId: string,
 		if (requesterSocket) {
 			requesterSocket.emit('friend-request-accepted', {
 				requestId,
+				friendRelationId: accepterId,
 				message: `${accepter.username} accepted your friend request`
 			});
 			requesterSocket.emit('friend-updated', accepterFriend);
@@ -487,6 +488,7 @@ async function notifyFriendRequestRejected(requesterId: string, rejecterId: stri
 		if (requesterSocket) {
 			requesterSocket.emit('friend-request-rejected', {
 				requestId,
+				friendRelationId: rejecterId,
 				username: rejecter.username,
 				message: `${rejecter.username} declined your friend request`
 			});
