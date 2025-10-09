@@ -1,6 +1,6 @@
 import type { GameType } from '@prisma/client';
 import type { AppRouter, RouterInputs, RouterOutputs } from './src/trpc/root';
-import { Game, GameUserInfo } from './game/game';
+import { Game, GameUserInfo, STANDARD_GAME_CONFIG } from './game/game';
 import type { SocketFriendInfo } from './src/socket-io';
 
 export type {
@@ -13,5 +13,6 @@ export type {
 };
 
 export {
-	Game
+	Game,
+	STANDARD_GAME_CONFIG
 }

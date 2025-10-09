@@ -66,38 +66,34 @@ export type GameUserInfo = {
 	isPlayer?: boolean;
 }
 
+const BALL_RADIUS = 1.5;
+const COLLISION_OFFSET = 0.5;
+const TARGET_FPS = 60;
+const FRAME_TIME_MS = 1000 / TARGET_FPS;
+
+export const STANDARD_GAME_CONFIG: GameConfig = {
+	debug: false,
+	shouldUseRequestAnimationFrame: true,
+	gameStartCountdown: 3000,
+	maxScore: 7,
+	initialVelocity: 0.05,
+	velocityIncrease: 0.000005,
+	maxVelocity: 0.16,
+	paddleSpeed: 2.8,
+	movementSensitivity: 0.5,
+	paddleHeightPercentage: 20,
+	enableInternalLoop: true,
+};
+
 export class Game {
-	#config: GameConfig = {
-		debug: false,
+	#config: GameConfig;
 
-		shouldUseRequestAnimationFrame: false,
-
-		gameStartCountdown: 3000,
-
-		initialVelocity: 0.035,
-		velocityIncrease: 0.0000005,
-		maxVelocity: 0.12,
-		paddleSpeed: 2.8,
-		movementSensitivity: 0.5,
-		maxScore: 7,
-
-		paddleHeightPercentage: 20,
-		enableInternalLoop: true,
-	}
-
-	#gameId: string = '';
-
-
-	get currentConfig() {
-		return this.#config;
-	}
 
 	private inputState = {
 		left: { up: false, down: false },
 		right: { up: false, down: false },
 	};
 
-	// Internal loop management
 	private lastTick: number | null = null;
 
 	public state: GameState;
@@ -105,7 +101,6 @@ export class Game {
 	public ball: Ball;
 	public paddles: Paddles;
 	public scores: Scores;
-	public lastUpdate: number | null;
 
 	// Tick listeners to notify external systems (e.g., OnlineGame) after each update
 	private tickListeners: Array<(state: GameStatus, now: number) => void> = [];
@@ -116,10 +111,11 @@ export class Game {
 	private leftPlayerReady: boolean = false;
 	private rightPlayerReady: boolean = false;
 
-	constructor(config?: Partial<GameConfig>) {
-		if (config) {
-			this.updatePartialConfig(config);
-		}
+	constructor(config: Partial<GameConfig> = {}) {
+		this.#config = {
+			...STANDARD_GAME_CONFIG,
+			...config
+		} as GameConfig;
 
 		this.state = GameState.TOSTART;
 		this.countdown = null;
@@ -142,7 +138,6 @@ export class Game {
 			right: 0,
 		};
 
-		this.lastUpdate = null;
 	}
 
 	public start(): void {
@@ -156,9 +151,13 @@ export class Game {
 	}
 
 	public setPlayers(player1: GameUserInfo, player2: GameUserInfo): void {
+		if (!player1 || !player2) {
+			throw new Error('Both players must be provided');
+		}
 		this._leftPlayer = player1;
 		this._rightPlayer = player2;
 	}
+	
 	public playerReady(player: GameUserInfo): void {
 		if (this.leftPlayer && this.leftPlayer.id === player.id) {
 			this.leftPlayerReady = true;
@@ -176,9 +175,11 @@ export class Game {
 	public movePaddle(player: "left" | "right", direction: MovePaddleAction): void {
 		if (this.state !== GameState.RUNNING) return;
 		if (this.isInCountdown()) return;
+		
 		const speed = this.#config.paddleSpeed * this.#config.movementSensitivity;
 		const min = this.#config.paddleHeightPercentage / 2;
 		const max = 100 - this.#config.paddleHeightPercentage / 2;
+		
 		if (player === "left") {
 			if (direction === "up") this.paddles.left -= speed;
 			if (direction === "down") this.paddles.left += speed;
@@ -190,12 +191,6 @@ export class Game {
 		}
 	}
 
-	public updatePartialConfig(config: Partial<GameConfig>) {
-		Object.assign(this.#config, config as Partial<GameConfig>);
-		if (config.maxScore && config.maxScore <= 0) {
-			this.#config.maxScore = undefined;
-		}
-	}
 
 	public pause(): void {
 		if (this.state === GameState.RUNNING) {
@@ -244,17 +239,15 @@ export class Game {
 	public update(delta: number): void {
 		const now = Date.now();
 
-		// Always notify listeners every tick (even during countdown/pause/finish)
 		if (this.tickListeners.length > 0) {
 			const state = this.getState();
-			for (const cb of this.tickListeners) cb(state, now);
+			this.tickListeners.forEach(cb => cb(state, now));
 		}
 
 		if (this.state === GameState.FINISH) return;
 		if (this.state === GameState.PAUSE) return;
 		if (this.isInCountdown()) return;
 
-		// Move paddles based on input state
 		const step = this.#config.paddleSpeed * this.#config.movementSensitivity * (delta / 16);
 		const min = this.#config.paddleHeightPercentage / 2;
 		const max = 100 - this.#config.paddleHeightPercentage / 2;
@@ -274,24 +267,19 @@ export class Game {
 		this.paddles.left = Math.max(min, Math.min(max, this.paddles.left));
 		this.paddles.right = Math.max(min, Math.min(max, this.paddles.right));
 
-		// Move ball
 		this.ball.x += this.ball.dirX * this.ball.velocity * delta;
 		this.ball.y += this.ball.dirY * this.ball.velocity * delta;
 
-		// Increase velocity
 		const newVelocity = this.ball.velocity + this.#config.velocityIncrease * delta;
 		if (newVelocity <= this.#config.maxVelocity) {
 			this.ball.velocity = newVelocity;
 		}
 
-		// Collisions
 		this.handleWallCollision();
 		this.handlePaddleCollision();
 
-		// Goals
 		this.checkGoal();
 
-		// (Listeners already notified at tick start)
 	}
 
 	private handleWallCollision(): void {
@@ -420,7 +408,10 @@ export class Game {
 	public onTick(callback: (state: GameStatus, now: number) => void): () => void {
 		this.tickListeners.push(callback);
 		return () => {
-			this.tickListeners = this.tickListeners.filter(cb => cb !== callback);
+			const index = this.tickListeners.indexOf(callback);
+			if (index > -1) {
+				this.tickListeners.splice(index, 1);
+			}
 		};
 	}
 }

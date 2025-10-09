@@ -1,6 +1,6 @@
 import type { GameType, AppRouter, RouterInputs, RouterOutputs, SocketFriendInfo } from '../backend/shared_exports';
 
-import { Game as GameClass, GameStatus, GameConfig, GameUserInfo, MovePaddleAction, Ball, Paddles, Scores, GameState } from '../backend/game/game';
+import { Game as GameClass, GameStatus, GameConfig, GameUserInfo, MovePaddleAction, Ball, Paddles, Scores, GameState, STANDARD_GAME_CONFIG } from '../backend/game/game';
 
 export type {
 	AppRouter,
@@ -24,5 +24,6 @@ export type Game = {
 }
 
 export {
-	GameClass
+	GameClass,
+	STANDARD_GAME_CONFIG
 }

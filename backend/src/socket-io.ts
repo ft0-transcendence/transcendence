@@ -192,7 +192,7 @@ function setupMatchmakingNamespace(io: Server) {
 							type: GameType.VS,
 							leftPlayerId: player1.data.user.id,
 							rightPlayerId: player2.data.user.id,
-							scoreGoal: newGame.currentConfig.maxScore,
+							scoreGoal: 7,
 						},
 						include: { leftPlayer: true, rightPlayer: true },
 					});
