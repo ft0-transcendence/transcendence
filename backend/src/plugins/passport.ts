@@ -3,6 +3,7 @@ import fastifyPassport from "@fastify/passport";
 import { CustomGoogleStrategy } from "../utils/CustomGoogleStrategy";
 import { env } from "../../env";
 import { User } from "@prisma/client";
+import { db } from "../trpc/db";
 
 export const passportPlugin = fp(async (fastify) => {
 	const googleCallbackUrl = env.BACKEND_URL + "/api/auth/google/callback";
@@ -42,23 +43,30 @@ export const passportPlugin = fp(async (fastify) => {
 					}
 				}
 
+				let user: User | null = null;
 
-				const user: User = await fastify.prisma.user.upsert({
-					where: { id },
-					create: {
-						id: profile.id,
-						email: email!,
-						username: profile.displayName!,
-						imageUrl: imageUrl,
-						imageBlob: imageBlob,
-						imageBlobMimeType: blobMimeType
-					},
-									update: {
-					email: email!,
-					// Non aggiorniamo imageUrl, imageBlob, imageBlobMimeType
-					// per mantenere l'avatar custom dell'utente
-			},
+				const existingUser = await fastify.prisma.user.findFirst({
+					where: { id: profile.id },
 				});
+				if (existingUser) {
+					user = await fastify.prisma.user.update({
+						where: { id: profile.id },
+						data: {
+							email: email!,
+						},
+					});
+				} else {
+					user = await fastify.prisma.user.create({
+						data: {
+							id: profile.id!,
+							email: email!,
+							username: await standardizeProfileUsername(profile.displayName!),
+							imageUrl: imageUrl,
+							imageBlob: imageBlob,
+							imageBlobMimeType: blobMimeType
+						}
+					});
+				}
 
 				done(null, user.id);
 			}
@@ -74,3 +82,33 @@ export const passportPlugin = fp(async (fastify) => {
 	/// The serializer serializes the user into the session.
 	fastifyPassport.registerUserSerializer(async (id: string) => id);
 });
+
+
+async function standardizeProfileUsername(username: string) {
+
+	let parsed = username.toLowerCase().replace(/\s/g, " ").replace(/\s/g, "_").replace(/[^0-9a-zA-Z_]/g, "_").substring(0, 24);
+	let foundUser = await db.user.findFirst({
+		where: {username: parsed}
+	})
+
+	let count = 0;
+	let newParsed: string = parsed;
+	while (foundUser != null) {
+		newParsed = `${newParsed.substring(0, 24 - count.toString().length)}_${count}`;
+
+		if (newParsed.length > 24) {
+			if (count.toString().length == 24){
+				newParsed = crypto.randomUUID().substring(0, 24);
+				break;
+			}
+			newParsed = `${parsed.substring(0, 24 - count.toString().length)}_${count}`;
+		}
+
+		foundUser = await db.user.findFirst({
+			where: {username: newParsed}
+		})
+		count++;
+	}
+
+	return newParsed;
+}
