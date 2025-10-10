@@ -79,7 +79,7 @@ export const STANDARD_GAME_CONFIG: GameConfig = {
 	initialVelocity: 0.05,
 	velocityIncrease: 0.000005,
 	maxVelocity: 0.16,
-	paddleSpeed: 2.8,
+	paddleSpeed: 3,
 	movementSensitivity: 0.5,
 	paddleHeightPercentage: 20,
 	enableInternalLoop: true,
@@ -302,12 +302,12 @@ export class Game {
 		const paddleWidth = 2; // Larghezza del paddle in percentuale
 		const collisionMargin = 0.3; // Margine per collisioni più precise
 		
-		// Left paddle collision
-		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth) {
+		// Left paddle collision - solo sulla faccia frontale
+		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth && this.ball.x >= 5) {
 			const paddleTop = this.paddles.left - paddleHeight / 2;
 			const paddleBottom = this.paddles.left + paddleHeight / 2;
 			
-			// Controlla se la pallina è nella zona di collisione del paddle
+			// Controlla se la pallina è nella zona di collisione del paddle (solo sulla faccia frontale)
 			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 				// Calcola la posizione relativa della pallina rispetto al centro del paddle
 				const relativeY = (this.ball.y - this.paddles.left) / (paddleHeight / 2);
@@ -350,12 +350,12 @@ export class Game {
 			}
 		}
 		
-		// Right paddle collision
-		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth) {
+		// Right paddle collision - solo sulla faccia frontale
+		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth && this.ball.x <= 95) {
 			const paddleTop = this.paddles.right - paddleHeight / 2;
 			const paddleBottom = this.paddles.right + paddleHeight / 2;
 			
-			// Controlla se la pallina è nella zona di collisione del paddle
+			// Controlla se la pallina è nella zona di collisione del paddle (solo sulla faccia frontale)
 			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 				// Calcola la posizione relativa della pallina rispetto al centro del paddle
 				const relativeY = (this.ball.y - this.paddles.right) / (paddleHeight / 2);
