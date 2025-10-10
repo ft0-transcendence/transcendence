@@ -1,4 +1,4 @@
-import { Game } from "@shared";
+import { Game, STANDARD_GAME_CONFIG } from "@shared";
 import { GameComponent } from "@src/components/GameComponent";
 import { authManager } from "@src/tools/AuthManager";
 import { t } from "@src/tools/i18n";

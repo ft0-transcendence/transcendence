@@ -1,4 +1,4 @@
-import { Game, GameClass } from "@shared";
+import { Game, GameClass, STANDARD_GAME_CONFIG } from "@shared";
 import { GameComponent } from "@src/components/GameComponent";
 import { k, t } from "@src/tools/i18n";
 import { RouteController } from "@src/tools/ViewController";
@@ -15,11 +15,7 @@ export class LocalVersusPlayerGameController extends RouteController {
 
 	constructor(params: Record<string, string> | undefined = undefined) {
 		super(params);
-		this.#game = new GameClass({
-			gameStartCountdown: 3000,
-			debug: false,
-			shouldUseRequestAnimationFrame: true,
-		});
+		this.#game = new GameClass(STANDARD_GAME_CONFIG);
 
 		this.#gameComponent = new GameComponent({
 			gameId: 'local-vs',
@@ -157,7 +153,6 @@ export class LocalVersusPlayerGameController extends RouteController {
 				this.#game.playerReady(this.#playerLeft);
 				this.#game.playerReady(this.#playerRight);
 
-				(this.#game as any).updatePartialConfig?.({ enableInternalLoop: true });
 				this.#game.start();
 				this.startGameLoop();
 			}
@@ -165,7 +160,8 @@ export class LocalVersusPlayerGameController extends RouteController {
 	}
 
 	private startGameLoop() {
-		const animate = (_currentTime: number) => {
+		// The game handles its own internal loop, we just need to render the state
+		const animate = (currentTime: number) => {
 			this.#gameComponent?.updateGameState(this.#game.getState());
 			this.#animationFrameId = requestAnimationFrame(animate);
 		};

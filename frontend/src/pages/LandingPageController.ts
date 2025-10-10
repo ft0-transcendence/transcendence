@@ -80,8 +80,6 @@ export class LandingPageController extends RouteController {
 	}
 
 	async postRender() {
-		// ensure internal loop is enabled and start
-		(this.#game as any).updatePartialConfig?.({ enableInternalLoop: true });
 		this.#game.playerReady(this.#user1);
 		this.#game.playerReady(this.#user2);
 		this.#game.start();

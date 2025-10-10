@@ -1,5 +1,5 @@
 import { RouteController } from '@tools/ViewController';
-import { Game, GameClass } from '@shared';
+import { Game, GameClass, STANDARD_GAME_CONFIG } from '@shared';
 import { GameComponent } from '@src/components/GameComponent';
 import { authManager } from '@src/tools/AuthManager';
 import { k, t } from '@src/tools/i18n';
@@ -22,21 +22,12 @@ export class LocalVersusAiGameController extends RouteController {
 
 	constructor(params: Record<string, string> | undefined = undefined) {
 		super(params);
-		this.#game = new GameClass({
-			gameStartCountdown: 3000,
-			maxScore: 7,
-			initialVelocity: 0.035,
-			velocityIncrease: 0.000005,
-			maxVelocity: 0.12,
-			debug: false,
-			shouldUseRequestAnimationFrame: true,
-		});
+		this.#game = new GameClass(STANDARD_GAME_CONFIG);
 
 
 		// Initialize game component
 		this.#gameComponent = new GameComponent({
 			gameId: 'local-ai',
-			gameType: 'AI',
 			isLocalGame: true
 		});
 		this.#gameComponent.updateKeyBindings({})
@@ -174,7 +165,6 @@ export class LocalVersusAiGameController extends RouteController {
 				// Start the game (internal loop)
 				this.#game.playerReady(this.#player);
 				this.#game.playerReady(this.#ai);
-				(this.#game as any).updatePartialConfig?.({ enableInternalLoop: true });
 				this.#game.start();
 				this.startGameLoop();
 			}
@@ -182,31 +172,36 @@ export class LocalVersusAiGameController extends RouteController {
 	}
 
 	private startGameLoop() {
+		// The game handles its own internal loop, we handle AI logic and render the state
 		const animate = (currentTime: number) => {
 			if (this.#lastTime) {
 				const state = this.#game.getState();
-				// AI holds press/release
+				// AI movement logic - smooth movement with dead zone
 				const aiSide = this.#isPlayerLeft ? 'right' : 'left';
 				const aiPaddlePos = aiSide === 'left' ? state.paddles.left : state.paddles.right;
 				let target = 50;
+				
+				// Only move when ball is coming towards AI
 				if (aiSide === 'right' && state.ball.dirX >= 0) {
 					target = state.ball.y;
-				}
-				else if (aiSide === 'left' && state.ball.dirX <= 0) {
+				} else if (aiSide === 'left' && state.ball.dirX <= 0) {
 					target = state.ball.y;
 				}
+				
 				const diff = target - aiPaddlePos;
-				if (Math.abs(diff) > 1) {
+				const deadZone = 5; // Larger dead zone to prevent micro-adjustments
+				
+				// Release all movements first
+				this.#game.release(aiSide, 'up');
+				this.#game.release(aiSide, 'down');
+				
+				// Apply movement only if outside dead zone
+				if (Math.abs(diff) > deadZone) {
 					if (diff > 0) {
-						this.#game.release(aiSide, 'up');
 						this.#game.press(aiSide, 'down');
 					} else {
-						this.#game.release(aiSide, 'down');
 						this.#game.press(aiSide, 'up');
 					}
-				} else {
-					this.#game.release(aiSide, 'up');
-					this.#game.release(aiSide, 'down');
 				}
 				this.#gameComponent?.updateGameState(state);
 			}
