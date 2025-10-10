@@ -297,29 +297,115 @@ export class Game {
 	}
 
 	private handlePaddleCollision(): void {
-		// Left paddle
-		if (
-			this.ball.x <= 5 &&
-			Math.abs(this.ball.y - this.paddles.left) <= this.#config.paddleHeightPercentage / 2
-		) {
-			this.ball.dirX = Math.abs(this.ball.dirX);
-			const relY = (this.ball.y - this.paddles.left) / (this.#config.paddleHeightPercentage / 2);
-			const angle = relY * Math.PI / 4;
-			const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-			this.ball.dirX = Math.abs(Math.cos(angle)) * speed;
-			this.ball.dirY = Math.sin(angle) * speed;
+		const ballRadius = BALL_RADIUS;
+		const paddleHeight = this.#config.paddleHeightPercentage;
+		const paddleWidth = 2; // Larghezza del paddle in percentuale
+		const collisionMargin = 0.3; // Margine per collisioni più precise
+		
+		// Left paddle collision
+		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth) {
+			const paddleTop = this.paddles.left - paddleHeight / 2;
+			const paddleBottom = this.paddles.left + paddleHeight / 2;
+			
+			// Controlla se la pallina è nella zona di collisione del paddle
+			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
+				// Calcola la posizione relativa della pallina rispetto al centro del paddle
+				const relativeY = (this.ball.y - this.paddles.left) / (paddleHeight / 2);
+				
+				// Gestione sofisticata degli angoli basata sulla posizione del colpo
+				let angle: number;
+				let speedMultiplier: number;
+				
+				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
+				const distanceFromCenter = Math.abs(relativeY);
+				
+				if (distanceFromCenter > 0.9) {
+					// Colpo sui bordi estremi - angolo massimo
+					const maxAngle = Math.PI / 2.1; // ~86 gradi massimo
+					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					speedMultiplier = 1.4; // Aumento significativo della velocità
+				} else if (distanceFromCenter > 0.7) {
+					// Colpo sui bordi - angolo elevato
+					const maxAngle = Math.PI / 2.5; // ~72 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					speedMultiplier = 1.25; // Aumento moderato della velocità
+				} else if (distanceFromCenter > 0.4) {
+					// Colpo nella zona intermedia - angolo medio
+					const maxAngle = Math.PI / 3; // 60 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					speedMultiplier = 1.1; // Leggero aumento della velocità
+				} else {
+					// Colpo nel centro - angolo controllato
+					const maxAngle = Math.PI / 5; // 36 gradi massimo
+					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					speedMultiplier = 1.0; // Velocità normale
+				}
+				
+				// Calcola la velocità mantenendo l'energia
+				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
+				const minSpeed = this.#config.initialVelocity * 0.8; // Velocità minima
+				const finalSpeed = Math.max(speed * speedMultiplier, minSpeed);
+				
+				// Applica l'angolo e la velocità
+				this.ball.dirX = Math.abs(Math.cos(angle)) * finalSpeed;
+				this.ball.dirY = Math.sin(angle) * finalSpeed;
+				
+				// Assicura che la pallina non rimanga bloccata nel paddle
+				this.ball.x = 5 + paddleWidth + 0.5;
+			}
 		}
-		// Right paddle
-		if (
-			this.ball.x >= 95 &&
-			Math.abs(this.ball.y - this.paddles.right) <= this.#config.paddleHeightPercentage / 2
-		) {
-			this.ball.dirX = -Math.abs(this.ball.dirX);
-			const relY = (this.ball.y - this.paddles.right) / (this.#config.paddleHeightPercentage / 2);
-			const angle = relY * Math.PI / 4;
-			const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-			this.ball.dirX = -Math.abs(Math.cos(angle)) * speed;
-			this.ball.dirY = Math.sin(angle) * speed;
+		
+		// Right paddle collision
+		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth) {
+			const paddleTop = this.paddles.right - paddleHeight / 2;
+			const paddleBottom = this.paddles.right + paddleHeight / 2;
+			
+			// Controlla se la pallina è nella zona di collisione del paddle
+			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
+				// Calcola la posizione relativa della pallina rispetto al centro del paddle
+				const relativeY = (this.ball.y - this.paddles.right) / (paddleHeight / 2);
+				
+				// Gestione sofisticata degli angoli basata sulla posizione del colpo
+				let angle: number;
+				let speedMultiplier: number;
+				
+				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
+				const distanceFromCenter = Math.abs(relativeY);
+				
+				if (distanceFromCenter > 0.9) {
+					// Colpo sui bordi estremi - angolo massimo
+					const maxAngle = Math.PI / 2.1; // ~86 gradi massimo
+					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					speedMultiplier = 1.4; // Aumento significativo della velocità
+				} else if (distanceFromCenter > 0.7) {
+					// Colpo sui bordi - angolo elevato
+					const maxAngle = Math.PI / 2.5; // ~72 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					speedMultiplier = 1.25; // Aumento moderato della velocità
+				} else if (distanceFromCenter > 0.4) {
+					// Colpo nella zona intermedia - angolo medio
+					const maxAngle = Math.PI / 3; // 60 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					speedMultiplier = 1.1; // Leggero aumento della velocità
+				} else {
+					// Colpo nel centro - angolo controllato
+					const maxAngle = Math.PI / 5; // 36 gradi massimo
+					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					speedMultiplier = 1.0; // Velocità normale
+				}
+				
+				// Calcola la velocità mantenendo l'energia
+				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
+				const minSpeed = this.#config.initialVelocity * 0.8; // Velocità minima
+				const finalSpeed = Math.max(speed * speedMultiplier, minSpeed);
+				
+				// Applica l'angolo e la velocità
+				this.ball.dirX = -Math.abs(Math.cos(angle)) * finalSpeed;
+				this.ball.dirY = Math.sin(angle) * finalSpeed;
+				
+				// Assicura che la pallina non rimanga bloccata nel paddle
+				this.ball.x = 95 - paddleWidth - 0.5;
+			}
 		}
 	}
 
