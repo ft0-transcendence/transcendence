@@ -314,37 +314,32 @@ export class Game {
 				
 				// Gestione sofisticata degli angoli basata sulla posizione del colpo
 				let angle: number;
-				let speedMultiplier: number;
 				
 				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
 				const distanceFromCenter = Math.abs(relativeY);
 				
 				if (distanceFromCenter > 0.9) {
-					// Colpo sui bordi estremi - angolo massimo
-					const maxAngle = Math.PI / 2.1; // ~86 gradi massimo
+					// Colpo sui bordi estremi - angolo quasi verticale
+					const maxAngle = Math.PI / 1.8; // ~100 gradi massimo (quasi verticale)
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
-					speedMultiplier = 1.4; // Aumento significativo della velocità
 				} else if (distanceFromCenter > 0.7) {
 					// Colpo sui bordi - angolo elevato
-					const maxAngle = Math.PI / 2.5; // ~72 gradi
+					const maxAngle = Math.PI / 2.2; // ~82 gradi
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
-					speedMultiplier = 1.25; // Aumento moderato della velocità
 				} else if (distanceFromCenter > 0.4) {
 					// Colpo nella zona intermedia - angolo medio
-					const maxAngle = Math.PI / 3; // 60 gradi
+					const maxAngle = Math.PI / 2.8; // ~64 gradi
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
-					speedMultiplier = 1.1; // Leggero aumento della velocità
 				} else {
 					// Colpo nel centro - angolo controllato
-					const maxAngle = Math.PI / 5; // 36 gradi massimo
+					const maxAngle = Math.PI / 4; // 45 gradi massimo
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
-					speedMultiplier = 1.0; // Velocità normale
 				}
 				
 				// Calcola la velocità mantenendo l'energia
 				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
 				const minSpeed = this.#config.initialVelocity * 0.8; // Velocità minima
-				const finalSpeed = Math.max(speed * speedMultiplier, minSpeed);
+				const finalSpeed = Math.max(speed, minSpeed);
 				
 				// Applica l'angolo e la velocità
 				this.ball.dirX = Math.abs(Math.cos(angle)) * finalSpeed;
@@ -367,37 +362,32 @@ export class Game {
 				
 				// Gestione sofisticata degli angoli basata sulla posizione del colpo
 				let angle: number;
-				let speedMultiplier: number;
 				
 				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
 				const distanceFromCenter = Math.abs(relativeY);
 				
 				if (distanceFromCenter > 0.9) {
-					// Colpo sui bordi estremi - angolo massimo
-					const maxAngle = Math.PI / 2.1; // ~86 gradi massimo
+					// Colpo sui bordi estremi - angolo quasi verticale
+					const maxAngle = Math.PI / 1.8; // ~100 gradi massimo (quasi verticale)
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
-					speedMultiplier = 1.4; // Aumento significativo della velocità
 				} else if (distanceFromCenter > 0.7) {
 					// Colpo sui bordi - angolo elevato
-					const maxAngle = Math.PI / 2.5; // ~72 gradi
+					const maxAngle = Math.PI / 2.2; // ~82 gradi
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
-					speedMultiplier = 1.25; // Aumento moderato della velocità
 				} else if (distanceFromCenter > 0.4) {
 					// Colpo nella zona intermedia - angolo medio
-					const maxAngle = Math.PI / 3; // 60 gradi
+					const maxAngle = Math.PI / 2.8; // ~64 gradi
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
-					speedMultiplier = 1.1; // Leggero aumento della velocità
 				} else {
 					// Colpo nel centro - angolo controllato
-					const maxAngle = Math.PI / 5; // 36 gradi massimo
+					const maxAngle = Math.PI / 4; // 45 gradi massimo
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
-					speedMultiplier = 1.0; // Velocità normale
 				}
 				
 				// Calcola la velocità mantenendo l'energia
 				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
 				const minSpeed = this.#config.initialVelocity * 0.8; // Velocità minima
-				const finalSpeed = Math.max(speed * speedMultiplier, minSpeed);
+				const finalSpeed = Math.max(speed, minSpeed);
 				
 				// Applica l'angolo e la velocità
 				this.ball.dirX = -Math.abs(Math.cos(angle)) * finalSpeed;
