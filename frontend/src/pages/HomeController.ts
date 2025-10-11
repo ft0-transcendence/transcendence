@@ -81,7 +81,7 @@ export class HomeController extends RouteController {
 									<span data-i18n="${k('generic.online')}">ONLINE</span>
 								</div>
 
-								<div class="text-xs font-bold">
+								<div class="text-xs font-bold flex justify-end items-center">
 									<button class="toggle-friends show-friends uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400 hidden" data-i18n="${k('generic.show')}">Show</button>
 									<button class="toggle-friends hide-friends uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400" data-i18n="${k('generic.hide')}">Hide</button>
 								</div>
@@ -102,7 +102,7 @@ export class HomeController extends RouteController {
 						<div class="flex flex-col md:overflow-hidden min-h-0">
 							<div class="flex items-center p-4 bg-black/50 border-t border-white/15">
 								<h2 class="capitalize text-lg font-semibold text-gray-300" data-i18n="${k('generic.sent_friend_requests')}">Sent requests</h2>
-								<div class="flex grow justify-end text-xs font-bold">
+								<div class="flex grow justify-end items-center text-xs font-bold">
 									<button class="toggle-pending-friends show-pending-friends uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400 hidden" data-i18n="${k('generic.show')}">Show</button>
 									<button class="toggle-pending-friends hide-pending-friends uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400" data-i18n="${k('generic.hide')}">Hide</button>
 								</div>
