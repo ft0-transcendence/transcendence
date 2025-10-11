@@ -11,8 +11,10 @@ import { TRPCClientError } from "@trpc/client";
 import { ZodError } from "zod";
 import { isMobile } from "@src/utils/agentUtils";
 import { ConfirmModal } from "@src/tools/ConfirmModal";
+import { Socket } from "socket.io-client";
 
 export class HomeController extends RouteController {
+	#baseSocket: Socket | null = null;
 
 	#friendsListContainer: HTMLElement | null = null;
 
@@ -166,15 +168,15 @@ export class HomeController extends RouteController {
 
 
 		this.#friendsListContainer = document.querySelector(`#${this.id}-friends-list`);
-		const baseSocket = authManager.getBaseSocketConnection();
-		if (baseSocket) {
+		this.#baseSocket = authManager.getBaseSocketConnection();
+		if (this.#baseSocket) {
 			this.#loadingOverlays.pendingFriends.show();
 			const currentFriends = authManager.friendsList;
 			for (const friend of currentFriends) {
 				this.#upsertFriend(friend);
 			}
 			this.#loadingOverlays.pendingFriends.hide();
-			baseSocket.on('friends-list', (friendsList) => {
+			this.#baseSocket.on('friends-list', (friendsList) => {
 				console.debug('Friends list updated', friendsList);
 				this.#loadingOverlays.pendingFriends.show();
 				for (const friend of friendsList) {
@@ -182,14 +184,14 @@ export class HomeController extends RouteController {
 				}
 				this.#loadingOverlays.pendingFriends.hide();
 			});
-			baseSocket.on('friend-updated', (friend) => {
+			this.#baseSocket.on('friend-updated', (friend) => {
 				console.debug('Friend updated', friend);
 				this.#upsertFriend(friend);
 				if (friend.message) {
 					toast.success(t('generic.friends'), friend.message);
 				}
 			});
-			baseSocket.on('friend-removed', (data) => {
+			this.#baseSocket.on('friend-removed', (data) => {
 				console.debug('Friend removed', data);
 				this.#removeFriendFromList(data.friendId);
 				if (data.message) {
@@ -199,21 +201,21 @@ export class HomeController extends RouteController {
 					this.#removeFriendFromRequestsList(data.friendId);
 				}
 			});
-			baseSocket.on('friend-request-received', (friendRequest) => {
+			this.#baseSocket.on('friend-request-received', (friendRequest) => {
 				console.debug('Friend request received', friendRequest);
 				this.#renderFriendRequest(friendRequest);
 				if (friendRequest.message) {
 					toast.info(t('generic.friend_requests'), friendRequest.message);
 				}
 			});
-			baseSocket.on('friend-request-sent', (data) => {
+			this.#baseSocket.on('friend-request-sent', (data) => {
 				console.debug('Friend request sent', data);
 				if (data.message) {
 					toast.success(t('generic.friend_requests'), data.message);
 					this.#upsertPendingFriend(data);
 				}
 			});
-			baseSocket.on('friend-request-accepted', (data) => {
+			this.#baseSocket.on('friend-request-accepted', (data) => {
 				console.debug('Friend request accepted', data);
 				if (data.message) {
 					toast.success(t('generic.friend_requests'), data.message);
@@ -221,7 +223,7 @@ export class HomeController extends RouteController {
 					this.#removePendingFriendFromList(data.friendRelationId);
 				}
 			});
-			baseSocket.on('friend-request-rejected', (data) => {
+			this.#baseSocket.on('friend-request-rejected', (data) => {
 				console.debug('Friend request rejected', data);
 				if (data.message) {
 					toast.info(t('generic.friend_requests'), data.message);
@@ -230,7 +232,7 @@ export class HomeController extends RouteController {
 					this.#removeFriendFromRequestsList(data.friendRelationId);
 				}
 			});
-			baseSocket.on('friend-request-rejected-by-me', (data) => {
+			this.#baseSocket.on('friend-request-rejected-by-me', (data) => {
 				console.debug('Friend request rejected by me', data);
 				if (data.message) {
 					toast.info(t('generic.friend_requests'), data.message);
@@ -271,6 +273,14 @@ export class HomeController extends RouteController {
 		document.querySelectorAll('.toggle-friends')?.forEach(btn => btn.removeEventListener('click', this.toggleFriendsVisibilityClickEvent));
 
 		document.querySelectorAll('.toggle-pending-friends')?.forEach(btn => btn.removeEventListener('click', this.togglePendingFriendsVisibilityClickEvent));
+
+		const eventsToUnsubscribe = ['friends-list', 'friend-updated', 'friend-removed', 'friend-request-received', 'friend-request-sent', 'friend-request-accepted', 'friend-request-rejected', 'friend-request-rejected-by-me']
+
+		if (this.#baseSocket) {
+			for (const event of eventsToUnsubscribe) {
+				this.#baseSocket.off(event);
+			}
+		}
 	}
 
 
@@ -562,9 +572,7 @@ export class HomeController extends RouteController {
 	}
 
 	#removeFriendFromRequestsList(friendId: string) {
-		console.debug('Removing friend from requests list', friendId);
 		const friendElement = document.querySelector(`.friend-item[data-userid="${friendId}"]`);
-		console.debug('Removing friend from requests list', friendElement);
 		if (friendElement) {
 			friendElement.remove();
 			this.#updateFriendsCount();
