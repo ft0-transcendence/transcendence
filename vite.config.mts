@@ -79,6 +79,7 @@ export default defineConfig({
 		cors: true,
 		hmr: true,
 		watch: {
-		}
+		},
+		allowedHosts: true,
 	}
 });
