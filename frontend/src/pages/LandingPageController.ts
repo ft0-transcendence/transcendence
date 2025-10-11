@@ -16,7 +16,6 @@ export class LandingPageController extends RouteController {
 		maxScore: undefined,
 		paddleHeightPercentage: 20,
 		debug: false,
-		enableInternalLoop: true,
 		shouldUseRequestAnimationFrame: true,
 	});;
 	#gameComponent: GameComponent = new GameComponent({

@@ -151,7 +151,7 @@ function setupMatchmakingNamespace(io: Server) {
 					const newGame = new OnlineGame(
 						gameId,
 						onlineVersusGameNamespace,
-						{ enableInternalLoop: true, debug: false },
+						{ debug: false },
 						async (state) => {
 							// Check if game was aborted due to disconnection
 							const isAborted = state.scores.left === 10 && state.scores.right === 0 ||

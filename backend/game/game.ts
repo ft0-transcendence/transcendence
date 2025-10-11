@@ -56,8 +56,6 @@ export type GameConfig = {
 	movementSensitivity: number;
 
 	paddleHeightPercentage: number;
-
-	enableInternalLoop?: boolean;
 }
 
 export type GameUserInfo = {
@@ -73,7 +71,7 @@ const FRAME_TIME_MS = 1000 / TARGET_FPS;
 
 export const STANDARD_GAME_CONFIG: GameConfig = {
 	debug: false,
-	shouldUseRequestAnimationFrame: true,
+	shouldUseRequestAnimationFrame: false,
 	gameStartCountdown: 3000,
 	maxScore: 7,
 	initialVelocity: 0.05,
@@ -82,7 +80,6 @@ export const STANDARD_GAME_CONFIG: GameConfig = {
 	paddleSpeed: 3,
 	movementSensitivity: 0.5,
 	paddleHeightPercentage: 20,
-	enableInternalLoop: true,
 };
 
 export class Game {
@@ -137,7 +134,11 @@ export class Game {
 			left: 0,
 			right: 0,
 		};
-
+		if (config.maxScore && config.maxScore <= 0) {
+			this.#config.maxScore = undefined;
+		} else if (config.maxScore === undefined) {
+			this.#config.maxScore = undefined;
+		}
 	}
 
 	public start(): void {
@@ -157,7 +158,7 @@ export class Game {
 		this._leftPlayer = player1;
 		this._rightPlayer = player2;
 	}
-	
+
 	public playerReady(player: GameUserInfo): void {
 		if (this.leftPlayer && this.leftPlayer.id === player.id) {
 			this.leftPlayerReady = true;
@@ -175,11 +176,11 @@ export class Game {
 	public movePaddle(player: "left" | "right", direction: MovePaddleAction): void {
 		if (this.state !== GameState.RUNNING) return;
 		if (this.isInCountdown()) return;
-		
+
 		const speed = this.#config.paddleSpeed * this.#config.movementSensitivity;
 		const min = this.#config.paddleHeightPercentage / 2;
 		const max = 100 - this.#config.paddleHeightPercentage / 2;
-		
+
 		if (player === "left") {
 			if (direction === "up") this.paddles.left -= speed;
 			if (direction === "down") this.paddles.left += speed;
@@ -301,23 +302,23 @@ export class Game {
 		const paddleHeight = this.#config.paddleHeightPercentage;
 		const paddleWidth = 2; // Larghezza del paddle in percentuale
 		const collisionMargin = 0.3; // Margine per collisioni più precise
-		
+
 		// Left paddle collision - solo sulla faccia frontale
 		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth && this.ball.x >= 5) {
 			const paddleTop = this.paddles.left - paddleHeight / 2;
 			const paddleBottom = this.paddles.left + paddleHeight / 2;
-			
+
 			// Controlla se la pallina è nella zona di collisione del paddle (solo sulla faccia frontale)
 			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 				// Calcola la posizione relativa della pallina rispetto al centro del paddle
 				const relativeY = (this.ball.y - this.paddles.left) / (paddleHeight / 2);
-				
+
 				// Gestione sofisticata degli angoli basata sulla posizione del colpo
 				let angle: number;
-				
+
 				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
 				const distanceFromCenter = Math.abs(relativeY);
-				
+
 				if (distanceFromCenter > 0.95) {
 					// Colpo sui bordi estremi - angolo elevato ma non troppo verticale
 					const maxAngle = Math.PI / 2.5; // ~72 gradi massimo
@@ -335,37 +336,37 @@ export class Game {
 					const maxAngle = Math.PI / 4; // 45 gradi massimo
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 				}
-				
+
 				// Calcola la velocità mantenendo l'energia
 				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
 				const minSpeed = this.#config.initialVelocity * 0.8; // Velocità minima
 				const finalSpeed = Math.max(speed, minSpeed);
-				
+
 				// Applica l'angolo e la velocità
 				this.ball.dirX = Math.abs(Math.cos(angle)) * finalSpeed;
 				this.ball.dirY = Math.sin(angle) * finalSpeed;
-				
+
 				// Assicura che la pallina non rimanga bloccata nel paddle
 				this.ball.x = 5 + paddleWidth + 0.5;
 			}
 		}
-		
+
 		// Right paddle collision - solo sulla faccia frontale
 		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth && this.ball.x <= 95) {
 			const paddleTop = this.paddles.right - paddleHeight / 2;
 			const paddleBottom = this.paddles.right + paddleHeight / 2;
-			
+
 			// Controlla se la pallina è nella zona di collisione del paddle (solo sulla faccia frontale)
 			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 				// Calcola la posizione relativa della pallina rispetto al centro del paddle
 				const relativeY = (this.ball.y - this.paddles.right) / (paddleHeight / 2);
-				
+
 				// Gestione sofisticata degli angoli basata sulla posizione del colpo
 				let angle: number;
-				
+
 				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
 				const distanceFromCenter = Math.abs(relativeY);
-				
+
 				if (distanceFromCenter > 0.95) {
 					// Colpo sui bordi estremi - angolo elevato ma non troppo verticale
 					const maxAngle = Math.PI / 2.5; // ~72 gradi massimo
@@ -383,16 +384,16 @@ export class Game {
 					const maxAngle = Math.PI / 4; // 45 gradi massimo
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 				}
-				
+
 				// Calcola la velocità mantenendo l'energia
 				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
 				const minSpeed = this.#config.initialVelocity * 0.8; // Velocità minima
 				const finalSpeed = Math.max(speed, minSpeed);
-				
+
 				// Applica l'angolo e la velocità
 				this.ball.dirX = -Math.abs(Math.cos(angle)) * finalSpeed;
 				this.ball.dirY = Math.sin(angle) * finalSpeed;
-				
+
 				// Assicura che la pallina non rimanga bloccata nel paddle
 				this.ball.x = 95 - paddleWidth - 0.5;
 			}
