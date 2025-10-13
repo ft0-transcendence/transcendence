@@ -307,93 +307,85 @@ export class Game {
 		const paddleHeight = this.#config.paddleHeightPercentage;
 		const paddleWidth = this.#config.paddleWidthPercentage;
 
-		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth && this.ball.x >= 5) {
-			const paddleTop = this.paddles.left - paddleHeight / 2;
-			const paddleBottom = this.paddles.left + paddleHeight / 2;
-
-			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
-				const paddleCenter = this.paddles.left;
-				const paddleHalfHeight = paddleHeight / 2;
-				const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
-
-				const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
-
-				let angle: number;
-
-				const distanceFromCenter = Math.abs(clampedRelativeY);
-
-				if (distanceFromCenter > 0.95) {
-					// Colpo sui bordi estremi - angolo ridotto per rimbalzi più normali
-					const maxAngle = Math.PI / 4; // 45 gradi massimo
-					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
-				} else if (distanceFromCenter > 0.8) {
-					// Colpo sui bordi - angolo ridotto
-					const maxAngle = Math.PI / 5; // 36 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
-				} else if (distanceFromCenter > 0.5) {
-					// Colpo nella zona intermedia - angolo medio
-					const maxAngle = Math.PI / 6; // 30 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
-				} else {
-					// Colpo nel centro - angolo controllato
-					const maxAngle = Math.PI / 8; // 22.5 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
+		// Left paddle collision - clean logic
+		if (this.ball.dirX < 0) { // Ball moving left
+			const leftPaddleX = 0;
+			const rightPaddleX = leftPaddleX + paddleWidth;
+			
+			// Check if ball is in paddle collision zone
+			if (this.ball.x >= leftPaddleX && this.ball.x <= rightPaddleX) {
+				const paddleTop = this.paddles.left - paddleHeight / 2;
+				const paddleBottom = this.paddles.left + paddleHeight / 2;
+				
+				// Check vertical collision
+				if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
+					this.#processPaddleCollision('left', leftPaddleX, rightPaddleX, paddleHeight);
 				}
-
-				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-				const minSpeed = this.#config.initialVelocity * 1.2;
-				const finalSpeed = Math.max(speed, minSpeed);
-
-				this.ball.dirX = Math.abs(Math.cos(angle)) * finalSpeed;
-				this.ball.dirY = Math.sin(angle) * finalSpeed;
-
-				this.ball.x = 2 + paddleWidth + (BALL_RADIUS / 2);
 			}
 		}
 
-		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth && this.ball.x <= 95) {
-			const paddleTop = this.paddles.right - paddleHeight / 2;
-			const paddleBottom = this.paddles.right + paddleHeight / 2;
-
-			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
-				const paddleCenter = this.paddles.right;
-				const paddleHalfHeight = paddleHeight / 2;
-				const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
-
-				const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
-
-				let angle: number;
-
-				const distanceFromCenter = Math.abs(clampedRelativeY);
-
-				if (distanceFromCenter > 0.95) {
-					// Colpo sui bordi estremi - angolo ridotto per rimbalzi più normali
-					const maxAngle = Math.PI / 4; // 45 gradi massimo
-					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
-				} else if (distanceFromCenter > 0.8) {
-					// Colpo sui bordi - angolo ridotto
-					const maxAngle = Math.PI / 5; // 36 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
-				} else if (distanceFromCenter > 0.5) {
-					// Colpo nella zona intermedia - angolo medio
-					const maxAngle = Math.PI / 6; // 30 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
-				} else {
-					// Colpo nel centro - angolo controllato
-					const maxAngle = Math.PI / 8; // 22.5 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
+		// Right paddle collision - clean logic
+		if (this.ball.dirX > 0) { // Ball moving right
+			const rightPaddleX = 100;
+			const leftPaddleX = rightPaddleX - paddleWidth;
+			
+			// Check if ball is in paddle collision zone
+			if (this.ball.x >= leftPaddleX && this.ball.x <= rightPaddleX) {
+				const paddleTop = this.paddles.right - paddleHeight / 2;
+				const paddleBottom = this.paddles.right + paddleHeight / 2;
+				
+				// Check vertical collision
+				if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
+					this.#processPaddleCollision('right', leftPaddleX, rightPaddleX, paddleHeight);
 				}
-
-				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-				const minSpeed = this.#config.initialVelocity * 1.2;
-				const finalSpeed = Math.max(speed, minSpeed);
-
-				this.ball.dirX = -Math.abs(Math.cos(angle)) * finalSpeed;
-				this.ball.dirY = Math.sin(angle) * finalSpeed;
-
-				this.ball.x = 98 - paddleWidth - (BALL_RADIUS / 2);
 			}
 		}
+	}
+
+	#processPaddleCollision(side: 'left' | 'right', paddleLeftX: number, paddleRightX: number, paddleHeight: number): void {
+		const paddleCenter = side === 'left' ? this.paddles.left : this.paddles.right;
+		const paddleHalfHeight = paddleHeight / 2;
+		
+		// Calculate relative position (-1 to 1, where 0 is center)
+		const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
+		const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
+		
+		// Calculate bounce angle based on hit position
+		const angle = this.#calculateBounceAngle(clampedRelativeY);
+		
+		// Keep current speed - just change direction
+		const currentSpeed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
+		
+		// Apply new direction with current speed
+		if (side === 'left') {
+			this.ball.dirX = Math.abs(Math.cos(angle)) * currentSpeed;
+		} else {
+			this.ball.dirX = -Math.abs(Math.cos(angle)) * currentSpeed;
+		}
+		this.ball.dirY = Math.sin(angle) * currentSpeed;
+		
+		if (side === 'left') {
+			this.ball.x = paddleRightX + (BALL_RADIUS / 2);
+		} else {
+			this.ball.x = paddleLeftX - (BALL_RADIUS / 2);
+		}
+	}
+
+	#calculateBounceAngle(relativeY: number): number {
+		const distanceFromCenter = Math.abs(relativeY);
+		
+		let maxAngle: number;
+		if (distanceFromCenter > 0.95) {
+			maxAngle = Math.PI / 4; // 45 degrees
+		} else if (distanceFromCenter > 0.8) {
+			maxAngle = Math.PI / 5; // 36 degrees
+		} else if (distanceFromCenter > 0.5) {
+			maxAngle = Math.PI / 6; // 30 degrees
+		} else {
+			maxAngle = Math.PI / 8; // 22.5 degrees
+		}
+		
+		return Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 	}
 
 	private checkGoal(): void {
