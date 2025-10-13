@@ -101,7 +101,7 @@ EOF
 ### Clone the repo
 
 ```bash
-git clone https://github.com/ft0-transcendence/backend transcendence
+git clone https://github.com/ft0-transcendence/transcendence transcendence
 cd transcendence
 ```
 
