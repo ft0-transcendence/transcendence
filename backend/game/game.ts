@@ -323,20 +323,20 @@ export class Game {
 				const distanceFromCenter = Math.abs(relativeY);
 
 				if (distanceFromCenter > 0.95) {
-					// Colpo sui bordi estremi - angolo elevato ma non troppo verticale
-					const maxAngle = Math.PI / 2.5; // ~72 gradi massimo
+					// Colpo sui bordi estremi - angolo ridotto per rimbalzi più normali
+					const maxAngle = Math.PI / 4; // 45 gradi massimo (era 72°)
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 				} else if (distanceFromCenter > 0.8) {
-					// Colpo sui bordi - angolo elevato
-					const maxAngle = Math.PI / 2.8; // ~64 gradi
+					// Colpo sui bordi - angolo ridotto
+					const maxAngle = Math.PI / 5; // 36 gradi
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 				} else if (distanceFromCenter > 0.5) {
 					// Colpo nella zona intermedia - angolo medio
-					const maxAngle = Math.PI / 3.5; // ~51 gradi
+					const maxAngle = Math.PI / 6; // 30 gradi
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 				} else {
 					// Colpo nel centro - angolo controllato
-					const maxAngle = Math.PI / 4; // 45 gradi massimo
+					const maxAngle = Math.PI / 8; // 22.5
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 				}
 
@@ -371,20 +371,20 @@ export class Game {
 				const distanceFromCenter = Math.abs(relativeY);
 
 				if (distanceFromCenter > 0.95) {
-					// Colpo sui bordi estremi - angolo elevato ma non troppo verticale
-					const maxAngle = Math.PI / 2.5; // ~72 gradi massimo
+					// Colpo sui bordi estremi - angolo ridotto per rimbalzi più normali
+					const maxAngle = Math.PI / 4; // 45 gradi massimo (era 72°)
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 				} else if (distanceFromCenter > 0.8) {
-					// Colpo sui bordi - angolo elevato
-					const maxAngle = Math.PI / 2.8; // ~64 gradi
+					// Colpo sui bordi - angolo ridotto
+					const maxAngle = Math.PI / 5; // 36 gradi (era 64°)
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 				} else if (distanceFromCenter > 0.5) {
 					// Colpo nella zona intermedia - angolo medio
-					const maxAngle = Math.PI / 3.5; // ~51 gradi
+					const maxAngle = Math.PI / 6; // 30 gradi (era 51°)
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 				} else {
 					// Colpo nel centro - angolo controllato
-					const maxAngle = Math.PI / 4; // 45 gradi massimo
+					const maxAngle = Math.PI / 8; // 22.5 gradi massimo (era 45°)
 					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 				}
 
