@@ -56,8 +56,6 @@ export type GameConfig = {
 	movementSensitivity: number;
 
 	paddleHeightPercentage: number;
-
-	enableInternalLoop?: boolean;
 }
 
 export type GameUserInfo = {
@@ -73,7 +71,7 @@ const FRAME_TIME_MS = 1000 / TARGET_FPS;
 
 export const STANDARD_GAME_CONFIG: GameConfig = {
 	debug: false,
-	shouldUseRequestAnimationFrame: true,
+	shouldUseRequestAnimationFrame: false,
 	gameStartCountdown: 3000,
 	maxScore: 7,
 	initialVelocity: 0.05,
@@ -82,7 +80,6 @@ export const STANDARD_GAME_CONFIG: GameConfig = {
 	paddleSpeed: 3,
 	movementSensitivity: 0.5,
 	paddleHeightPercentage: 20,
-	enableInternalLoop: true,
 };
 
 export class Game {
@@ -104,6 +101,9 @@ export class Game {
 
 	// Tick listeners to notify external systems (e.g., OnlineGame) after each update
 	private tickListeners: Array<(state: GameStatus, now: number) => void> = [];
+	
+	// listeners to update db when a player scores
+	private scoreListeners: Array<(scores: Scores) => void> = [];
 
 	// Local-only: store players for local games
 	private _leftPlayer: GameUserInfo | null = null;
@@ -137,7 +137,11 @@ export class Game {
 			left: 0,
 			right: 0,
 		};
-
+		if (config.maxScore && config.maxScore <= 0) {
+			this.#config.maxScore = undefined;
+		} else if (config.maxScore === undefined) {
+			this.#config.maxScore = undefined;
+		}
 	}
 
 	public start(): void {
@@ -157,7 +161,7 @@ export class Game {
 		this._leftPlayer = player1;
 		this._rightPlayer = player2;
 	}
-	
+
 	public playerReady(player: GameUserInfo): void {
 		if (this.leftPlayer && this.leftPlayer.id === player.id) {
 			this.leftPlayerReady = true;
@@ -175,11 +179,11 @@ export class Game {
 	public movePaddle(player: "left" | "right", direction: MovePaddleAction): void {
 		if (this.state !== GameState.RUNNING) return;
 		if (this.isInCountdown()) return;
-		
+
 		const speed = this.#config.paddleSpeed * this.#config.movementSensitivity;
 		const min = this.#config.paddleHeightPercentage / 2;
 		const max = 100 - this.#config.paddleHeightPercentage / 2;
-		
+
 		if (player === "left") {
 			if (direction === "up") this.paddles.left -= speed;
 			if (direction === "down") this.paddles.left += speed;
@@ -300,101 +304,112 @@ export class Game {
 		const ballRadius = BALL_RADIUS;
 		const paddleHeight = this.#config.paddleHeightPercentage;
 		const paddleWidth = 2; // Larghezza del paddle in percentuale
-		const collisionMargin = 0.3; // Margine per collisioni più precise
-		
-		// Left paddle collision - solo sulla faccia frontale
+
+		// Left paddle collision - zona di collisione migliorata
 		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth && this.ball.x >= 5) {
 			const paddleTop = this.paddles.left - paddleHeight / 2;
 			const paddleBottom = this.paddles.left + paddleHeight / 2;
-			
-			// Controlla se la pallina è nella zona di collisione del paddle (solo sulla faccia frontale)
+
+			// Controlla se la pallina è nella zona di collisione del paddle con margine
 			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 				// Calcola la posizione relativa della pallina rispetto al centro del paddle
-				const relativeY = (this.ball.y - this.paddles.left) / (paddleHeight / 2);
-				
+				// Migliorato: considera il raggio della pallina nel calcolo
+				const paddleCenter = this.paddles.left;
+				const paddleHalfHeight = paddleHeight / 2;
+				const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
+
+				// Limita relativeY tra -1 e 1 per evitare valori estremi
+				const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
+
 				// Gestione sofisticata degli angoli basata sulla posizione del colpo
 				let angle: number;
-				
+
 				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
-				const distanceFromCenter = Math.abs(relativeY);
-				
+				const distanceFromCenter = Math.abs(clampedRelativeY);
+
 				if (distanceFromCenter > 0.95) {
-					// Colpo sui bordi estremi - angolo elevato ma non troppo verticale
-					const maxAngle = Math.PI / 2.5; // ~72 gradi massimo
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					// Colpo sui bordi estremi - angolo ridotto per rimbalzi più normali
+					const maxAngle = Math.PI / 4; // 45 gradi massimo
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else if (distanceFromCenter > 0.8) {
-					// Colpo sui bordi - angolo elevato
-					const maxAngle = Math.PI / 2.8; // ~64 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					// Colpo sui bordi - angolo ridotto
+					const maxAngle = Math.PI / 5; // 36 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else if (distanceFromCenter > 0.5) {
 					// Colpo nella zona intermedia - angolo medio
-					const maxAngle = Math.PI / 3.5; // ~51 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					const maxAngle = Math.PI / 6; // 30 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else {
 					// Colpo nel centro - angolo controllato
-					const maxAngle = Math.PI / 4; // 45 gradi massimo
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					const maxAngle = Math.PI / 8; // 22.5 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				}
-				
-				// Calcola la velocità mantenendo l'energia
+
+				// Calcola la velocità mantenendo l'energia con velocità minima più alta
 				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-				const minSpeed = this.#config.initialVelocity * 0.8; // Velocità minima
+				const minSpeed = this.#config.initialVelocity * 1.2; // Velocità minima aumentata
 				const finalSpeed = Math.max(speed, minSpeed);
-				
+
 				// Applica l'angolo e la velocità
 				this.ball.dirX = Math.abs(Math.cos(angle)) * finalSpeed;
 				this.ball.dirY = Math.sin(angle) * finalSpeed;
-				
-				// Assicura che la pallina non rimanga bloccata nel paddle
-				this.ball.x = 5 + paddleWidth + 0.5;
+
+				// Assicura che la pallina non rimanga bloccata nel paddle - posizionamento migliorato
+				this.ball.x = 5 + paddleWidth + 1.0; // Margine aumentato
 			}
 		}
-		
-		// Right paddle collision - solo sulla faccia frontale
+
+		// Right paddle collision - zona di collisione migliorata
 		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth && this.ball.x <= 95) {
 			const paddleTop = this.paddles.right - paddleHeight / 2;
 			const paddleBottom = this.paddles.right + paddleHeight / 2;
-			
-			// Controlla se la pallina è nella zona di collisione del paddle (solo sulla faccia frontale)
+
+			// Controlla se la pallina è nella zona di collisione del paddle con margine
 			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 				// Calcola la posizione relativa della pallina rispetto al centro del paddle
-				const relativeY = (this.ball.y - this.paddles.right) / (paddleHeight / 2);
-				
+				// Migliorato: considera il raggio della pallina nel calcolo
+				const paddleCenter = this.paddles.right;
+				const paddleHalfHeight = paddleHeight / 2;
+				const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
+
+				// Limita relativeY tra -1 e 1 per evitare valori estremi
+				const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
+
 				// Gestione sofisticata degli angoli basata sulla posizione del colpo
 				let angle: number;
-				
+
 				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
-				const distanceFromCenter = Math.abs(relativeY);
-				
+				const distanceFromCenter = Math.abs(clampedRelativeY);
+
 				if (distanceFromCenter > 0.95) {
-					// Colpo sui bordi estremi - angolo elevato ma non troppo verticale
-					const maxAngle = Math.PI / 2.5; // ~72 gradi massimo
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					// Colpo sui bordi estremi - angolo ridotto per rimbalzi più normali
+					const maxAngle = Math.PI / 4; // 45 gradi massimo
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else if (distanceFromCenter > 0.8) {
-					// Colpo sui bordi - angolo elevato
-					const maxAngle = Math.PI / 2.8; // ~64 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					// Colpo sui bordi - angolo ridotto
+					const maxAngle = Math.PI / 5; // 36 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else if (distanceFromCenter > 0.5) {
 					// Colpo nella zona intermedia - angolo medio
-					const maxAngle = Math.PI / 3.5; // ~51 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					const maxAngle = Math.PI / 6; // 30 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else {
 					// Colpo nel centro - angolo controllato
-					const maxAngle = Math.PI / 4; // 45 gradi massimo
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					const maxAngle = Math.PI / 8; // 22.5 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				}
-				
-				// Calcola la velocità mantenendo l'energia
+
+				// Calcola la velocità mantenendo l'energia con velocità minima più alta
 				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-				const minSpeed = this.#config.initialVelocity * 0.8; // Velocità minima
+				const minSpeed = this.#config.initialVelocity * 1.2; // Velocità minima aumentata
 				const finalSpeed = Math.max(speed, minSpeed);
-				
+
 				// Applica l'angolo e la velocità
 				this.ball.dirX = -Math.abs(Math.cos(angle)) * finalSpeed;
 				this.ball.dirY = Math.sin(angle) * finalSpeed;
-				
-				// Assicura che la pallina non rimanga bloccata nel paddle
-				this.ball.x = 95 - paddleWidth - 0.5;
+
+				// Assicura che la pallina non rimanga bloccata nel paddle - posizionamento migliorato
+				this.ball.x = 95 - paddleWidth - 1.0; // Margine aumentato
 			}
 		}
 	}
@@ -402,17 +417,33 @@ export class Game {
 	private checkGoal(): void {
 		if (this.ball.x < 0) {
 			this.scores.right++;
-			if (this.#config.maxScore && this.scores.right >= this.#config.maxScore) {
+			this.scoreListeners.forEach(cb => cb({ ...this.scores }));
+			
+			if (this.scores.right >= 7) {
 				this.state = GameState.FINISH;
 				this.stopLoopIfNeeded();
+				// Notify tick listeners one last time before stopping
+				const now = Date.now();
+				if (this.tickListeners.length > 0) {
+					const state = this.getState();
+					this.tickListeners.forEach(cb => cb(state, now));
+				}
 			} else {
 				this.reset();
 			}
 		} else if (this.ball.x > 100) {
 			this.scores.left++;
-			if (this.#config.maxScore && this.scores.left >= this.#config.maxScore) {
+			this.scoreListeners.forEach(cb => cb({ ...this.scores }));
+			
+			if (this.scores.left >= 7) {
 				this.state = GameState.FINISH;
 				this.stopLoopIfNeeded();
+				// Notify tick listeners one last time before stopping
+				const now = Date.now();
+				if (this.tickListeners.length > 0) {
+					const state = this.getState();
+					this.tickListeners.forEach(cb => cb(state, now));
+				}
 			} else {
 				this.reset();
 			}
@@ -487,6 +518,16 @@ export class Game {
 			const index = this.tickListeners.indexOf(callback);
 			if (index > -1) {
 				this.tickListeners.splice(index, 1);
+			}
+		};
+	}
+
+	public onScore(callback: (scores: Scores) => void): () => void {
+		this.scoreListeners.push(callback);
+		return () => {
+			const index = this.scoreListeners.indexOf(callback);
+			if (index > -1) {
+				this.scoreListeners.splice(index, 1);
 			}
 		};
 	}

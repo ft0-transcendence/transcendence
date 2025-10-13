@@ -1,6 +1,8 @@
-# FT0 Backend
+# FT0 Transcendence
 
-This is a backend for the Transcendence project at 42 Firenze school.
+This is the main fullstack (backend + frontend) repository for the Transcendence project at 42 Firenze school.
+
+You can check out the live preview of the application at [transcendence.app.sandoramix.dev](https://transcendence.app.sandoramix.dev)
 
 ## Requirements
 
@@ -101,7 +103,7 @@ EOF
 ### Clone the repo
 
 ```bash
-git clone https://github.com/ft0-transcendence/backend transcendence
+git clone https://github.com/ft0-transcendence/transcendence transcendence
 cd transcendence
 ```
 

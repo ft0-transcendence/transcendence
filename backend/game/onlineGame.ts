@@ -5,9 +5,10 @@ type FinishCallback = (state: GameStatus) => Promise<void> | void;
 export class OnlineGame extends Game {
 	protected gameId: string;
 	protected socketNamespace: any;
-	protected updateGameActivity?: () => Promise<void>;
+	protected updateGameActivity?: (gameInstance?: any) => Promise<void>;
 
 	protected unsubscribeTick: (() => void) | null = null;
+	protected unsubscribeScore: (() => void) | null = null;
 	protected finished = false;
 	protected onFinish?: FinishCallback;
 
@@ -28,7 +29,7 @@ export class OnlineGame extends Game {
 		socketNamespace: any,
 		config?: Partial<ConstructorParameters<typeof Game>[0]>,
 		onFinish?: FinishCallback,
-		updateGameActivity?: () => Promise<void>,
+		updateGameActivity?: (gameInstance?: any) => Promise<void>,
 	) {
 		super(config);
 		this.gameId = gameId;
@@ -40,9 +41,17 @@ export class OnlineGame extends Game {
 				this.socketNamespace.to(this.gameId).emit("game-state", state);
 			}
 			if (this.state === GameState.FINISH && !this.finished) {
+				console.log(`Game ${this.gameId} ended naturally with score ${this.scores.left}-${this.scores.right}`);
 				setTimeout(() => this.finish(), 0);
 			}
 			this.checkGraceAndForfeit(now);
+		});
+
+		// Listen for score updates to update database
+		this.unsubscribeScore = this.onScore(async (scores) => {
+			if (this.updateGameActivity) {
+				await this.updateGameActivity(this);
+			}
 		});
 	}
 
@@ -87,7 +96,7 @@ export class OnlineGame extends Game {
 		} else if (playerId === this._playerRight?.id) {
 			this.movePaddle("right", direction);
 		}
-		this.updateGameActivity?.();
+		this.updateGameActivity?.(this);
 	}
 
 	public addConnectedUser(user: GameUserInfo): void {
@@ -195,16 +204,6 @@ export class OnlineGame extends Game {
 		return null;
 	}
 
-	// Override finish() con fine game normale (risolto problema online game)
-	public update(delta: number): void {
-		const wasFinished = this.state === GameState.FINISH;
-		super.update(delta);
-
-		if (!wasFinished && this.state === GameState.FINISH && !this.finished) {
-			console.log(`Game ${this.gameId} ended naturally with score ${this.scores.left}-${this.scores.right}`);
-			setTimeout(() => this.finish(), 0);
-		}
-	}
 
 	private checkGraceAndForfeit(now: number) {
 		if (!this.finished && this.disconnectedUntil.size > 0) {
@@ -284,6 +283,11 @@ export class OnlineGame extends Game {
 		if (this.unsubscribeTick) {
 			this.unsubscribeTick();
 			this.unsubscribeTick = null;
+		}
+
+		if (this.unsubscribeScore) {
+			this.unsubscribeScore();
+			this.unsubscribeScore = null;
 		}
 
 		const state = this.getState();
