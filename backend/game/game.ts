@@ -56,6 +56,7 @@ export type GameConfig = {
 	movementSensitivity: number;
 
 	paddleHeightPercentage: number;
+	paddleWidthPercentage: number;
 }
 
 export type GameUserInfo = {
@@ -80,6 +81,7 @@ export const STANDARD_GAME_CONFIG: GameConfig = {
 	paddleSpeed: 3,
 	movementSensitivity: 0.5,
 	paddleHeightPercentage: 20,
+	paddleWidthPercentage: 5,
 };
 
 export class Game {
@@ -303,28 +305,21 @@ export class Game {
 	private handlePaddleCollision(): void {
 		const ballRadius = BALL_RADIUS;
 		const paddleHeight = this.#config.paddleHeightPercentage;
-		const paddleWidth = 2; // Larghezza del paddle in percentuale
+		const paddleWidth = this.#config.paddleWidthPercentage;
 
-		// Left paddle collision - zona di collisione migliorata
 		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth && this.ball.x >= 5) {
 			const paddleTop = this.paddles.left - paddleHeight / 2;
 			const paddleBottom = this.paddles.left + paddleHeight / 2;
 
-			// Controlla se la pallina è nella zona di collisione del paddle con margine
 			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
-				// Calcola la posizione relativa della pallina rispetto al centro del paddle
-				// Migliorato: considera il raggio della pallina nel calcolo
 				const paddleCenter = this.paddles.left;
 				const paddleHalfHeight = paddleHeight / 2;
 				const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
 
-				// Limita relativeY tra -1 e 1 per evitare valori estremi
 				const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
 
-				// Gestione sofisticata degli angoli basata sulla posizione del colpo
 				let angle: number;
 
-				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
 				const distanceFromCenter = Math.abs(clampedRelativeY);
 
 				if (distanceFromCenter > 0.95) {
@@ -345,40 +340,30 @@ export class Game {
 					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				}
 
-				// Calcola la velocità mantenendo l'energia con velocità minima più alta
 				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-				const minSpeed = this.#config.initialVelocity * 1.2; // Velocità minima aumentata
+				const minSpeed = this.#config.initialVelocity * 1.2;
 				const finalSpeed = Math.max(speed, minSpeed);
 
-				// Applica l'angolo e la velocità
 				this.ball.dirX = Math.abs(Math.cos(angle)) * finalSpeed;
 				this.ball.dirY = Math.sin(angle) * finalSpeed;
 
-				// Assicura che la pallina non rimanga bloccata nel paddle - posizionamento migliorato
-				this.ball.x = 5 + paddleWidth + 1.0; // Margine aumentato
+				this.ball.x = 2 + paddleWidth + (BALL_RADIUS / 2);
 			}
 		}
 
-		// Right paddle collision - zona di collisione migliorata
 		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth && this.ball.x <= 95) {
 			const paddleTop = this.paddles.right - paddleHeight / 2;
 			const paddleBottom = this.paddles.right + paddleHeight / 2;
 
-			// Controlla se la pallina è nella zona di collisione del paddle con margine
 			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
-				// Calcola la posizione relativa della pallina rispetto al centro del paddle
-				// Migliorato: considera il raggio della pallina nel calcolo
 				const paddleCenter = this.paddles.right;
 				const paddleHalfHeight = paddleHeight / 2;
 				const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
 
-				// Limita relativeY tra -1 e 1 per evitare valori estremi
 				const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
 
-				// Gestione sofisticata degli angoli basata sulla posizione del colpo
 				let angle: number;
 
-				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
 				const distanceFromCenter = Math.abs(clampedRelativeY);
 
 				if (distanceFromCenter > 0.95) {
@@ -399,17 +384,14 @@ export class Game {
 					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				}
 
-				// Calcola la velocità mantenendo l'energia con velocità minima più alta
 				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-				const minSpeed = this.#config.initialVelocity * 1.2; // Velocità minima aumentata
+				const minSpeed = this.#config.initialVelocity * 1.2;
 				const finalSpeed = Math.max(speed, minSpeed);
 
-				// Applica l'angolo e la velocità
 				this.ball.dirX = -Math.abs(Math.cos(angle)) * finalSpeed;
 				this.ball.dirY = Math.sin(angle) * finalSpeed;
 
-				// Assicura che la pallina non rimanga bloccata nel paddle - posizionamento migliorato
-				this.ball.x = 95 - paddleWidth - 1.0; // Margine aumentato
+				this.ball.x = 98 - paddleWidth - (BALL_RADIUS / 2);
 			}
 		}
 	}
@@ -422,7 +404,6 @@ export class Game {
 			if (this.scores.right >= 7) {
 				this.state = GameState.FINISH;
 				this.stopLoopIfNeeded();
-				// Notify tick listeners one last time before stopping
 				const now = Date.now();
 				if (this.tickListeners.length > 0) {
 					const state = this.getState();
@@ -438,7 +419,6 @@ export class Game {
 			if (this.scores.left >= 7) {
 				this.state = GameState.FINISH;
 				this.stopLoopIfNeeded();
-				// Notify tick listeners one last time before stopping
 				const now = Date.now();
 				if (this.tickListeners.length > 0) {
 					const state = this.getState();
