@@ -304,15 +304,14 @@ export class Game {
 		const ballRadius = BALL_RADIUS;
 		const paddleHeight = this.#config.paddleHeightPercentage;
 		const paddleWidth = 2; // Larghezza del paddle in percentuale
-		const collisionMargin = 0.5; // Margine aumentato per collisioni più precise
 
 		// Left paddle collision - zona di collisione migliorata
-		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth + collisionMargin && this.ball.x >= 5 - collisionMargin) {
+		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth && this.ball.x >= 5) {
 			const paddleTop = this.paddles.left - paddleHeight / 2;
 			const paddleBottom = this.paddles.left + paddleHeight / 2;
 
 			// Controlla se la pallina è nella zona di collisione del paddle con margine
-			if (this.ball.y >= paddleTop - ballRadius - collisionMargin && this.ball.y <= paddleBottom + ballRadius + collisionMargin) {
+			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 				// Calcola la posizione relativa della pallina rispetto al centro del paddle
 				// Migliorato: considera il raggio della pallina nel calcolo
 				const paddleCenter = this.paddles.left;
@@ -361,12 +360,12 @@ export class Game {
 		}
 
 		// Right paddle collision - zona di collisione migliorata
-		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth - collisionMargin && this.ball.x <= 95 + collisionMargin) {
+		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth && this.ball.x <= 95) {
 			const paddleTop = this.paddles.right - paddleHeight / 2;
 			const paddleBottom = this.paddles.right + paddleHeight / 2;
 
 			// Controlla se la pallina è nella zona di collisione del paddle con margine
-			if (this.ball.y >= paddleTop - ballRadius - collisionMargin && this.ball.y <= paddleBottom + ballRadius + collisionMargin) {
+			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 				// Calcola la posizione relativa della pallina rispetto al centro del paddle
 				// Migliorato: considera il raggio della pallina nel calcolo
 				const paddleCenter = this.paddles.right;
