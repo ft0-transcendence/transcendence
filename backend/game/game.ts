@@ -307,34 +307,28 @@ export class Game {
 		const paddleHeight = this.#config.paddleHeightPercentage;
 		const paddleWidth = this.#config.paddleWidthPercentage;
 
-		// Left paddle collision - clean logic
-		if (this.ball.dirX < 0) { // Ball moving left
+		if (this.ball.dirX < 0) {
 			const leftPaddleX = 0;
 			const rightPaddleX = leftPaddleX + paddleWidth;
 			
-			// Check if ball is in paddle collision zone
 			if (this.ball.x >= leftPaddleX && this.ball.x <= rightPaddleX) {
 				const paddleTop = this.paddles.left - paddleHeight / 2;
 				const paddleBottom = this.paddles.left + paddleHeight / 2;
 				
-				// Check vertical collision
 				if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 					this.#processPaddleCollision('left', leftPaddleX, rightPaddleX, paddleHeight);
 				}
 			}
 		}
 
-		// Right paddle collision - clean logic
-		if (this.ball.dirX > 0) { // Ball moving right
+		if (this.ball.dirX > 0) {
 			const rightPaddleX = 100;
 			const leftPaddleX = rightPaddleX - paddleWidth;
 			
-			// Check if ball is in paddle collision zone
 			if (this.ball.x >= leftPaddleX && this.ball.x <= rightPaddleX) {
 				const paddleTop = this.paddles.right - paddleHeight / 2;
 				const paddleBottom = this.paddles.right + paddleHeight / 2;
 				
-				// Check vertical collision
 				if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 					this.#processPaddleCollision('right', leftPaddleX, rightPaddleX, paddleHeight);
 				}
@@ -346,17 +340,13 @@ export class Game {
 		const paddleCenter = side === 'left' ? this.paddles.left : this.paddles.right;
 		const paddleHalfHeight = paddleHeight / 2;
 		
-		// Calculate relative position (-1 to 1, where 0 is center)
 		const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
 		const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
 		
-		// Calculate bounce angle based on hit position
 		const angle = this.#calculateBounceAngle(clampedRelativeY);
 		
-		// Keep current speed - just change direction
 		const currentSpeed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
 		
-		// Apply new direction with current speed
 		if (side === 'left') {
 			this.ball.dirX = Math.abs(Math.cos(angle)) * currentSpeed;
 		} else {
