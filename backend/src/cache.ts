@@ -106,10 +106,14 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				cache.active_1v1_games.delete(game.id);
 				fastify.log.info("VS Game %s persisted and removed from cache.", game.id);
 			},
-			async () => {
+			async (gameInstance) => {
 				await db.game.update({
 					where: { id: game.id },
-					data: { updatedAt: new Date() }
+					data: { 
+						updatedAt: new Date(),
+						leftPlayerScore: gameInstance.scores.left,
+						rightPlayerScore: gameInstance.scores.right
+					}
 				});
 			}
 		);

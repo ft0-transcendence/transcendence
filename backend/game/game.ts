@@ -101,6 +101,9 @@ export class Game {
 
 	// Tick listeners to notify external systems (e.g., OnlineGame) after each update
 	private tickListeners: Array<(state: GameStatus, now: number) => void> = [];
+	
+	// listeners to update db when a player scores
+	private scoreListeners: Array<(scores: Scores) => void> = [];
 
 	// Local-only: store players for local games
 	private _leftPlayer: GameUserInfo | null = null;
@@ -403,17 +406,33 @@ export class Game {
 	private checkGoal(): void {
 		if (this.ball.x < 0) {
 			this.scores.right++;
-			if (this.#config.maxScore && this.scores.right >= this.#config.maxScore) {
+			this.scoreListeners.forEach(cb => cb({ ...this.scores }));
+			
+			if (this.scores.right >= 7) {
 				this.state = GameState.FINISH;
 				this.stopLoopIfNeeded();
+				// Notify tick listeners one last time before stopping
+				const now = Date.now();
+				if (this.tickListeners.length > 0) {
+					const state = this.getState();
+					this.tickListeners.forEach(cb => cb(state, now));
+				}
 			} else {
 				this.reset();
 			}
 		} else if (this.ball.x > 100) {
 			this.scores.left++;
-			if (this.#config.maxScore && this.scores.left >= this.#config.maxScore) {
+			this.scoreListeners.forEach(cb => cb({ ...this.scores }));
+			
+			if (this.scores.left >= 7) {
 				this.state = GameState.FINISH;
 				this.stopLoopIfNeeded();
+				// Notify tick listeners one last time before stopping
+				const now = Date.now();
+				if (this.tickListeners.length > 0) {
+					const state = this.getState();
+					this.tickListeners.forEach(cb => cb(state, now));
+				}
 			} else {
 				this.reset();
 			}
@@ -488,6 +507,16 @@ export class Game {
 			const index = this.tickListeners.indexOf(callback);
 			if (index > -1) {
 				this.tickListeners.splice(index, 1);
+			}
+		};
+	}
+
+	public onScore(callback: (scores: Scores) => void): () => void {
+		this.scoreListeners.push(callback);
+		return () => {
+			const index = this.scoreListeners.indexOf(callback);
+			if (index > -1) {
+				this.scoreListeners.splice(index, 1);
 			}
 		};
 	}

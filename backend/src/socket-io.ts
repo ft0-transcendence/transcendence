@@ -176,11 +176,15 @@ function setupMatchmakingNamespace(io: Server) {
 							cache.active_1v1_games.delete(gameId);
 							fastify.log.info("Game %s persisted and removed from cache.", gameId);
 						},
-						async () => {
-							// Update game activity timestamp
+						async (gameInstance) => {
+							// Update game activity timestamp and current scores
 							await db.game.update({
 								where: { id: gameId },
-								data: { updatedAt: new Date() }
+								data: { 
+									updatedAt: new Date(),
+									leftPlayerScore: gameInstance.scores.left,
+									rightPlayerScore: gameInstance.scores.right
+								}
 							});
 						}
 					);
