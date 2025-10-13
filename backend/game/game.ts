@@ -304,101 +304,113 @@ export class Game {
 		const ballRadius = BALL_RADIUS;
 		const paddleHeight = this.#config.paddleHeightPercentage;
 		const paddleWidth = 2; // Larghezza del paddle in percentuale
-		const collisionMargin = 0.3; // Margine per collisioni più precise
+		const collisionMargin = 0.5; // Margine aumentato per collisioni più precise
 
-		// Left paddle collision - solo sulla faccia frontale
-		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth && this.ball.x >= 5) {
+		// Left paddle collision - zona di collisione migliorata
+		if (this.ball.dirX < 0 && this.ball.x <= 5 + paddleWidth + collisionMargin && this.ball.x >= 5 - collisionMargin) {
 			const paddleTop = this.paddles.left - paddleHeight / 2;
 			const paddleBottom = this.paddles.left + paddleHeight / 2;
 
-			// Controlla se la pallina è nella zona di collisione del paddle (solo sulla faccia frontale)
-			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
+			// Controlla se la pallina è nella zona di collisione del paddle con margine
+			if (this.ball.y >= paddleTop - ballRadius - collisionMargin && this.ball.y <= paddleBottom + ballRadius + collisionMargin) {
 				// Calcola la posizione relativa della pallina rispetto al centro del paddle
-				const relativeY = (this.ball.y - this.paddles.left) / (paddleHeight / 2);
+				// Migliorato: considera il raggio della pallina nel calcolo
+				const paddleCenter = this.paddles.left;
+				const paddleHalfHeight = paddleHeight / 2;
+				const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
+
+				// Limita relativeY tra -1 e 1 per evitare valori estremi
+				const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
 
 				// Gestione sofisticata degli angoli basata sulla posizione del colpo
 				let angle: number;
 
 				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
-				const distanceFromCenter = Math.abs(relativeY);
+				const distanceFromCenter = Math.abs(clampedRelativeY);
 
 				if (distanceFromCenter > 0.95) {
 					// Colpo sui bordi estremi - angolo ridotto per rimbalzi più normali
-					const maxAngle = Math.PI / 4; // 45 gradi massimo (era 72°)
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					const maxAngle = Math.PI / 4; // 45 gradi massimo
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else if (distanceFromCenter > 0.8) {
 					// Colpo sui bordi - angolo ridotto
 					const maxAngle = Math.PI / 5; // 36 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else if (distanceFromCenter > 0.5) {
 					// Colpo nella zona intermedia - angolo medio
 					const maxAngle = Math.PI / 6; // 30 gradi
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else {
 					// Colpo nel centro - angolo controllato
-					const maxAngle = Math.PI / 8; // 22.5
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					const maxAngle = Math.PI / 8; // 22.5 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				}
 
-				// Calcola la velocità mantenendo l'energia
+				// Calcola la velocità mantenendo l'energia con velocità minima più alta
 				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-				const minSpeed = this.#config.initialVelocity * 0.8; // Velocità minima
+				const minSpeed = this.#config.initialVelocity * 1.2; // Velocità minima aumentata
 				const finalSpeed = Math.max(speed, minSpeed);
 
 				// Applica l'angolo e la velocità
 				this.ball.dirX = Math.abs(Math.cos(angle)) * finalSpeed;
 				this.ball.dirY = Math.sin(angle) * finalSpeed;
 
-				// Assicura che la pallina non rimanga bloccata nel paddle
-				this.ball.x = 5 + paddleWidth + 0.5;
+				// Assicura che la pallina non rimanga bloccata nel paddle - posizionamento migliorato
+				this.ball.x = 5 + paddleWidth + 1.0; // Margine aumentato
 			}
 		}
 
-		// Right paddle collision - solo sulla faccia frontale
-		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth && this.ball.x <= 95) {
+		// Right paddle collision - zona di collisione migliorata
+		if (this.ball.dirX > 0 && this.ball.x >= 95 - paddleWidth - collisionMargin && this.ball.x <= 95 + collisionMargin) {
 			const paddleTop = this.paddles.right - paddleHeight / 2;
 			const paddleBottom = this.paddles.right + paddleHeight / 2;
 
-			// Controlla se la pallina è nella zona di collisione del paddle (solo sulla faccia frontale)
-			if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
+			// Controlla se la pallina è nella zona di collisione del paddle con margine
+			if (this.ball.y >= paddleTop - ballRadius - collisionMargin && this.ball.y <= paddleBottom + ballRadius + collisionMargin) {
 				// Calcola la posizione relativa della pallina rispetto al centro del paddle
-				const relativeY = (this.ball.y - this.paddles.right) / (paddleHeight / 2);
+				// Migliorato: considera il raggio della pallina nel calcolo
+				const paddleCenter = this.paddles.right;
+				const paddleHalfHeight = paddleHeight / 2;
+				const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
+
+				// Limita relativeY tra -1 e 1 per evitare valori estremi
+				const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
 
 				// Gestione sofisticata degli angoli basata sulla posizione del colpo
 				let angle: number;
 
 				// Calcola la distanza dal centro (0 = centro, 1 = bordo)
-				const distanceFromCenter = Math.abs(relativeY);
+				const distanceFromCenter = Math.abs(clampedRelativeY);
 
 				if (distanceFromCenter > 0.95) {
 					// Colpo sui bordi estremi - angolo ridotto per rimbalzi più normali
-					const maxAngle = Math.PI / 4; // 45 gradi massimo (era 72°)
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					const maxAngle = Math.PI / 4; // 45 gradi massimo
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else if (distanceFromCenter > 0.8) {
 					// Colpo sui bordi - angolo ridotto
-					const maxAngle = Math.PI / 5; // 36 gradi (era 64°)
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					const maxAngle = Math.PI / 5; // 36 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else if (distanceFromCenter > 0.5) {
 					// Colpo nella zona intermedia - angolo medio
-					const maxAngle = Math.PI / 6; // 30 gradi (era 51°)
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					const maxAngle = Math.PI / 6; // 30 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				} else {
 					// Colpo nel centro - angolo controllato
-					const maxAngle = Math.PI / 8; // 22.5 gradi massimo (era 45°)
-					angle = Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
+					const maxAngle = Math.PI / 8; // 22.5 gradi
+					angle = Math.max(-maxAngle, Math.min(maxAngle, clampedRelativeY * maxAngle));
 				}
 
-				// Calcola la velocità mantenendo l'energia
+				// Calcola la velocità mantenendo l'energia con velocità minima più alta
 				const speed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-				const minSpeed = this.#config.initialVelocity * 0.8; // Velocità minima
+				const minSpeed = this.#config.initialVelocity * 1.2; // Velocità minima aumentata
 				const finalSpeed = Math.max(speed, minSpeed);
 
 				// Applica l'angolo e la velocità
 				this.ball.dirX = -Math.abs(Math.cos(angle)) * finalSpeed;
 				this.ball.dirY = Math.sin(angle) * finalSpeed;
 
-				// Assicura che la pallina non rimanga bloccata nel paddle
-				this.ball.x = 95 - paddleWidth - 0.5;
+				// Assicura che la pallina non rimanga bloccata nel paddle - posizionamento migliorato
+				this.ball.x = 95 - paddleWidth - 1.0; // Margine aumentato
 			}
 		}
 	}
