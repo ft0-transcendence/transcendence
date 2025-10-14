@@ -2,9 +2,59 @@
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, t } from "../trpc";
 import { z } from "zod";
-import { TournamentType, GameType } from "@prisma/client";
+import { TournamentType, GameType, TournamentStatus } from "@prisma/client";
 
 export const tournamentRouter = t.router({
+    // Getter per mostrare tutti i tornei disponibili
+    getAvailableTournaments: publicProcedure
+        .query(async ({ ctx }) => {
+            const tournaments = await ctx.db.tournament.findMany({
+                where: {
+                    status: {
+                        in: ['WAITING_PLAYERS', 'IN_PROGRESS']
+                    }
+                },
+                include: {
+                    createdBy: {
+                        select: {
+                            id: true,
+                            username: true
+                        }
+                    },
+                    participants: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    username: true
+                                }
+                            }
+                        }
+                    },
+                    _count: {
+                        select: {
+                            participants: true
+                        }
+                    }
+                },
+                orderBy: {
+                    startDate: 'asc'
+                }
+            });
+
+            return tournaments.map(tournament => ({
+                id: tournament.id,
+                name: tournament.name,
+                type: tournament.type,
+                status: tournament.status,
+                startDate: tournament.startDate,
+                createdBy: tournament.createdBy,
+                participantsCount: tournament._count.participants,
+                maxParticipants: tournament.type === 'EIGHT',
+                hasPassword: !!tournament.password
+            }));
+        }),
+
     createTournament: protectedProcedure
         .input(z.object({
             name: z.string().min(3).max(50),
@@ -259,6 +309,227 @@ export const tournamentRouter = t.router({
             });
 
             return updatedTournament!;
+        }),
+
+    // Getter per ottenere i dettagli di un torneo specifico
+    getTournamentDetails: publicProcedure
+        .input(z.object({
+            tournamentId: z.string()
+        }))
+        .query(async ({ ctx, input }) => {
+            const tournament = await ctx.db.tournament.findUnique({
+                where: { id: input.tournamentId },
+                include: {
+                    createdBy: {
+                        select: {
+                            id: true,
+                            username: true
+                        }
+                    },
+                    winner: {
+                        select: {
+                            id: true,
+                            username: true
+                        }
+                    },
+                    participants: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    username: true
+                                }
+                            }
+                        }
+                    },
+                    games: {
+                        include: {
+                            leftPlayer: {
+                                select: {
+                                    id: true,
+                                    username: true
+                                }
+                            },
+                            rightPlayer: {
+                                select: {
+                                    id: true,
+                                    username: true
+                                }
+                            }
+                        },
+                        orderBy: { startDate: 'asc' }
+                    },
+                    _count: {
+                        select: {
+                            participants: true
+                        }
+                    }
+                }
+            });
+
+            if (!tournament) {
+                throw new TRPCError({ code: "NOT_FOUND", message: "Tournament not found" });
+            }
+
+            return {
+                id: tournament.id,
+                name: tournament.name,
+                type: tournament.type,
+                status: tournament.status,
+                startDate: tournament.startDate,
+                endDate: tournament.endDate,
+                createdBy: tournament.createdBy,
+                winner: tournament.winner,
+                participants: tournament.participants.map(p => p.user),
+                participantsCount: tournament._count.participants,
+                maxParticipants: tournament.type === 'EIGHT' ? 8 : 16,
+                games: tournament.games,
+                hasPassword: !!tournament.password
+            };
+        }),
+
+    // Funzione per gestire l'avanzamento del torneo quando un game finisce
+    handleTournamentAdvancement: protectedProcedure
+        .input(z.object({
+            gameId: z.string(),
+            winnerId: z.string()
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const { gameId, winnerId } = input;
+
+            // Trova il game che è appena finito
+            const finishedGame = await ctx.db.game.findUnique({
+                where: { id: gameId },
+                include: {
+                    tournament: true,
+                    nextGame: true
+                }
+            });
+
+            if (!finishedGame || !finishedGame.tournament) {
+                throw new TRPCError({ code: "NOT_FOUND", message: "Game or tournament not found" });
+            }
+
+            const tournament = finishedGame.tournament;
+
+            // Se c'è un nextGame, aggiorna con il vincitore
+            if (finishedGame.nextGame) {
+                const nextGame = finishedGame.nextGame;
+                
+                // Determina se il vincitore va a sinistra o destra nel prossimo game
+                const isLeftSide = nextGame.leftPlayerId === finishedGame.leftPlayerId || 
+                                 nextGame.leftPlayerId === finishedGame.rightPlayerId;
+                
+                if (isLeftSide) {
+                    await ctx.db.game.update({
+                        where: { id: nextGame.id },
+                        data: { leftPlayerId: winnerId }
+                    });
+                } else {
+                    await ctx.db.game.update({
+                        where: { id: nextGame.id },
+                        data: { rightPlayerId: winnerId }
+                    });
+                }
+
+                // Notifica il prossimo avversario
+                const opponentId = isLeftSide ? nextGame.rightPlayerId : nextGame.leftPlayerId;
+                if (opponentId) {
+                    // Qui potresti aggiungere una notifica socket o email
+                    console.log(`🎯 Tournament ${tournament.id}: Player ${winnerId} will face ${opponentId} in next round`);
+                }
+            } else {
+                // È la finale! Il vincitore ha vinto il torneo
+                await ctx.db.tournament.update({
+                    where: { id: tournament.id },
+                    data: {
+                        winnerId: winnerId,
+                        endDate: new Date(),
+                        status: TournamentStatus.COMPLETED
+                    }
+                });
+
+                console.log(`🏆 Tournament ${tournament.id} completed! Winner: ${winnerId}`);
+            }
+
+            return { success: true };
+        }),
+
+    // Getter per ottenere i dettagli di un torneo specifico
+    getTournamentDetails: publicProcedure
+        .input(z.object({
+            tournamentId: z.string()
+        }))
+        .query(async ({ ctx, input }) => {
+            const tournament = await ctx.db.tournament.findUnique({
+                where: { id: input.tournamentId },
+                include: {
+                    createdBy: {
+                        select: {
+                            id: true,
+                            username: true
+                        }
+                    },
+                    winner: {
+                        select: {
+                            id: true,
+                            username: true
+                        }
+                    },
+                    participants: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    username: true
+                                }
+                            }
+                        }
+                    },
+                    games: {
+                        include: {
+                            leftPlayer: {
+                                select: {
+                                    id: true,
+                                    username: true
+                                }
+                            },
+                            rightPlayer: {
+                                select: {
+                                    id: true,
+                                    username: true
+                                }
+                            }
+                        },
+                        orderBy: { startDate: 'asc' }
+                    },
+                    _count: {
+                        select: {
+                            participants: true
+                        }
+                    }
+                }
+            });
+
+            if (!tournament) {
+                throw new TRPCError({ code: "NOT_FOUND", message: "Tournament not found" });
+            }
+
+            return {
+                id: tournament.id,
+                name: tournament.name,
+                type: tournament.type,
+                status: tournament.status,
+                startDate: tournament.startDate,
+                endDate: tournament.endDate,
+                createdBy: tournament.createdBy,
+                winner: tournament.winner,
+                participants: tournament.participants.map(p => p.user),
+                participantsCount: tournament._count.participants,
+                maxParticipants: tournament.type === 'EIGHT',
+                games: tournament.games,
+                hasPassword: !!tournament.password
+            };
         }),
 
     getBracket: publicProcedure
