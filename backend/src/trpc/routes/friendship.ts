@@ -299,17 +299,48 @@ export const friendshipRouter = t.router({
 					OR: [
 						{
 							userId: ctx.user!.id,
-							friendId: input.friendId
+							friendId: input.friendId,
+							state: FriendState.ACCEPTED
 						},
 						{
 							userId: input.friendId,
-							friendId: ctx.user!.id
+							friendId: ctx.user!.id,
+							state: FriendState.ACCEPTED
 						}
 					]
 				}
 			});
 
 			await notifyFriendshipRemoved(ctx.user!.id, input.friendId);
+
+			return {
+				success: true
+			};
+		}),
+
+	removePendingFriend: protectedProcedure
+		.input(z.object({
+			friendId: z.string()
+		}))
+		.mutation(async ({ ctx, input }) => {
+			await ctx.db.friend.deleteMany({
+				where: {
+					OR: [
+						{
+							userId: ctx.user!.id,
+							friendId: input.friendId,
+							state: FriendState.PENDING
+						},
+						{
+							userId: input.friendId,
+							friendId: ctx.user!.id,
+							state: FriendState.PENDING
+						}
+					]
+				}
+			});
+
+			await notifyPendingFriendRemoved(ctx.user!.id, input.friendId);
 
 			return {
 				success: true
@@ -542,5 +573,50 @@ async function notifyFriendshipRemoved(removerId: string, removedId: string) {
 		fastify.log.debug('Notified friendship removed between %s and %s', removerId, removedId);
 	} catch (error) {
 		fastify.log.error('Error notifying friendship removed:', error);
+	}
+}
+
+async function notifyPendingFriendRemoved(removerId: string, removedId: string) {
+	try {
+		const [remover, removed] = await Promise.all([
+			fastify.prisma.user.findFirst({
+				where: { id: removerId },
+				select: {
+					id: true,
+					username: true,
+				}
+			}),
+			fastify.prisma.user.findFirst({
+				where: { id: removedId },
+				select: {
+					id: true,
+					username: true,
+				}
+			})
+		]);
+
+		if (!remover || !removed) return;
+
+		const removerSocket = cache.onlineUsers.get(removerId);
+		if (removerSocket) {
+			removerSocket.emit('pending-friend-removed', {
+				friendId: removedId,
+				username: removed.username,
+				message: `You cancelled the friend request to ${removed.username}`
+			});
+		}
+
+		const removedSocket = cache.onlineUsers.get(removedId);
+		if (removedSocket) {
+			removedSocket.emit('pending-friend-removed', {
+				friendId: removerId,
+				username: remover.username,
+				message: `${remover.username} cancelled their friend request`
+			});
+		}
+
+		fastify.log.debug('Notified pending friend request removed between %s and %s', removerId, removedId);
+	} catch (error) {
+		fastify.log.error('Error notifying pending friend request removed:', error);
 	}
 }
