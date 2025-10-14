@@ -67,9 +67,8 @@ export class OnlineGame extends Game {
 	}
 
 	public setPlayers(player1: GameUserInfo, player2: GameUserInfo) {
-		const randomPos = Math.random() > 0.5;
-		this._playerLeft = randomPos ? player1 : player2;
-		this._playerRight = randomPos ? player2 : player1;
+		this._playerLeft = player1;
+		this._playerRight = player2;
 	}
 
 	public playerReady(player: GameUserInfo) {
