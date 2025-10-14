@@ -4,6 +4,7 @@ import { k } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { ComponentController } from "@src/tools/ViewController";
 import { isMobile } from '../utils/agentUtils';
+import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
 
 export type GameComponentProps = {
 
@@ -46,6 +47,7 @@ export class GameComponent extends ComponentController {
 		'arrowdown': { side: 'right', direction: 'down' },
 	};
 
+	#gameFinished = false;
 	#gameState: Game['GameStatus'] | null = null;
 
 	#keyBindings: GameKeyBindings;
@@ -54,6 +56,9 @@ export class GameComponent extends ComponentController {
 		gameType: 'VS',
 		isLocalGame: true,
 	};
+
+	#leftPlayerData: Game['GameUserInfo'] | null = null;
+	#rightPlayerData: Game['GameUserInfo'] | null = null;
 
 	#leftPlayerActive = false;
 	#rightPlayerActive = false;
@@ -89,12 +94,47 @@ export class GameComponent extends ComponentController {
 		this.#ctx.fillRect(0, 0, this.#canvas.width, this.#canvas.height);
 	}
 
+
+	#fillUserInfo(user: Game['GameUserInfo'] | null, containerId: string, score: number, shouldUpdateUserInfo = false) {
+		if (!user) {
+			return;
+		};
+		const $container = document.getElementById(containerId);
+		if (!$container) {
+			console.warn('User info container not found');
+			return;
+		}
+		if (shouldUpdateUserInfo){
+			const $image = $container.querySelector('.game-user-image') as HTMLImageElement;
+			if (user.isPlayer && shouldUpdateUserInfo) {
+				if ($image) {
+					$image.src = getProfilePictureUrlByUserId(user.id);
+					$image.classList.remove('hidden');
+				}
+			} else {
+				$image?.classList.add('hidden');
+			}
+			const $username = $container.querySelector('.game-user-username') as HTMLElement;
+			$username.textContent = user.username;
+		}
+
+		const $score = $container.querySelector('.game-user-score') as HTMLElement;
+		$score.textContent = String(score);
+	}
+
 	public updateGameState(state: Game['GameStatus']) {
+		if (this.#gameFinished) return;
 		this.#gameState = state;
+
+		this.#fillUserInfo(state.leftPlayer, `${this.id}-left-user`, state.scores.left, this.#leftPlayerData == null);
+		this.#fillUserInfo(state.rightPlayer, `${this.id}-right-user`, state.scores.right, this.#rightPlayerData == null);
+
+		this.#leftPlayerData = state.leftPlayer;
+		this.#rightPlayerData = state.rightPlayer;
 
 		const $debugContainer = document.getElementById(`${this.id}-debug-container`);
 
-		if (!$debugContainer){
+		if (!$debugContainer) {
 			console.warn('Debug container not found');
 			return;
 		} else {
@@ -104,10 +144,10 @@ export class GameComponent extends ComponentController {
 				$debugContainer.classList.add('hidden');
 			}
 		}
-		if (!state.rightPlayer?.isPlayer){
+		if (!state.rightPlayer?.isPlayer) {
 			this.#rightPlayerActive = false;
 		}
-		if (!state.leftPlayer?.isPlayer){
+		if (!state.leftPlayer?.isPlayer) {
 			this.#leftPlayerActive = false;
 		}
 
@@ -131,24 +171,6 @@ export class GameComponent extends ComponentController {
 
 		this.#drawPaddles(state.paddles);
 		this.#drawBall(state.ball);
-		this.#drawScore(state.scores);
-
-		ctx.font = '36px Arial';
-		ctx.textAlign = 'center';
-		const leftUsername = (state.leftPlayer?.username || 'P1').toUpperCase();
-		ctx.fillText(
-			leftUsername,
-			canvas.width * 0.25,
-			30
-		);
-
-
-		const rightUsername = (state.rightPlayer?.username || 'P2').toUpperCase();
-		ctx.fillText(
-			rightUsername,
-			canvas.width * 0.75,
-			30
-		);
 
 		// Overlay: paused/finish labels
 		if (state.state === 'PAUSE' || state.state === 'FINISH') {
@@ -182,6 +204,11 @@ export class GameComponent extends ComponentController {
 				canvas.width / 2,
 				canvas.height / 2
 			);
+		}
+
+		if (state.state === "FINISH") {
+			this.#destroyGameEventListeners();
+			this.#gameFinished = true;
 		}
 	}
 
@@ -223,7 +250,7 @@ export class GameComponent extends ComponentController {
 			el.classList.toggle('!hidden', !left || !isMobileDevice);
 			el.classList.toggle('flex-col', right);
 		});
-		$rightPlayerControls?.forEach(el =>{
+		$rightPlayerControls?.forEach(el => {
 			el.classList.toggle('!hidden', !right || !isMobileDevice);
 			el.classList.toggle('flex-col', left);
 		});
@@ -262,12 +289,35 @@ export class GameComponent extends ComponentController {
 	async render() {
 		return /*html*/`
 			<div id="${this.id}-game" class="relative w-full h-full aspect-square flex flex-col bg-black/50">
-				<!-- TODO: debug info, remove it later -->
 				<div id="${this.id}-debug-container" class="absolute top-0 left-0 hidden text-sm">
 					<span class="font-bold text-xl">DBG GAME STATE</span>
 					<p id="${this.id}-game-state">${this.#gameState}</p>
 				</div>
+
 				<div class="flex flex-col grow bg-black/50 w-full items-center justify-center">
+					<div class="grid grid-cols-2 gap-2 px-4 py-2 grid-flow-row uppercase w-full items-center shrink-0 text-white">
+						<!-- LEFT USER -->
+						<section id="${this.id}-left-user" class="flex flex-col items-center justify-center">
+							<div class="flex items-center justify-center gap-1">
+								<div class="game-user-username font-mono text-xs sm:text-xl font-bold"></div>
+								<img class="game-user-image hidden h-8 w-8 sm:h-12 sm:w-12 object-cover rounded-full overflow-hidden"/>
+							</div>
+							<div class="flex flex-col items-center justify-center">
+								<span class="game-user-score text-xl font-bold"></span>
+							</div>
+						</section>
+
+						<!-- RIGHT USER -->
+						<section id="${this.id}-right-user" class="flex flex-col items-center justify-center">
+							<div class="flex items-center justify-center gap-1">
+								<img class="game-user-image hidden h-8 w-8 sm:h-12 sm:w-12 object-cover rounded-full overflow-hidden"/>
+								<div class="game-user-username font-mono text-xs sm:text-xl font-bold"></div>
+							</div>
+							<div class="flex flex-col items-center justify-center">
+								<span class="game-user-score text-xl font-bold"></span>
+							</div>
+						</section>
+					</div>
 					<canvas id="${this.id}-game-canvas" class="w-full aspect-[4/3] border border-white"></canvas>
 				</div>
 				<div id="${this.id}-error-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
@@ -386,6 +436,7 @@ export class GameComponent extends ComponentController {
 	}
 
 
+	//TODO: improve the usage of hard-coded values (e.g., PADDLE_WIDTH)
 	#drawPaddles(paddles: Game['Paddles']) {
 		const ctx = this.#ctx!;
 		const canvas = this.#canvas!;
@@ -426,34 +477,20 @@ export class GameComponent extends ComponentController {
 		ctx.fill();
 	}
 
-	#drawScore(scores: Game['Scores']) {
-		const ctx = this.#ctx!;
-		const canvas = this.#canvas!;
-
-		ctx.fillStyle = '#FFF';
-		ctx.font = 'bold 16px Arial';
-		ctx.textAlign = 'center';
-
-		ctx.fillText(
-			scores.left.toString(),
-			canvas.width * 0.25,
-			60
-		);
-
-
-		ctx.fillText(
-			scores.right.toString(),
-			canvas.width * 0.75,
-			60
-		);
-	}
-
-
 	#updateGameStateElements() {
 		document.getElementById(`${this.id}-game-state`)!.textContent = JSON.stringify(this.#gameState, null, 2);
 	}
 
 	protected async destroy() {
+
+		this.#destroyGameEventListeners();
+
+		this.#canvas = null;
+		this.#ctx = null;
+		this.#gameState = null;
+	}
+
+	#destroyGameEventListeners() {
 		window.removeEventListener('keydown', this.#handleKeyDown);
 		window.removeEventListener('keyup', this.#handleKeyUp);
 
@@ -467,9 +504,7 @@ export class GameComponent extends ComponentController {
 			button.removeEventListener('touchcancel', this.#handleButtonEnd);
 		});
 
-		this.#canvas = null;
-		this.#ctx = null;
-		this.#gameState = null;
+
 		this.onMovement = undefined;
 		this.#keyBindings = {};
 	}

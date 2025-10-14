@@ -52,14 +52,18 @@ export class HomeController extends RouteController {
 			<div class="flex flex-col items-center w-full grow md:grid md:grid-cols-5 overflow-hidden">
 				<div class="flex flex-col items-center overflow-y-auto md:overflow-y-hidden md:h-full md:overflow-hidden w-full text-center md:col-span-1 bg-zinc-900/50 overflow-hidden shrink-0">
 					<!-- User Profile -->
-					<div class="flex flex-col items-center w-full p-6 h-44 border-b border-b-white/15 bg-zinc-800/50 shrink-0">
+					<div class="flex flex-col items-center w-full p-6 h-44 border-b border-b-white/15 bg-zinc-800/50 shrink-0 overflow-hidden">
 						<div class="relative">
 							<img src="${authManager.userImageUrl}"
 								 alt="User image"
 								 class="user-image w-24 h-24 rounded-full aspect-square object-cover shrink-0 ring-2 ring-amber-500/50 ring-offset-zinc-900">
 							<div class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-green-500 border-2 border-zinc-900"></div>
 						</div>
-						<div class="text-xl font-bold user-username">${userData?.username}</div>
+						<div class="w-full flex justify-center items-center overflow-hidden text-base font-bold">
+							<div class="user-username overflow-ellipsis line-clamp-1">
+								${userData?.username}
+							</div>
+						</div>
 					</div>
 
 					<!-- Friends List -->
@@ -349,17 +353,18 @@ export class HomeController extends RouteController {
 		this.#last20MatchesContainer.innerHTML = ``;
 		for (const match of matches) {
 			const matchElement = document.createElement('li');
-			matchElement.className = 'match-item group hover:bg-white/5 transition-colors rounded-lg even:bg-zinc-500/5';
+			matchElement.className = 'match-item group hover:bg-white/5 transition-colors even:bg-zinc-500/5';
 			const myResultClass = match.result === 'W' ? 'text-green-500' : 'text-red-500';
+			const myBgClass = match.result === 'W' ? 'bg-green-500/10' : 'bg-red-500/10';
 			const mySideIsLeft = match.mySide === 'left';
 
 			matchElement.innerHTML = /*html*/`
-			<div class="grid grid-cols-5 items-center px-2 py-3">
+			<div class="grid grid-cols-10 items-center px-2 py-3 ${myBgClass}">
 				<div class="w-12 text-lg text-center col-span-1">
 					<span class="uppercase font-bold ${myResultClass}">${match.result}</span>
 				</div>
 				<!-- Match Avatar -->
-				<div class="grid grid-cols-3 gap-1 items-center col-span-4">
+				<div class="grid grid-cols-3 gap-1 items-center col-span-9">
 					<div class="flex flex-col justify-center items-center gap-1 text-sm">
 						<img src="${getProfilePictureUrlByUserId(match.leftPlayer.id)}"
 						 alt="${match.leftPlayer.username}'s avatar"
@@ -592,14 +597,12 @@ export class HomeController extends RouteController {
 		const hideFriends = document.querySelector('.hide-friends');
 
 		this.#friendsListVisible = !this.#friendsListVisible;
-		console.debug('Friends visibility toggled', this.#friendsListVisible);
 
 		showFriends?.classList.toggle('hidden', this.#friendsListVisible);
 		hideFriends?.classList.toggle('hidden', !this.#friendsListVisible);
 		document.querySelector('.toggle-friends-divider')?.classList.toggle('hidden', !this.#friendsListVisible);
 
 		document.querySelector(`#${this.id}-friends-list`)?.classList.toggle('!hidden', !this.#friendsListVisible);
-		console.debug('Friends container', document.querySelector(`#${this.id}-friends-list`));
 	}
 
 	#upsertFriend(friend: SocketFriendInfo) {

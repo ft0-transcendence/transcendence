@@ -8,10 +8,10 @@ export class LandingPageController extends RouteController {
 
 	#game: GameClass = new GameClass({
 		gameStartCountdown: 0,
-		initialVelocity: 0.025,
+		initialVelocity: 0.05,
 		velocityIncrease: 0.000005,
 		maxVelocity: 0.175,
-		paddleSpeed: 0.69,
+		paddleSpeed: 0.90,
 		movementSensitivity: 0.69,
 		maxScore: undefined,
 		paddleHeightPercentage: 20,
@@ -55,10 +55,10 @@ export class LandingPageController extends RouteController {
 		return /*html*/`
 			<div class="relative flex flex-col grow w-full items-center justify-center">
 				<div class="absolute top-0 left-0 w-full h-full opacity-25 flex flex-col justify-center items-center">
-                    <div id="game-container" class="max-w-5xl w-full grow overflow-hidden">
+					<div id="game-container" class="max-w-5xl w-full grow overflow-hidden">
 						${await this.#gameComponent!.silentRender()}
 					</div>
-                </div>
+				</div>
 				<div class="flex flex-col grow items-center gap-8 justify-center text-center z-20 bg-black/25 p-2 md:p-8">
 					<h1 class="text-6xl font-bold mb-4">Pong Game</h1>
 					<p class="text-xl text-center max-w-2xl mb-8" data-i18n="${k('landing_page.description')}">
@@ -75,7 +75,7 @@ export class LandingPageController extends RouteController {
 					</div>
 				</div>
 			</div>
-        `;
+		`;
 	}
 
 	async postRender() {

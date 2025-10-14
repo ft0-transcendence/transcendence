@@ -37,64 +37,65 @@ export class SettingsController extends RouteController {
 		const avatarUrl = authManager.userImageUrl;
 
 		return /*html*/`
-        <div class="flex flex-col grow w-full items-center justify-center p-4">
-            <div class="flex flex-col w-full max-w-2xl p-6 bg-zinc-800/50 rounded-lg shadow-md space-y-8">
-                <h1 class="text-3xl font-bold text-gray-100" data-i18n="${k('settings.title')}">Profile Settings</h1>
+		<div class="flex flex-col grow w-full items-center justify-center p-4">
+			<div class="flex flex-col w-full max-w-2xl p-6 bg-zinc-800/50 rounded-lg shadow-md space-y-8">
+				<h1 class="text-3xl font-bold text-gray-100" data-i18n="${k('settings.title')}">Profile Settings</h1>
 
-                <!-- Profile Image -->
-                <div class="p-6 bg-zinc-700 rounded-lg">
-                    <h2 class="text-lg font-semibold text-gray-300 mb-4" data-i18n="${k('generic.profile_picture')}">Profile Picture</h2>
-                    <div class="flex flex-col sm:flex-row justify-center gap-2 items-center">
-                        <div class="w-24 h-24 aspect-square shrink-0 rounded-full bg-gray-700 overflow-hidden">
-                            <img id="preview-avatar" src="${avatarUrl ?? ''}" alt="Profile Picture"
-                                 class="w-full h-full object-cover aspect-square">
-                        </div>
-                        <div class="flex flex-col grow">
-                            <label class="relative cursor-pointer flex justify-center sm:justify-start text-center">
-                                <span class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg
-                                           transition duration-300 inline-block">
-                                    Upload New Picture
-                                </span>
-                                <input type="file" class="hidden" accept="image/*" id="avatar-input">
-                            </label>
-                            <p class="text-sm text-gray-400 mt-2" data-i18n="${k('settings.profile_picture_instructions')}">
-                                Recommended: Square image, max 2MB
-                            </p>
-                        </div>
-                    </div>
-                    <button id="save-avatar"
-                            class="cursor-pointer mt-4 w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold
-                                   py-2 px-4 rounded-lg transition duration-300 transform hover:scale-[1.01]
-                                   disabled:opacity-50 disabled:cursor-not-allowed">
-                        Update Profile Picture
-                    </button>
-                </div>
+				<!-- Profile Image -->
+				<div class="p-6 bg-zinc-700 rounded-lg">
+					<h2 class="text-lg font-semibold text-gray-300 mb-4" data-i18n="${k('generic.profile_picture')}">Profile Picture</h2>
+					<div class="flex flex-col sm:flex-row justify-center gap-2 items-center">
+						<div class="w-24 h-24 aspect-square shrink-0 rounded-full bg-gray-700 overflow-hidden">
+							<img id="preview-avatar" src="${avatarUrl ?? ''}" alt="Profile Picture"
+									class="w-full h-full object-cover aspect-square">
+						</div>
+						<div class="flex flex-col grow">
+							<label class="relative cursor-pointer flex justify-center sm:justify-start text-center">
+								<span class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg
+											transition duration-300 inline-block">
+									Upload New Picture
+								</span>
+								<input type="file" class="hidden" accept="image/*" id="avatar-input">
+							</label>
+							<p class="text-sm text-gray-400 mt-2" data-i18n="${k('settings.profile_picture_instructions')}">
+								Recommended: Square image, max 2MB
+							</p>
+						</div>
+					</div>
+					<button id="save-avatar"
+							class="cursor-pointer mt-4 w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold
+									py-2 px-4 rounded-lg transition duration-300 transform hover:scale-[1.01]
+									disabled:opacity-50 disabled:cursor-not-allowed">
+						Update Profile Picture
+					</button>
+				</div>
 
-                <!-- Username -->
-                <div class="p-6 bg-zinc-700 rounded-lg">
-                    <h2 class="text-lg font-semibold text-gray-300 mb-4" data-i18n="${k('generic.username')}">Username</h2>
-                    <div class="flex flex-col space-y-2">
-                        <input value="${userData?.username ?? ''}"
-                               type="text"
-                               id="username-input"
-                               placeholder="E.g. Pippo"
-                               class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg
-                                      text-gray-100 placeholder-gray-400 focus:outline-none
-                                      focus:border-amber-500 transition duration-300">
-                        <p class="text-sm text-gray-400" data-i18n="${k('settings.username_instructions')}">
-                            Username must be unique and at least 3 characters
-                        </p>
-                    </div>
-                    <button id="save-username"
-                            class="mt-4 w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold
-                                   py-2 px-4 rounded-lg transition duration-300 transform hover:scale-[1.01]
-                                   disabled:opacity-50 disabled:cursor-not-allowed">
-                        Update Username
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
+				<!-- Username -->
+				<div class="p-6 bg-zinc-700 rounded-lg">
+					<h2 class="text-lg font-semibold text-gray-300 mb-4" data-i18n="${k('generic.username')}">Username</h2>
+					<div class="flex flex-col space-y-2">
+						<input value="${userData?.username ?? ''}"
+								type="text"
+								id="username-input"
+								minlength="3"
+								maxlength="24"
+								placeholder="E.g. Pippo"
+								class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg
+										text-gray-100 placeholder-gray-400 focus:outline-none
+										focus:border-amber-500 transition duration-300">
+						<p class="text-sm text-gray-400" data-i18n="${k('settings.username_instructions')}">
+							Username must be unique and at least 3 characters
+						</p>
+					</div>
+					<button id="save-username"
+							class="mt-4 w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold
+									py-2 px-4 rounded-lg transition duration-300 transform hover:scale-[1.01]">
+						Update Username
+					</button>
+				</div>
+			</div>
+		</div>
+	`;
 	}
 
 	async postRender() {
@@ -140,7 +141,7 @@ export class SettingsController extends RouteController {
 			toast.success(t('settings.update.avatar.title'), t('settings.update.avatar.success') ?? "");
 		} catch (err) {
 			if (err instanceof TRPCClientError) {
-				console.debug('Error saving avatar', {err});
+				console.debug('Error saving avatar', { err });
 				const meta = err.meta;
 				const msg = (meta?.errorJSON as any)?.message ?? err.message;
 				toast.error(t('settings.update.avatar.title'), msg);
@@ -151,14 +152,14 @@ export class SettingsController extends RouteController {
 	private async onSaveUsername() {
 		const newUsername = this.#usernameInput?.value?.trim();
 		if (!newUsername) return;
-				try {
+		try {
 			const response = await api.user.updateUsername.mutate({ username: newUsername });
 			authManager.refreshUser();
 			toast.success(t('settings.update.username.title'), t('settings.update.username.success') ?? "");
 			this.#usernameInput!.value = response.username;
 		} catch (err) {
 			if (err instanceof TRPCClientError) {
-				console.debug('Error saving username', {err});
+				console.debug('Error saving username', { err });
 				toast.error(t('settings.update.username.title'), err.message);
 			}
 		}
