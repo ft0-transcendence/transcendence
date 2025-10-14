@@ -40,6 +40,11 @@ export const it: TranslationSchema = {
 		confirm: 'Conferma',
 		cancel: 'Annulla',
 		remove_friend_success: 'Amico rimosso con successo',
+		hide: 'Nascondi',
+		show: 'Mostra',
+		sent_friend_requests: 'Richieste inviate',
+		cancel_friend_request: 'Annulla richiesta di amicizia',
+		cancel_friend_request_confirm: 'Sei sicuro di voler annullare questa richiesta di amicizia dalla tua lista di amici? Questa azione non può essere annullata.',
 	},
 	game_modes: {
 		ai: '1 vs IA',

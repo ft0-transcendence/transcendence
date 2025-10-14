@@ -39,6 +39,11 @@ export const en = {
 		confirm: 'Confirm',
 		cancel: 'Cancel',
 		remove_friend_success: 'Friend removed successfully',
+		hide: 'Hide',
+		show: 'Show',
+		sent_friend_requests: 'Sent requests',
+		cancel_friend_request: 'Cancel Friend Request',
+		cancel_friend_request_confirm: 'Are you sure you want to cancel this friend request from your friends list? This action cannot be undone.',
 	},
 
 	game_modes: {
