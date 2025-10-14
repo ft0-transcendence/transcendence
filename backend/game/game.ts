@@ -383,7 +383,8 @@ export class Game {
 			this.scores.right++;
 			this.scoreListeners.forEach(cb => cb({ ...this.scores }));
 			
-			if (this.scores.right >= 7) {
+			if (this.scores.right >= (this.#config.maxScore || 7)) {
+				console.log(`🎯 Game finished! Right player won with score: ${this.scores.right}`);
 				this.state = GameState.FINISH;
 				this.stopLoopIfNeeded();
 				const now = Date.now();
@@ -398,7 +399,8 @@ export class Game {
 			this.scores.left++;
 			this.scoreListeners.forEach(cb => cb({ ...this.scores }));
 			
-			if (this.scores.left >= 7) {
+			if (this.scores.left >= (this.#config.maxScore || 7)) {
+				console.log(`🎯 Game finished! Left player won with score: ${this.scores.left}`);
 				this.state = GameState.FINISH;
 				this.stopLoopIfNeeded();
 				const now = Date.now();
