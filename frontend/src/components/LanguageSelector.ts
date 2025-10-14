@@ -2,6 +2,8 @@ import i18next from 'i18next';
 import { allLanguagesDefinition, allLocales, AppLanguage, setLanguage } from '@tools/i18n';
 import toast from '@tools/Toast';
 import { ComponentController } from '@tools/ViewController';
+import { authManager } from '@src/tools/AuthManager';
+import { api } from '@main';
 
 export class LanguageSelectorComponent extends ComponentController {
 	#langSelectorTrigger: HTMLElement | null = null;
@@ -89,14 +91,22 @@ export class LanguageSelectorComponent extends ComponentController {
 		this.#langSelectorDropdown.querySelectorAll('li[data-lang]')
 			.forEach(li => {
 				const handler = () => {
-					const lang = li.getAttribute('data-lang') as AppLanguage;
-					if (!lang) return;
+					const asyncHandler = async () => {
+						const lang = li.getAttribute('data-lang') as AppLanguage;
+						if (!lang) return;
 
-					selectedIcon.className = `fi fis ${allLanguagesDefinition[lang].imageClass}`;
-					selectedName.textContent = allLanguagesDefinition[lang].nativeName;
+						selectedIcon.className = `fi fis ${allLanguagesDefinition[lang].imageClass}`;
+						selectedName.textContent = allLanguagesDefinition[lang].nativeName;
 
-					setLanguage(lang);
-					this.#langSelectorDropdown?.classList.add('hidden');
+						const isLoggedIn = await authManager.isUserLoggedIn();
+						if (isLoggedIn && authManager.user?.preferredLanguage !== lang) {
+							api.user.updateUserLanguage.mutate({ lang });
+						}
+
+						setLanguage(lang);
+						this.#langSelectorDropdown?.classList.add('hidden');
+					}
+					asyncHandler();
 				};
 
 				li.addEventListener('click', handler);

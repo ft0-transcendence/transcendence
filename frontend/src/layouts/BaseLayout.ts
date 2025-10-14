@@ -122,8 +122,6 @@ export class BaseLayout extends LayoutController {
 	#onWindowClickBind = this.#onWindowClick.bind(this);
 
 	async postRender() {
-		console.log('Base layout loaded');
-
 		if (isIos()) {
 			const fullscreenToggleContainer = document.getElementById(`${this.id}-fullscreen-toggle-container`);
 			fullscreenToggleContainer?.classList.add('!hidden');

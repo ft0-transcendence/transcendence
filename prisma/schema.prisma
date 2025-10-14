@@ -28,6 +28,7 @@ model User {
     gamesAsRightPlayer Game[]                  @relation("gamesAsRightPlayer")
     joinedTournaments  TournamentParticipant[] @relation("joinedTournaments")
     createdTournaments Tournament[]            @relation("createdTournaments")
+    preferredLanguage  String                  @default("en")
 }
 
 enum FriendState {

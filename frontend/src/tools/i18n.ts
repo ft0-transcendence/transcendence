@@ -54,6 +54,10 @@ export async function initI18n(lang: AppLanguage | null = null) {
  * @param lang The language to change to.
  */
 export const setLanguage = (lang: AppLanguage) => {
+	if (!allLanguagesDefinition[lang]) {
+		console.warn(`Invalid language code: ${lang}`);
+		return;
+	}
 	console.debug('Changing language to:', lang);
 	i18next.changeLanguage(lang);
 	localStorage.setItem(CONSTANTS.SELECTED_LANGUAGE_KEY, lang);

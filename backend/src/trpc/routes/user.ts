@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import {protectedProcedure, publicProcedure, t} from "../trpc";
 import { z } from "zod";
+import { AppLanguage } from '../../../shared_exports';
 
 const MAX_PROFILE_PICTURE_SIZE_MB = 2.5;
 const MAX_PROFILE_PICTURE_SIZE_BYTES = MAX_PROFILE_PICTURE_SIZE_MB * 1024 * 1024;
@@ -12,10 +13,12 @@ export const userRouter = t.router({
 				where: {
 					id: ctx.user!.id,
 				},
-				omit: {
-					imageBlob: true,
-					imageBlobMimeType: true,
-					imageUrl: true,
+				select: {
+					username: true,
+					id: true,
+					preferredLanguage: true,
+					email: true,
+					createdAt: true,
 				}
 			});
 			return user;
@@ -101,4 +104,17 @@ export const userRouter = t.router({
 				}
 			}
 		}),
+	updateUserLanguage: protectedProcedure
+		.input(z.object({
+			lang: z.nativeEnum(AppLanguage, {invalid_type_error: "Invalid language code"})
+		}))
+		.mutation(async ({ ctx, input }) => {
+			const result = await ctx.db.user.update({
+				where: { id: ctx.user!.id },
+				data: { preferredLanguage: input.lang },
+				select: { username: true, id: true, preferredLanguage: true }
+			});
+
+			return result;
+		})
 })

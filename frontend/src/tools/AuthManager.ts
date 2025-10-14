@@ -4,6 +4,7 @@ import {api} from "@main";
 import { io, Socket } from 'socket.io-client';
 import { router } from "@src/pages/_router";
 import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
+import { AppLanguage, setLanguage } from "./i18n";
 
 export const AUTH_DOM_IDS = {
 	userMenuButton: 'user_menu_button',
@@ -131,7 +132,12 @@ export class AuthManager {
 			clearTimeout(this.#userRefreshInterval);
 		}
 		try {
-			this.#user = await api.user.getUser.query();
+			const newUserData = await api.user.getUser.query();
+			if (!this.#user && newUserData) {
+				console.debug('User logged in', newUserData);
+				setLanguage(newUserData.preferredLanguage as AppLanguage);
+			}
+			this.#user = newUserData;
 			console.debug('User Refreshed', this.#user);
 			if (this.#user && !this.#baseSocketConnection){
 				this.#initSocketConnection();

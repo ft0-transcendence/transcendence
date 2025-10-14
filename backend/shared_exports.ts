@@ -16,3 +16,9 @@ export {
 	Game,
 	STANDARD_GAME_CONFIG
 }
+
+export enum AppLanguage {
+	ENGLISH = 'en',
+	ITALIAN = 'it',
+	UKRAINIAN = 'ua',
+}
