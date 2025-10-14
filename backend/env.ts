@@ -16,8 +16,8 @@ const envSchema = z.object({
 
 	NODE_ENV: z.enum(["development", "production"]).optional().default("development"),
 
-	FRONTEND_URL: z.string().default("http://localhost:42000"),
-	BACKEND_URL: z.string().default("http://localhost:4200"),
+	FRONTEND_URL: z.string().default("https://localhost"),
+	BACKEND_URL: z.string().default("https://localhost:4200"),
 });
 
 type Env = z.infer<typeof envSchema>;

@@ -5,8 +5,8 @@ import fastifyCors from "@fastify/cors";
 export const corsPlugin = fp(async (fastify) => {
 	/// ENABLE CORS (Cross-Origin Resource Sharing)
 	fastify.register(fastifyCors, {
-		origin: "*",
-		methods: ["GET", "POST"],
+		origin: ["*"],
+		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 		credentials: true,
 	});
 
