@@ -153,9 +153,11 @@ function setupMatchmakingNamespace(io: Server) {
 						onlineVersusGameNamespace,
 						{ debug: false },
 						async (state) => {
+							console.log(`🎮 Game ${gameId} onFinish callback called with scores: ${state.scores.left}-${state.scores.right}`);
+							
 							// Check if game was aborted due to disconnection
-							const isAborted = state.scores.left === 10 && state.scores.right === 0 ||
-								state.scores.left === 0 && state.scores.right === 10;
+							const isAborted = state.scores.left === 7 && state.scores.right === 0 ||
+								state.scores.left === 0 && state.scores.right === 7;
 
 							const updateData: any = {
 								endDate: new Date(),
@@ -169,10 +171,18 @@ function setupMatchmakingNamespace(io: Server) {
 								updateData.abortReason = 'Player disconnection timeout';
 							}
 
-							await db.game.update({
-								where: { id: gameId },
-								data: updateData,
-							});
+							console.log(`💾 Game ${gameId} updating database with:`, updateData);
+							
+							try {
+								const result = await db.game.update({
+									where: { id: gameId },
+									data: updateData,
+								});
+								console.log(`✅ Game ${gameId} successfully updated in database:`, result);
+							} catch (error) {
+								console.error(`❌ Game ${gameId} failed to update database:`, error);
+							}
+							
 							cache.active_1v1_games.delete(gameId);
 							fastify.log.info("Game %s persisted and removed from cache.", gameId);
 						},

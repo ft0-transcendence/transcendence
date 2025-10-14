@@ -42,7 +42,7 @@ export class OnlineGame extends Game {
 			}
 			if (this.state === GameState.FINISH && !this.finished) {
 				console.log(`Game ${this.gameId} ended naturally with score ${this.scores.left}-${this.scores.right}`);
-				setTimeout(() => this.finish(), 0);
+				this.finish();
 			}
 			this.checkGraceAndForfeit(now);
 		});
@@ -67,9 +67,8 @@ export class OnlineGame extends Game {
 	}
 
 	public setPlayers(player1: GameUserInfo, player2: GameUserInfo) {
-		const randomPos = Math.random() > 0.5;
-		this._playerLeft = randomPos ? player1 : player2;
-		this._playerRight = randomPos ? player2 : player1;
+		this._playerLeft = player1;
+		this._playerRight = player2;
 	}
 
 	public playerReady(player: GameUserInfo) {
@@ -272,7 +271,7 @@ export class OnlineGame extends Game {
 		if (this.finished) return;
 		this.finished = true;
 
-		console.log(`Game ${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
+		console.log(`🏁 Game ${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
 
 		// Pulizia warning
 		for (const [playerId, interval] of this.warningIntervals) {
@@ -297,12 +296,14 @@ export class OnlineGame extends Game {
 
 		if (this.onFinish) {
 			try {
-				console.log(`Game ${this.gameId} calling onFinish callback`);
+				console.log(`🎮 Game ${this.gameId} calling onFinish callback`);
 				await this.onFinish(state);
-				console.log(`Game ${this.gameId} onFinish callback completed`);
+				console.log(`✅ Game ${this.gameId} onFinish callback completed`);
 			} catch (error) {
-				console.error(`Game ${this.gameId} onFinish callback failed:`, error);
+				console.error(`❌ Game ${this.gameId} onFinish callback failed:`, error);
 			}
+		} else {
+			console.log(`⚠️ Game ${this.gameId} has no onFinish callback!`);
 		}
 	}
 }
