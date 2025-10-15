@@ -5,8 +5,11 @@ import toast from "@src/tools/Toast";
 import { ComponentController } from "@src/tools/ViewController";
 import { isMobile } from '../utils/agentUtils';
 import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
+import { DefaultEventsMap, Socket } from "socket.io";
 
 export type GameComponentProps = {
+
+	socketConnection?: Socket;
 
 	gameId: string;
 	gameType: Game['GameType'];
@@ -213,11 +216,17 @@ export class GameComponent extends ComponentController {
 	}
 
 	public updateProps(props: Partial<GameComponentProps>) {
+		const prevSocketConnection = this.#props.socketConnection;
 		this.#props = {
 			...this.#props,
 			...props,
 		};
+		if (props.socketConnection) {
+			// this.#setupSocketEvents(prevSocketConnection, props.socketConnection);
+		}
 	}
+
+
 	public showError(error: string) {
 		toast.error('Error', error);
 		const errorContainer = document.getElementById(`${this.id}-error-container`)!;
@@ -281,6 +290,14 @@ export class GameComponent extends ComponentController {
 
 	public updateKeyBindings(bindings: GameKeyBindings) {
 		this.#keyBindings = { ...bindings };
+	}
+
+	//-----------------------------------------------------------------------------------------------
+
+	#setupSocketEvents(prevSocketConnection: Socket | null, socketConnection: Socket) {
+		if (prevSocketConnection){
+			// TODO: unsubscribe from previous socket
+		}
 	}
 
 	//-----------------------------------------------------------------------------------------------
