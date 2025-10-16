@@ -2,6 +2,7 @@ import { OnlineGame } from "./onlineGame";
 import { GameUserInfo, GameStatus } from "./game";
 import { db } from "../src/trpc/db";
 import { fastify } from "../main";
+import { updateGameStats, updateTournamentWinnerStats } from "../src/utils/statsUtils";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
@@ -73,6 +74,12 @@ export class TournamentGame extends OnlineGame {
                 }
             });
 
+            // Update player statistics for tournament game
+            const loserId = this.scores.left > this.scores.right ? this.rightPlayer?.id : this.leftPlayer?.id;
+            if (loserId) {
+                await updateGameStats(db, winnerId, loserId);
+            }
+
             // Trova partita successiva
             const currentGame = await db.game.findUnique({
                 where: { id: this.gameId },
@@ -113,8 +120,14 @@ export class TournamentGame extends OnlineGame {
 
                 await db.tournament.update({
                     where: { id: this.tournamentId },
-                    data: { endDate: new Date() }
+                    data: { 
+                        endDate: new Date(),
+                        winnerId: winnerId,
+                        status: 'COMPLETED'
+                    }
                 });
+
+                await updateTournamentWinnerStats(db, winnerId);
 
                 if (this.socketNamespace) {
                     this.socketNamespace.to(this.tournamentId).emit('tournament-completed', {

@@ -1,8 +1,8 @@
-// TODO: da fare join-tournament-game
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, t } from "../trpc";
 import { z } from "zod";
 import { TournamentType, GameType, TournamentStatus } from "@prisma/client";
+import { updateGameStats, updateTournamentWinnerStats } from "../../utils/statsUtils";
 
 export const tournamentRouter = t.router({
     // Getter per mostrare tutti i tornei disponibili
@@ -422,6 +422,8 @@ export const tournamentRouter = t.router({
                     }
                 });
 
+                await updateTournamentWinnerStats(ctx.db, winnerId);
+
                 console.log(`🏆 Tournament ${tournament.id} completed! Winner: ${winnerId}`);
             }
 
@@ -544,6 +546,8 @@ export const tournamentRouter = t.router({
                     rightPlayer: true,
                 }
             });
+
+            await updateGameStats(ctx.db, winnerId, leftScore > rightScore ? finishedGame.rightPlayerId : finishedGame.leftPlayerId);
 
             // nextGame, se esiste
             let parentGame = null as null | typeof finishedGame;

@@ -30,6 +30,9 @@ model User {
     createdTournaments Tournament[]            @relation("createdTournaments")
     wonTournaments     Tournament[]            @relation("wonTournaments")
     preferredLanguage  String                  @default("en")
+    totalWins          Int                     @default(0)
+    totalLosses        Int                     @default(0)
+    tournamentsWon     Int                     @default(0)
 }
 
 enum FriendState {
