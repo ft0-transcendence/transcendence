@@ -18,7 +18,11 @@ export class TournamentGame extends OnlineGame {
         onTournamentFinish?: TournamentGameFinishCallback,
         updateGameActivity?: () => Promise<void>,
     ) {
-        super(gameId, socketNamespace, config, undefined, updateGameActivity);
+        super(gameId, socketNamespace, config, async (state) => {
+            // Handle tournament advancement when game finishes (quello che faceva getMatchresults)
+            // Always advance tournament, but handle statistics differently for forfeited games
+            await this.handleTournamentAdvancement();
+        }, updateGameActivity);
         this.tournamentId = tournamentId;
         this.onTournamentFinish = onTournamentFinish;
     }
@@ -56,7 +60,6 @@ export class TournamentGame extends OnlineGame {
         }
     }
 
-    // Metodo per gestire l'avanzamento automatico del torneo
     public async handleTournamentAdvancement() {
         try {
             const winnerId = this.scores.left > this.scores.right ? this.leftPlayer?.id : this.rightPlayer?.id;
@@ -64,15 +67,6 @@ export class TournamentGame extends OnlineGame {
                 console.error(`Tournament Game ${this.gameId}: No winner determined`);
                 return;
             }
-
-            await db.game.update({
-                where: { id: this.gameId },
-                data: {
-                    leftPlayerScore: this.scores.left,
-                    rightPlayerScore: this.scores.right,
-                    endDate: new Date(),
-                }
-            });
 
             // Update player statistics for tournament game
             const loserId = this.scores.left > this.scores.right ? this.rightPlayer?.id : this.leftPlayer?.id;

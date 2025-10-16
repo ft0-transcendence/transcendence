@@ -235,6 +235,11 @@ export const tournamentRouter = t.router({
                 throw new TRPCError({ code: "NOT_FOUND", message: "Tournament not found" });
             }
 
+            // Check if current user is registered to this tournament
+            const isRegisteredToTournament = ctx.user?.id 
+                ? tournament.participants.some(p => p.user.id === ctx.user!.id)
+                : false;
+
             return {
                 id: tournament.id,
                 name: tournament.name,
@@ -251,7 +256,8 @@ export const tournamentRouter = t.router({
                     ...g,
                     scoreGoal: g.scoreGoal || 7
                 })),
-                hasPassword: !!tournament.password
+                hasPassword: !!tournament.password,
+                isRegisteredToTournament
             };
         }),
 
@@ -360,74 +366,6 @@ export const tournamentRouter = t.router({
             return updatedTournament!;
         }),
 
-    // Funzione per gestire l'avanzamento del torneo quando un game finisce
-    handleTournamentAdvancement: protectedProcedure
-        .input(z.object({
-            gameId: z.string(),
-            winnerId: z.string()
-        }))
-        .mutation(async ({ ctx, input }) => {
-            const { gameId, winnerId } = input;
-
-            // Trova il game che è appena finito
-            const finishedGame = await ctx.db.game.findUnique({
-                where: { id: gameId },
-                include: {
-                    tournament: true,
-                    nextGame: true
-                }
-            });
-
-            if (!finishedGame || !finishedGame.tournament) {
-                throw new TRPCError({ code: "NOT_FOUND", message: "Game or tournament not found" });
-            }
-
-            const tournament = finishedGame.tournament;
-
-            // Se c'è un nextGame, aggiorna con il vincitore
-            if (finishedGame.nextGame) {
-                const nextGame = finishedGame.nextGame;
-                
-                // Determina se il vincitore va a sinistra o destra nel prossimo game
-                const isLeftSide = nextGame.leftPlayerId === finishedGame.leftPlayerId || 
-                                 nextGame.leftPlayerId === finishedGame.rightPlayerId;
-                
-                if (isLeftSide) {
-                    await ctx.db.game.update({
-                        where: { id: nextGame.id },
-                        data: { leftPlayerId: winnerId }
-                    });
-                } else {
-                    await ctx.db.game.update({
-                        where: { id: nextGame.id },
-                        data: { rightPlayerId: winnerId }
-                    });
-                }
-
-                // Notifica il prossimo avversario
-                const opponentId = isLeftSide ? nextGame.rightPlayerId : nextGame.leftPlayerId;
-                if (opponentId) {
-                    console.log(`🎯 Tournament ${tournament.id}: Player ${winnerId} will face ${opponentId} in next round`);
-                }
-            } else {
-                // fine torneo
-                await ctx.db.tournament.update({
-                    where: { id: tournament.id },
-                    data: {
-                        winnerId: winnerId,
-                        endDate: new Date(),
-                        status: TournamentStatus.COMPLETED
-                    }
-                });
-
-                await updateTournamentWinnerStats(ctx.db, winnerId);
-
-                console.log(`🏆 Tournament ${tournament.id} completed! Winner: ${winnerId}`);
-            }
-
-            return { success: true };
-        }),
-
     getBracket: publicProcedure
         .input(z.object({
             tournamentId: z.string()
@@ -500,107 +438,6 @@ export const tournamentRouter = t.router({
             };
         }),
 
-    getMatchResult: protectedProcedure
-        .input(z.object({
-            gameId: z.string(),
-            leftScore: z.number().int().min(0),
-            rightScore: z.number().int().min(0),
-        }))
-        .mutation(async ({ ctx, input }) => {
-            const { gameId, leftScore, rightScore } = input;
-
-            const game = await ctx.db.game.findUnique({
-                where: { id: gameId },
-                include: {
-                    leftPlayer: true,
-                    rightPlayer: true,
-                }
-            });
-
-            if (!game) {
-                throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
-            }
-            if (game.type !== GameType.TOURNAMENT) {
-                throw new TRPCError({ code: "BAD_REQUEST", message: "Not a tournament game" });
-            }
-            if (game.endDate) {
-                throw new TRPCError({ code: "BAD_REQUEST", message: "Game already finished" });
-            }
-            if (leftScore === rightScore) {
-                throw new TRPCError({ code: "BAD_REQUEST", message: "Tie is not allowed" });
-            }
-
-            const winnerId = leftScore > rightScore ? game.leftPlayerId : game.rightPlayerId;
-
-            const finishedGame = await ctx.db.game.update({
-                where: { id: gameId },
-                data: {
-                    leftPlayerScore: leftScore,
-                    rightPlayerScore: rightScore,
-                    endDate: new Date(),
-                },
-                include: {
-                    leftPlayer: true,
-                    rightPlayer: true,
-                }
-            });
-
-            await updateGameStats(ctx.db, winnerId, leftScore > rightScore ? finishedGame.rightPlayerId : finishedGame.leftPlayerId);
-
-            // nextGame, se esiste
-            let parentGame = null as null | typeof finishedGame;
-            let filledSide: "left" | "right" | null = null;
-
-            if (finishedGame.nextGameId) {
-                const next = await ctx.db.game.findUnique({
-                    where: { id: finishedGame.nextGameId },
-                    include: {
-                        previousGames: { select: { id: true } },
-                    }
-                });
-                if (!next) {
-                    throw new TRPCError({ code: "NOT_FOUND", message: "Next game not found" });
-                }
-
-                // Determina lo slot: ordina gli id dei due children(uid);
-                // in pratica da uid a ogni game e poi lo sorta e mette il min in left e il max in right in modo da avere un bracket consistente(Esempio: vincitore P1 VS P2 andrà slot sinista e vincitore P3 VS P4 andrà slot destro)
-                if (next.previousGames.length !== 2) {
-                    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Malformed bracket (previousGames != 2)" });
-                }
-                const childIds = next.previousGames.map(g => g.id).sort();
-                const isLeft = finishedGame.id === childIds[0];
-                const data: any = isLeft ? { leftPlayerId: winnerId } : { rightPlayerId: winnerId };
-                filledSide = isLeft ? "left" : "right";
-
-                parentGame = await ctx.db.game.update({
-                    where: { id: next.id },
-                    data,
-                    include: {
-                        leftPlayer: true,
-                        rightPlayer: true,
-                    }
-                });
-            }
-
-            // Se non c'è nextGame, è la finale - aggiorna il torneo
-            if (!finishedGame.nextGameId) {
-                await ctx.db.tournament.update({
-                    where: { id: finishedGame.tournamentId! },
-                    data: {
-                        winnerId: winnerId,
-                        endDate: new Date(),
-                        status: TournamentStatus.COMPLETED
-                    }
-                });
-                console.log(`🏆 Tournament ${finishedGame.tournamentId} completed! Winner: ${winnerId}`);
-            }
-
-            return {
-                game: finishedGame,
-                nextGame: parentGame,
-                filledSide,
-            };
-        }),
     joinTournamentGame: protectedProcedure
         .input(z.object({
             gameId: z.string()
