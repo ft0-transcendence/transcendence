@@ -6,7 +6,7 @@ import { passportPlugin } from "./src/plugins/passport"
 import { corsPlugin } from "./src/plugins/cors";
 import fastifyFormbody from "@fastify/formbody";
 import { publicRoutes } from "./src/fastify-routes/public";
-import { tournamentRoutes } from "./src/routes/tournaments";
+import { tournamentRoutes } from "./src/router/routerTournaments";
 import pino from "pino-pretty";
 import { setupSocketHandlers } from "./src/socket-io";
 import { trpcPlugin as trpcConfiguredPlugin } from "./src/plugins/trpc-plugin";

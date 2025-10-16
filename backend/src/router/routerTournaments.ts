@@ -205,7 +205,8 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
                 include: {
                     participants: {
                         include: { user: true }
-                    }
+                    },
+                    games: true
                 }
             });
 
@@ -217,13 +218,13 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.status(403).send({ error: 'Only the tournament creator can start the tournament' });
             }
 
-            if (tournament.status !== 'WAITING_PLAYERS') {
-                return reply.status(400).send({ error: 'Tournament has already started or is not in waiting state' });
+            if (tournament.games.length > 0) {
+                return reply.status(400).send({ error: 'Tournament already started' });
             }
 
-            const participantCount = tournament.participants.length;
-            if (participantCount < 2) {
-                return reply.status(400).send({ error: 'Tournament needs at least 2 participants to start' });
+            const maxParticipants = 8;
+            if (tournament.participants.length < maxParticipants) {
+                return reply.status(400).send({ error: 'Tournament is not full' });
             }
 
             // Update tournament status
@@ -234,7 +235,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
 
             // Create tournament bracket
             const participantIds = tournament.participants.map(p => p.userId);
-            const roundsCount = Math.log2(participantCount);
+            const roundsCount = Math.log2(tournament.participants.length);
             let parentRoundGameIds: string[] = [];
 
             // Create final game
