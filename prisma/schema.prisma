@@ -28,7 +28,11 @@ model User {
     gamesAsRightPlayer Game[]                  @relation("gamesAsRightPlayer")
     joinedTournaments  TournamentParticipant[] @relation("joinedTournaments")
     createdTournaments Tournament[]            @relation("createdTournaments")
+    wonTournaments     Tournament[]            @relation("wonTournaments")
     preferredLanguage  String                  @default("en")
+    totalWins          Int                     @default(0)
+    totalLosses        Int                     @default(0)
+    tournamentsWon     Int                     @default(0)
 }
 
 enum FriendState {
@@ -51,6 +55,13 @@ enum TournamentType {
     EIGHT
 }
 
+enum TournamentStatus {
+    WAITING_PLAYERS
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+}
+
 model Tournament {
     id           String                  @id @default(cuid())
     type         TournamentType?         @default(EIGHT)
@@ -58,6 +69,9 @@ model Tournament {
     password     String?
     startDate    DateTime
     endDate      DateTime?
+    status       TournamentStatus         @default(WAITING_PLAYERS)
+    winnerId     String?
+    winner       User?                   @relation("wonTournaments", fields: [winnerId], references: [id])
     createdById  String
     createdBy    User                    @relation("createdTournaments", fields: [createdById], references: [id])
     participants TournamentParticipant[] @relation("participants")

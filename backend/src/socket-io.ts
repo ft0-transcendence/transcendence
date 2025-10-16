@@ -8,6 +8,7 @@ import { BracketGenerator } from '../game/bracketGenerator';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
+import { updateGameStats } from './utils/statsUtils';
 
 type SocketData = {
 	user: User;
@@ -179,6 +180,14 @@ function setupMatchmakingNamespace(io: Server) {
 									data: updateData,
 								});
 								console.log(`✅ Game ${gameId} successfully updated in database:`, result);
+
+								// Update player statistics only if game was not aborted
+								if (!isAborted) {
+									const winnerId = state.scores.left > state.scores.right ? player1.id : player2.id;
+									const loserId = state.scores.left > state.scores.right ? player2.id : player1.id;
+									
+									await updateGameStats(db, winnerId, loserId);
+								}
 							} catch (error) {
 								console.error(`❌ Game ${gameId} failed to update database:`, error);
 							}

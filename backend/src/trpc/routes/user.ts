@@ -116,5 +116,60 @@ export const userRouter = t.router({
 			});
 
 			return result;
+		}),
+
+	getUserStats: protectedProcedure
+		.query(async ({ ctx }) => {
+			const user = await ctx.db.user.findUnique({
+				where: { id: ctx.user!.id },
+				select: {
+					totalWins: true,
+					totalLosses: true,
+					tournamentsWon: true,
+					username: true
+				}
+			});
+
+			if (!user) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+			}
+
+			const totalGames = user.totalWins + user.totalLosses;
+			const winRate = totalGames > 0 ? (user.totalWins / totalGames) * 100 : 0;
+
+			return {
+				...user,
+				totalGames,
+				winRate: Math.round(winRate * 100) / 100 // Round to 2 decimal places
+			};
+		}),
+
+	getUserStatsById: publicProcedure
+		.input(z.object({
+			userId: z.string()
+		}))
+		.query(async ({ ctx, input }) => {
+			const user = await ctx.db.user.findUnique({
+				where: { id: input.userId },
+				select: {
+					totalWins: true,
+					totalLosses: true,
+					tournamentsWon: true,
+					username: true
+				}
+			});
+
+			if (!user) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+			}
+
+			const totalGames = user.totalWins + user.totalLosses;
+			const winRate = totalGames > 0 ? (user.totalWins / totalGames) * 100 : 0;
+
+			return {
+				...user,
+				totalGames,
+				winRate: Math.round(winRate * 100) / 100 // Round to 2 decimal places
+			};
 		})
 })
