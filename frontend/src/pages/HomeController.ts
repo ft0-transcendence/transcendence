@@ -242,6 +242,14 @@ export class HomeController extends RouteController {
 					toast.info(t('generic.friend_requests'), data.message);
 				}
 			});
+			this.#baseSocket.on('pending-friend-removed', (data) => {
+				console.debug('Pending friend removed', data);
+				this.#removePendingFriendFromList(data.friendId);
+				this.#removeFriendFromRequestsList(data.friendId);
+				if (data.message) {
+					toast.info(t('generic.friend_requests'), data.message);
+				}
+			});
 		} else {
 			console.warn('No socket connection. Something weird happened...');
 		}
@@ -278,7 +286,7 @@ export class HomeController extends RouteController {
 
 		document.querySelectorAll('.toggle-pending-friends')?.forEach(btn => btn.removeEventListener('click', this.togglePendingFriendsVisibilityClickEvent));
 
-		const eventsToUnsubscribe = ['friends-list', 'friend-updated', 'friend-removed', 'friend-request-received', 'friend-request-sent', 'friend-request-accepted', 'friend-request-rejected', 'friend-request-rejected-by-me']
+		const eventsToUnsubscribe = ['friends-list', 'friend-updated', 'friend-removed', 'friend-request-received', 'friend-request-sent', 'friend-request-accepted', 'friend-request-rejected', 'friend-request-rejected-by-me', 'pending-friend-removed']
 
 		if (this.#baseSocket) {
 			for (const event of eventsToUnsubscribe) {
@@ -872,7 +880,7 @@ export class HomeController extends RouteController {
 			message: t('generic.cancel_friend_request_confirm', { username: friendElement.querySelector('.friend-username')?.textContent ?? '' }) ?? "Are you sure you want to cancel this friend request from your friends list? This action cannot be undone.",
 			onConfirm: async () => {
 				try {
-					await api.friendship.removeFriend.mutate({ friendId: friendId });
+					await api.friendship.removePendingFriend.mutate({ friendId: friendId });
 					friendElement.remove();
 					this.#updateFriendsCount();
 				} catch (err) {

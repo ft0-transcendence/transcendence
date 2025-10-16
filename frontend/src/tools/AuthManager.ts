@@ -105,6 +105,10 @@ export class AuthManager {
 			this.#friendsList = this.#friendsList.filter(f => f.id !== data.friendId);
 		});
 
+		this.#baseSocketConnection.on('pending-friend-removed', (data) => {
+			console.debug('Pending friend removed in AuthManager', data);
+		});
+
 		this.#baseSocketConnection.on('disconnect', (reason) => {
 			console.debug('Socket disconnected from server.');
 			if (router.currentRouteNeedsAuth){
