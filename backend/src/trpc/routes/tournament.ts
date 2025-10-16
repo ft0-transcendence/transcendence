@@ -5,7 +5,6 @@ import { TournamentType, GameType, TournamentStatus } from "@prisma/client";
 import { updateGameStats, updateTournamentWinnerStats } from "../../utils/statsUtils";
 
 export const tournamentRouter = t.router({
-    // Getter per mostrare tutti i tornei disponibili
     getAvailableTournaments: publicProcedure
         .query(async ({ ctx }) => {
             const tournaments = await ctx.db.tournament.findMany({
@@ -408,11 +407,10 @@ export const tournamentRouter = t.router({
                 // Notifica il prossimo avversario
                 const opponentId = isLeftSide ? nextGame.rightPlayerId : nextGame.leftPlayerId;
                 if (opponentId) {
-                    // Qui potresti aggiungere una notifica socket o email
                     console.log(`🎯 Tournament ${tournament.id}: Player ${winnerId} will face ${opponentId} in next round`);
                 }
             } else {
-                // È la finale! Il vincitore ha vinto il torneo
+                // fine torneo
                 await ctx.db.tournament.update({
                     where: { id: tournament.id },
                     data: {
@@ -674,4 +672,159 @@ export const tournamentRouter = t.router({
                 playerSide: game.leftPlayerId === userId ? 'left' : 'right'
             };
         }),
+
+        //user esce dal torneo prima che inizi
+    leaveTournament: protectedProcedure
+        .input(z.object({
+            tournamentId: z.string()
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const tournament = await ctx.db.tournament.findUnique({
+                where: { id: input.tournamentId },
+                include: {
+                    participants: true,
+                    games: true
+                }
+            });
+
+            if (!tournament) {
+                throw new TRPCError({ code: "NOT_FOUND", message: "Tournament not found" });
+            }
+
+            if (tournament.status !== 'WAITING_PLAYERS') {
+                throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot leave tournament that has already started" });
+            }
+
+            const participant = await ctx.db.tournamentParticipant.findFirst({
+                where: {
+                    tournamentId: input.tournamentId,
+                    userId: ctx.user!.id
+                }
+            });
+
+            if (!participant) {
+                throw new TRPCError({ code: "BAD_REQUEST", message: "You are not a participant in this tournament" });
+            }
+
+            await ctx.db.tournamentParticipant.delete({
+                where: { id: participant.id }
+            });
+
+            return { success: true };
+        }),
+
+    cancelTournament: protectedProcedure
+        .input(z.object({
+            tournamentId: z.string()
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const tournament = await ctx.db.tournament.findUnique({
+                where: { id: input.tournamentId },
+                include: {
+                    games: true
+                }
+            });
+
+            if (!tournament) {
+                throw new TRPCError({ code: "NOT_FOUND", message: "Tournament not found" });
+            }
+
+            if (tournament.createdById !== ctx.user!.id) {
+                throw new TRPCError({ code: "FORBIDDEN", message: "Only the creator can cancel the tournament" });
+            }
+
+            if (tournament.status !== 'WAITING_PLAYERS') {
+                throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot cancel tournament that has already started" });
+            }
+
+            await ctx.db.tournament.update({
+                where: { id: input.tournamentId },
+                data: {
+                    status: 'CANCELLED'
+                }
+            });
+
+            return { success: true };
+        }),
+
+    //user vede la sua historu dei tornei
+    getTournamentHistory: protectedProcedure
+        .input(z.object({
+            limit: z.number().min(1).max(100).default(20),
+            cursor: z.string().nullish()
+        }))
+        .query(async ({ ctx, input }) => {
+            const tournaments = await ctx.db.tournament.findMany({
+                take: input.limit + 1,
+                cursor: input.cursor ? { id: input.cursor } : undefined,
+                where: {
+                    status: 'COMPLETED',
+                    participants: {
+                        some: {
+                            userId: ctx.user!.id
+                        }
+                    }
+                },
+                orderBy: { endDate: 'desc' },
+                include: {
+                    createdBy: {
+                        select: {
+                            id: true,
+                            username: true
+                        }
+                    },
+                    winner: {
+                        select: {
+                            id: true,
+                            username: true
+                        }
+                    },
+                    participants: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    username: true
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            let nextCursor: typeof input.cursor | undefined = undefined;
+            if (tournaments.length > input.limit) {
+                const nextItem = tournaments.pop();
+                nextCursor = nextItem!.id;
+            }
+
+            return {
+                tournaments: tournaments.map(t => ({
+                    ...t,
+                    userWon: t.winnerId === ctx.user!.id,
+                    userPosition: t.winnerId === ctx.user!.id ? 1 : null // Potremmo calcolare la posizione reale
+                })),
+                nextCursor
+            };
+        }),
+
+    getTournamentsStats: protectedProcedure
+        .query(async ({ ctx }) => {
+            const userId = ctx.user!.id;
+
+            const [tournamentsWon, tournamentsPlayed] = await Promise.all([
+                ctx.db.tournament.count({
+                    where: { winnerId: userId }
+                }),
+                ctx.db.tournamentParticipant.count({
+                    where: { userId }
+                }),
+            ]);
+
+            return {
+                tournamentsWon,
+                tournamentsPlayed,
+                winRate: tournamentsPlayed > 0 ? Math.round((tournamentsWon / tournamentsPlayed) * 100) : 0
+            };
+        })
 });
