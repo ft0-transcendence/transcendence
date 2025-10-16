@@ -21,4 +21,5 @@ services:
       - "4200"
     env_file:
       - ./.env
-
+    volumes:
+      - ./prisma:/app/prisma
