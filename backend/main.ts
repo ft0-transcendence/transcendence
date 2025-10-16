@@ -6,6 +6,7 @@ import { passportPlugin } from "./src/plugins/passport"
 import { corsPlugin } from "./src/plugins/cors";
 import fastifyFormbody from "@fastify/formbody";
 import { publicRoutes } from "./src/fastify-routes/public";
+import { tournamentRoutes } from "./src/routes/tournaments";
 import pino from "pino-pretty";
 import { setupSocketHandlers } from "./src/socket-io";
 import { trpcPlugin as trpcConfiguredPlugin } from "./src/plugins/trpc-plugin";
@@ -48,6 +49,7 @@ fastify.register(prismaPlugin);
 
 // API ENDPOINTS
 fastify.register(publicRoutes, { prefix: "/api" });
+fastify.register(tournamentRoutes);
 fastify.register(trpcConfiguredPlugin);
 
 fastify.register(sessionPlugin);
