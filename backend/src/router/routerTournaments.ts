@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { TournamentType, TournamentStatus, User } from "@prisma/client";
 import { db } from '../trpc/db';
 
-// Authentication middleware
+//middleware, usato in tutte le routes per verificare se l'utente è autenticato
 async function authenticate(request: any, reply: FastifyReply) {
     try {
         if (!request.session || !request.session.passport) {
@@ -17,7 +17,7 @@ async function authenticate(request: any, reply: FastifyReply) {
         if (!user) {
             return reply.status(401).send({ error: 'Unauthorized' });
         }
-
+        //add user to request per usare i suoi dati nelle routes
         request.user = user;
     } catch (error) {
         return reply.status(401).send({ error: 'Unauthorized' });
@@ -25,7 +25,7 @@ async function authenticate(request: any, reply: FastifyReply) {
 }
 
 export async function tournamentRoutes(fastify: FastifyInstance) {
-    // POST /api/tournaments - Create tournament
+    // /api/tournaments - Create tournament
     fastify.post('/api/tournaments', {
         preHandler: [authenticate]
     }, async (request, reply) => {
@@ -89,7 +89,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // POST /api/tournaments/:id/join - Join tournament
+    // /api/tournaments/:id/join - Join tournament
     fastify.post('/api/tournaments/:id/join', {
         preHandler: [authenticate]
     }, async (request, reply) => {
@@ -148,7 +148,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // DELETE /api/tournaments/:id/leave - Leave tournament
+    // /api/tournaments/:id/leave - Leave tournament
     fastify.delete('/api/tournaments/:id/leave', {
         preHandler: [authenticate]
     }, async (request, reply) => {
@@ -193,7 +193,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // POST /api/tournaments/:id/start - Start tournament
+    // /api/tournaments/:id/start - Start tournament
     fastify.post('/api/tournaments/:id/start', {
         preHandler: [authenticate]
     }, async (request, reply) => {
@@ -253,7 +253,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
 
             parentRoundGameIds = [finalGame.id];
 
-            // Create rounds from second-to-last to first, linking with nextGameId
+            // Create rounds 
             for (let r = roundsCount - 2; r >= 0; r--) {
                 const gamesInRound = 2 ** r;
                 const newRoundIds: string[] = [];
@@ -311,7 +311,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // DELETE /api/tournaments/:id/cancel - Cancel tournament
+    // /api/tournaments/:id/cancel - Cancel tournament
     fastify.delete('/api/tournaments/:id/cancel', {
         preHandler: [authenticate]
     }, async (request, reply) => {
