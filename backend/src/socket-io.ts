@@ -156,9 +156,8 @@ function setupMatchmakingNamespace(io: Server) {
 						async (state) => {
 							console.log(`🎮 Game ${gameId} onFinish callback called with scores: ${state.scores.left}-${state.scores.right}`);
 							
-							// Check if game was aborted due to disconnection
-							const isAborted = state.scores.left === 7 && state.scores.right === 0 ||
-								state.scores.left === 0 && state.scores.right === 7;
+							// Check if game was forfeited due to disconnection
+							const isAborted = newGame.wasForfeited;
 
 							const updateData: any = {
 								endDate: new Date(),

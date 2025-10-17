@@ -11,6 +11,7 @@ export class OnlineGame extends Game {
 	protected unsubscribeScore: (() => void) | null = null;
 	protected finished = false;
 	protected onFinish?: FinishCallback;
+	public wasForfeited = false;
 
 	private readonly GRACE_MS = 15000; // 15s
 	private readonly ABORT_WARNING_AT_MS = 5000; // Warning quando rimangono 5s
@@ -244,6 +245,7 @@ export class OnlineGame extends Game {
 								this.scores.right = FORFEIT_WIN;
 							}
 						}
+						this.wasForfeited = true;
 					}
 
 					this.disconnectedUntil.delete(playerId);

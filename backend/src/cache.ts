@@ -5,6 +5,7 @@ import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
 import { db } from "./trpc/db";
 import { fastify } from "../main";
+import { updateGameStats } from "./utils/statsUtils";
 
 export type Cache = {
 	matchmaking: {
@@ -85,8 +86,8 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				maxScore: game.scoreGoal,
 			},
 			async (state) => {
-				const isAborted = state.scores.left === 7 && state.scores.right === 0 ||
-					state.scores.left === 0 && state.scores.right === 7;
+				// Check if game was forfeited due to disconnection
+				const isAborted = gameInstance.wasForfeited;
 
 				const updateData: any = {
 					endDate: new Date(),
@@ -103,6 +104,15 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 					where: { id: game.id },
 					data: updateData,
 				});
+
+				// Update player statistics only if game was not aborted
+				if (!isAborted) {
+					const winnerId = state.scores.left > state.scores.right ? game.leftPlayerId : game.rightPlayerId;
+					const loserId = state.scores.left > state.scores.right ? game.rightPlayerId : game.leftPlayerId;
+					
+					await updateGameStats(db, winnerId, loserId);
+				}
+
 				cache.active_1v1_games.delete(game.id);
 				fastify.log.info("VS Game %s persisted and removed from cache.", game.id);
 			},
@@ -164,8 +174,8 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				maxScore: game.scoreGoal,
 			},
 			async (state, tournamentId, gameId) => {
-				const isAborted = state.scores.left === 10 && state.scores.right === 0 ||
-					state.scores.left === 0 && state.scores.right === 10;
+				// Check if game was forfeited due to disconnection
+				const isAborted = gameInstance.wasForfeited;
 
 				const updateData: any = {
 					endDate: new Date(),
