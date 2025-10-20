@@ -8,8 +8,8 @@ import toast from "@tools/Toast";
 import { TournamentsController } from "./TournamentsController";
 import { GameSelectorController } from "./play/GameSelectorController";
 import { SettingsController } from "./SettingsController";
-import { OnlineMatchmakingController } from "./play/online/OnlineMatchmakingController";
-import { OnlineVersusGameController } from "./play/online/OnlineVersusGameController";
+import { OnlineMatchmakingController } from "./play/online/1v1/OnlineMatchmakingController";
+import { OnlineVersusGameController } from "./play/online/1v1/OnlineVersusGameController";
 import { LocalVersusAiGameController } from "./play/local/LocalVersusAiGameController";
 import { LocalVersusPlayerGameController } from "./play/local/LocalVersusPlayerGameController";
 
