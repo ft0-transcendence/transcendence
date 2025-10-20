@@ -1,7 +1,7 @@
 import { OnlineGame } from "./onlineGame";
 import { GameUserInfo, GameStatus } from "./game";
 import { db } from "../src/trpc/db";
-import { fastify } from "../main";
+import {  } from "../main";
 import { updateGameStats, updateTournamentWinnerStats } from "../src/utils/statsUtils";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
