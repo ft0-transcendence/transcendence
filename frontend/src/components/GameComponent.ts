@@ -1,11 +1,13 @@
 import { Game } from "@shared";
 import { authManager } from "@src/tools/AuthManager";
-import { k } from "@src/tools/i18n";
+import { k, t } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { ComponentController } from "@src/tools/ViewController";
 import { isMobile } from '../utils/agentUtils';
 import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
-import { DefaultEventsMap, Socket } from "socket.io";
+import { DefaultEventsMap } from "socket.io";
+
+import {Socket} from 'socket.io-client'
 
 export type GameComponentProps = {
 
@@ -50,6 +52,9 @@ export class GameComponent extends ComponentController {
 		'arrowdown': { side: 'right', direction: 'down' },
 	};
 
+
+	#connectedUsers: Game['GameUserInfo'][] = [];
+
 	#gameFinished = false;
 	#gameState: Game['GameStatus'] | null = null;
 
@@ -80,7 +85,7 @@ export class GameComponent extends ComponentController {
 
 	constructor(props: Partial<GameComponentProps> = {}) {
 		super();
-		this.updateProps(props);
+		this.updatePartialProps(props);
 		this.#keyBindings = { ...this.defaultKeyBindings };
 
 		this.#handleKeyDown = this.handleKeyDown.bind(this);
@@ -109,7 +114,9 @@ export class GameComponent extends ComponentController {
 		}
 		if (shouldUpdateUserInfo){
 			const $image = $container.querySelector('.game-user-image') as HTMLImageElement;
-			if (user.isPlayer && shouldUpdateUserInfo) {
+
+			const isLocalGame = this.#props.isLocalGame;
+			if (user.isPlayer && shouldUpdateUserInfo && !isLocalGame) {
 				if ($image) {
 					$image.src = getProfilePictureUrlByUserId(user.id);
 					$image.classList.remove('hidden');
@@ -176,7 +183,8 @@ export class GameComponent extends ComponentController {
 		this.#drawBall(state.ball);
 
 		// Overlay: paused/finish labels
-		if (state.state === 'PAUSE' || state.state === 'FINISH') {
+		//state.state === 'PAUSE' ||
+		if (state.state === 'FINISH') {
 			ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -211,19 +219,18 @@ export class GameComponent extends ComponentController {
 
 		if (state.state === "FINISH") {
 			this.#destroyGameEventListeners();
+			this.#unsubscribeFromSocketEvents(this.#props.socketConnection);
 			this.#gameFinished = true;
 		}
 	}
 
-	public updateProps(props: Partial<GameComponentProps>) {
+	public updatePartialProps(props: Partial<GameComponentProps>) {
 		const prevSocketConnection = this.#props.socketConnection;
 		this.#props = {
 			...this.#props,
 			...props,
 		};
-		if (props.socketConnection) {
-			// this.#setupSocketEvents(prevSocketConnection, props.socketConnection);
-		}
+		this.#setupSocketEvents(prevSocketConnection, props.socketConnection);
 	}
 
 
@@ -294,10 +301,116 @@ export class GameComponent extends ComponentController {
 
 	//-----------------------------------------------------------------------------------------------
 
-	#setupSocketEvents(prevSocketConnection: Socket | null, socketConnection: Socket) {
+	#setupSocketEvents(prevSocketConnection: Socket | null | undefined, socketConnection: Socket | null | undefined) {
 		if (prevSocketConnection){
-			// TODO: unsubscribe from previous socket
+			this.#unsubscribeFromSocketEvents(prevSocketConnection);
 		}
+		if (socketConnection) {
+			this.#props.socketConnection = socketConnection;
+			this.#subscribeToSocketEvents(socketConnection);
+		} else {
+			this.#props.socketConnection = undefined;
+		}
+	}
+
+	#subscribeToSocketEvents(socket: Socket) {
+		const messageContainer = document.querySelector(`#${this.id}-game-overlay-message-container`);
+
+		socket.on('game-state', (data: Game['GameStatus']) => {
+			this.updateGameState(data);
+		});
+
+		socket.on('player-joined', (user: Game['GameUserInfo']) => {
+			console.debug('Player joined', user);
+			this.#connectedUsers.push(user);
+		});
+
+		socket.on('player-left', (user: Game['GameUserInfo']) => {
+			console.debug('Player left', user);
+			document.querySelector(`#game-connected-user-${user.id}`)?.remove();
+			this.#connectedUsers = this.#connectedUsers.filter(p => p.id !== user.id);
+		});
+
+		socket.on('game-aborted', (data: {reason: string, disconnectedPlayerId: string, disconnectedPlayerName: string, winnerName: string, message: string}) => {
+			if (!messageContainer) return;
+			console.debug('Game aborted', data);
+			if (this.#gameState){
+				this.#gameState.state = 'FINISH' as Game['GameStatus']['state'];
+				this.#gameState.leftPlayer = null;
+				this.#gameState.rightPlayer = null;
+				this.#gameState.scores.left = 0;
+				this.#gameState.scores.right = 0;
+				this.updateGameState(this.#gameState);
+				this.#unsubscribeFromSocketEvents(this.#props.socketConnection);
+			}
+
+			messageContainer.innerHTML = /*html*/`
+				<div class="flex flex-col gap-2 items-center justify-center bg-black/50 p-2">
+					<div class="flex items-center justify-center text-xl text-center">${data.message}</div>
+
+					<a href="/play" data-route="/play" class="route-link fake-route-link" data-i18n="${k('generic.go_back')}">
+						Go back
+					</a>
+				</div>
+			`;
+			messageContainer.classList.remove('!hidden');
+		});
+
+		socket.on('player-disconnected', (data: {userId: string, playerName: string, expiresAt: number, gracePeriodMs: number, timeLeftMs: number}) => {
+			if (!messageContainer) return;
+			console.debug('Player disconnected', data);
+			const playerName = data.playerName;
+			const timeLeftMs = data.timeLeftMs;
+			if (this.#gameState){
+				this.#gameState.countdownEndsAt = null;
+				this.updateGameState(this.#gameState);
+			}
+
+			messageContainer.innerHTML = /*html*/`
+				<div class="flex flex-col gap-2 items-center justify-center p-2">
+					<h4 class="text-xl">${t('game.player_disconnected', { playerName })}</h4>
+					<p>${t('game.time_left_before_forfeit', { timeLeftMs: Math.ceil(timeLeftMs / 1000) })}</p>
+				</div>
+			`;
+			messageContainer.classList.remove('!hidden');
+		});
+
+		socket.on('disconnection-timer-update', (data: {userId: string, playerName: string, expiresAt: number, gracePeriodMs: number, timeLeftMs: number}) => {
+			if (!messageContainer) return;
+			console.debug('Player disconnection timer update', data);
+			const playerName = data.playerName;
+			const timeLeftMs = data.timeLeftMs;
+
+			messageContainer.innerHTML = /*html*/`
+				<div class="flex flex-col gap-2 items-center justify-center bg-black/50 p-2">
+					<h4 class="text-xl">${t('game.player_disconnected', { playerName })}</h4>
+					<p>${t('game.time_left_before_forfeit', { timeLeftMs: Math.ceil(timeLeftMs / 1000) })}</p>
+				</div>
+			`;
+			messageContainer.classList.remove('!hidden');
+		});
+
+		socket.on('player-reconnected', (data: {userId: string, playerName: string}) => {
+			if (!messageContainer) return;
+			console.debug('Player reconnected', data);
+
+			messageContainer.classList.add('!hidden');
+		})
+	}
+
+
+
+	#unsubscribeFromSocketEvents(socket?: Socket) {
+		if (!socket) return;
+
+		// TODO: unsubscribe from all socket events
+		socket.off('game-state');
+		socket.off('player-joined');
+		socket.off('player-left');
+		socket.off('game-aborted');
+		socket.off('player-disconnected');
+		socket.off('disconnection-timer-update');
+		socket.off('player-reconnected');
 	}
 
 	//-----------------------------------------------------------------------------------------------
@@ -336,6 +449,8 @@ export class GameComponent extends ComponentController {
 						</section>
 					</div>
 					<canvas id="${this.id}-game-canvas" class="w-full aspect-[4/3] border border-white"></canvas>
+					<div id="${this.id}-game-overlay-message-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
+					</div>
 				</div>
 				<div id="${this.id}-error-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
 					<h4 id="${this.id}-error-message" class="text-red-500"></h4>
@@ -426,7 +541,7 @@ export class GameComponent extends ComponentController {
 		if (!binding) return;
 
 		// Prevent default behavior for game keys
-		event.preventDefault();
+		// event.preventDefault();
 
 		this.onMovementPressed(binding.side, binding.direction);
 	}
@@ -437,7 +552,7 @@ export class GameComponent extends ComponentController {
 
 		if (!binding) return;
 
-		event.preventDefault();
+		// event.preventDefault();
 
 		this.onMovementReleased(binding.side, binding.direction);
 	}
