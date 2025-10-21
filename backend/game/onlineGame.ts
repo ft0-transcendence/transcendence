@@ -96,7 +96,7 @@ export class OnlineGame extends Game {
 			console.log(`🎮 Both players ready for game ${this.gameId}, creating in database now`);
 			
 			try {
-				const { db } = await import('../src/trpc/db');
+				const { db } = await import('../src/trpc/db.js');
 				const { GameType } = await import('@prisma/client');
 				
 				await db.game.create({
