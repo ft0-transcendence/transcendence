@@ -106,6 +106,11 @@ export class OnlineVersusGameController extends RouteController {
 				this.#gameComponent.showError(data);
 			}
 		});
+
+		this.#gameSocket.on('game-cancelled', (data) => {
+			toast.error('Partita cancellata', data.message);
+			// TODO: gestire partia cancellata, redirect su homepage o matchmaking
+		});
 	}
 
 	protected async preRender(): Promise<void> {

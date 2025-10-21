@@ -93,6 +93,7 @@ function setupMatchmakingNamespace(io: Server) {
 		socket.on("join-matchmaking", () => {
 			// Wrapping async is necessary because ^ the second parameter of `join-matchmaking` can take only a synchronous function, and here i need to use async/await
 			(async () => {
+				// Check for active games in database
 				const activeGameWithCurrentUser = await db.game.findFirst({
 					where: {
 						endDate: null,
@@ -130,6 +131,25 @@ function setupMatchmakingNamespace(io: Server) {
 					}
 				}
 
+				// Also check for games in cache that might not be in DB yet (pending DB creation)
+				for (const [gameId, game] of cache.active_1v1_games) {
+					if (game.isPlayerInGame(user.id)) {
+						const opponent = game.leftPlayer?.id === user.id ? game.rightPlayer : game.leftPlayer;
+						
+						if (opponent) {
+							const opponentData: GameUserInfo = { id: opponent.id, username: opponent.username, isPlayer: true };
+
+							fastify.log.info('User already in active cached game, skipping matchmaking', user.username);
+
+							socket.emit('match-found', {
+								gameId: gameId,
+								opponent: opponentData,
+							});
+							return;
+						}
+					}
+				}
+
 				fastify.log.info('Matchmaking socket joined matchmaking. id=%s, username=%s', socket.id, user.username);
 
 				const currentQueueLength = cache.matchmaking.queuedPlayers.length;
@@ -149,6 +169,7 @@ function setupMatchmakingNamespace(io: Server) {
 					player1.emit('match-found', { gameId, opponent: player2Data });
 					player2.emit('match-found', { gameId, opponent: player1Data });
 
+					// Create game instance but don't save to DB yet
 					const newGame = new OnlineGame(
 						gameId,
 						onlineVersusGameNamespace,
@@ -182,8 +203,8 @@ function setupMatchmakingNamespace(io: Server) {
 
 								// Update player statistics only if game was not aborted
 								if (!isAborted) {
-									const winnerId = state.scores.left > state.scores.right ? player1.id : player2.id;
-									const loserId = state.scores.left > state.scores.right ? player2.id : player1.id;
+									const winnerId = state.scores.left > state.scores.right ? player1Data.id : player2Data.id;
+									const loserId = state.scores.left > state.scores.right ? player2Data.id : player1Data.id;
 									
 									await updateGameStats(db, winnerId, loserId);
 								}
@@ -195,35 +216,115 @@ function setupMatchmakingNamespace(io: Server) {
 							fastify.log.info("Game %s persisted and removed from cache.", gameId);
 						},
 						async (gameInstance) => {
-							// Update game activity timestamp and current scores
-							await db.game.update({
-								where: { id: gameId },
-								data: { 
-									updatedAt: new Date(),
-									leftPlayerScore: gameInstance.scores.left,
-									rightPlayerScore: gameInstance.scores.right
-								}
-							});
+							// Update game activity timestamp and current scores only if game exists in DB
+							try {
+								await db.game.update({
+									where: { id: gameId },
+									data: { 
+										updatedAt: new Date(),
+										leftPlayerScore: gameInstance.scores.left,
+										rightPlayerScore: gameInstance.scores.right
+									}
+								});
+							} catch (error) {
+								// Game might not exist in DB yet, ignore error
+								console.log(`Game ${gameId} not yet in DB, skipping update`);
+							}
 						}
 					);
 
-					const game = await db.game.create({
-						data: {
-							id: gameId,
-							startDate: new Date(),
-							type: GameType.VS,
-							leftPlayerId: player1.data.user.id,
-							rightPlayerId: player2.data.user.id,
-							scoreGoal: 7,
-						},
-						include: { leftPlayer: true, rightPlayer: true },
-					});
-
+					// Set players but don't create in DB yet
 					newGame.setPlayers(player1Data, player2Data);
+					
+					// Store game info for later DB creation
+					newGame.pendingDbCreation = {
+						leftPlayerId: player1Data.id,
+						rightPlayerId: player2Data.id,
+						scoreGoal: 7
+					};
 
 					cache.active_1v1_games.set(gameId, newGame);
+					
+					fastify.log.info('Game %s created in memory, waiting for both players to connect before saving to DB', gameId);
 				}
 			})();
+		});
+
+		socket.on("check-players-in-room", (gameId: string) => {
+			const game = cache.active_1v1_games.get(gameId);
+			if (!game) {
+				socket.emit('players-in-room-result', { 
+					gameId, 
+					bothInRoom: false, 
+					error: 'Game not found' 
+				});
+				return;
+			}
+
+			// Check if both players are connected to the game room
+			const connectedPlayers = game.getConnectedPlayers();
+			const playersInRoom = connectedPlayers.filter(p => p.isPlayer).length;
+			
+			fastify.log.info('Checking players in room for game %s: %d/2 players connected', gameId, playersInRoom);
+
+			if (playersInRoom === 2) {
+				// Both players in room, game can start
+				socket.emit('players-in-room-result', { 
+					gameId, 
+					bothInRoom: true 
+				});
+			} else {
+				// Not all players in room, start grace period
+				socket.emit('players-in-room-result', { 
+					gameId, 
+					bothInRoom: false,
+					playersInRoom: playersInRoom,
+					timeLeftMs: 10000
+				});
+				
+				// Start 10-second grace period
+				const gracePeriodEnd = Date.now() + 10000;
+				const graceInterval = setInterval(() => {
+					const timeLeft = gracePeriodEnd - Date.now();
+					
+					if (timeLeft <= 0) {
+						// Grace period expired, cancel game
+						clearInterval(graceInterval);
+						
+						socket.emit('game-cancelled', {
+							reason: 'grace-period-expired',
+							message: 'La partita è stata cancellata perché non tutti i giocatori si sono connessi in tempo'
+						});
+						
+						// Remove game from cache
+						cache.active_1v1_games.delete(gameId);
+						fastify.log.warn('Game %s cancelled due to grace period expiry', gameId);
+						return;
+					}
+					
+					// Check if both players joined during grace period
+					const currentConnectedPlayers = game.getConnectedPlayers().filter(p => p.isPlayer).length;
+					if (currentConnectedPlayers === 2) {
+						// Both players joined!
+						clearInterval(graceInterval);
+						socket.emit('grace-period-update', {
+							gameId,
+							bothInRoom: true,
+							timeLeftMs: timeLeft
+						});
+						return;
+					}
+					
+					// Send update
+					socket.emit('grace-period-update', {
+						gameId,
+						bothInRoom: false,
+						timeLeftMs: timeLeft,
+						playersInRoom: currentConnectedPlayers
+					});
+					
+				}, 1000);
+			}
 		});
 
 	});
@@ -269,6 +370,37 @@ function setupOnlineVersusGameNamespace(io: Server) {
 
 				state: game.getState(),
 			});
+
+			// Check if both players are now connected after this join
+			if (isPlayerInGame) {
+				const connectedPlayers = game.getConnectedPlayers();
+				const playersInRoom = connectedPlayers.filter(p => p.isPlayer).length;
+				
+				if (playersInRoom === 2) {
+					// Both players connected! Game can start normally
+					fastify.log.info('Both players connected to game %s, game ready to start', gameId);
+				} else {
+					// Only one player connected, start grace period timer
+					fastify.log.info('Only %d/2 players connected to game %s, starting grace period', playersInRoom, gameId);
+					
+					// Start 10-second grace period for the missing player
+					setTimeout(() => {
+						const currentConnectedPlayers = game.getConnectedPlayers().filter(p => p.isPlayer).length;
+						if (currentConnectedPlayers < 2) {
+							// Still missing players after grace period, cancel game
+							fastify.log.warn('Grace period expired for game %s, cancelling game', gameId);
+							
+							onlineVersusGameNamespace.to(gameId).emit('game-cancelled', {
+								reason: 'grace-period-expired',
+								message: 'La partita è stata cancellata perché non tutti i giocatori si sono connessi in tempo'
+							});
+							
+							// Remove game from cache
+							cache.active_1v1_games.delete(gameId);
+						}
+					}, 10000);
+				}
+			}
 
 			// README: do we want to allow spectators?
 			// if (!isPlayerInGame) {

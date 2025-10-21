@@ -126,15 +126,18 @@ export class OnlineMatchmakingController extends RouteController {
 			$opponentImage.src = getProfilePictureUrlByUserId(data.opponent.id);
 			$opponentUsername.innerText = data.opponent.username;
 
-			this.#matchmakingSocket?.close();
 			matchFoundContainer.classList.remove('hidden');
 			gameIdSpan.innerText = data.gameId;
 
 			const timeLeft = new Date(Date.now() + (this.#redirectToGameSeconds * 1000));
 			this.#animateRedirectTimer(timeLeft, () => {
+				// After 5 seconds, redirect to game normally
+				this.#matchmakingSocket?.close();
 				router.navigate(`/play/online/1v1/${data.gameId}`);
 			});
 		});
+
+
 
 		this.#matchmakingSocket.on('error', (data) => {
 			console.warn('Error', data);
@@ -143,6 +146,8 @@ export class OnlineMatchmakingController extends RouteController {
 			router.navigate('/play/');
 		});
 	}
+
+
 
 	protected async destroy() {
 		if (this.#matchmakingSocket.connected) {
