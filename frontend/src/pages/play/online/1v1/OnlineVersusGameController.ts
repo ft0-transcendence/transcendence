@@ -108,12 +108,7 @@ export class OnlineVersusGameController extends RouteController {
 		});
 
 		this.#gameSocket.on('game-cancelled', (data) => {
-			console.warn('Game cancelled:', data);
 			toast.error('Partita cancellata', data.message);
-			// Redirect back to matchmaking
-			import('@src/pages/_router').then(({ router }) => {
-				router.navigate('/play/online/1v1');
-			});
 		});
 	}
 
