@@ -10,15 +10,7 @@ export class OnlineVersusGameController extends RouteController {
 	#gameId: string = "";
 	#gameSocket: Socket;
 
-	#connectedUsers: Game['GameUserInfo'][] = [];
-
 	#isGameValidated = false;
-
-	#isPlayer = false;
-	#isGameStarted = false;
-	#gameState: Game['GameStatus'] | null = null;
-
-	#errors: string[] = [];
 
 	#gameComponent: GameComponent;
 
@@ -62,9 +54,6 @@ export class OnlineVersusGameController extends RouteController {
 			}) => {
 				console.debug('Game found', data);
 				this.#isGameValidated = true;
-				this.#connectedUsers = data.connectedUsers;
-				this.#isPlayer = data.ableToPlay;
-				this.#gameState = data.state;
 
 				const myId = authManager.user?.id;
 				const amILeftPlayer = data.leftPlayer.id === myId;
@@ -99,23 +88,12 @@ export class OnlineVersusGameController extends RouteController {
 				} else {
 					this.titleSuffix = `${data.leftPlayer.username} vs ${data.rightPlayer.username}`;
 				}
+				this.#gameComponent.updatePartialProps({
+					socketConnection: this.#gameSocket
+				});
 			});
 
-		this.#gameSocket.on('player-joined', (user: Game['GameUserInfo']) => {
-			console.debug('Player joined', user);
-			this.#connectedUsers.push(user);
-		});
 
-		this.#gameSocket.on('player-left', (user: Game['GameUserInfo']) => {
-			console.debug('Player left', user);
-			document.querySelector(`#game-connected-user-${user.id}`)?.remove();
-			this.#connectedUsers = this.#connectedUsers.filter(p => p.id !== user.id);
-		});
-
-		this.#gameSocket.on('game-state', (data: Game['GameStatus']) => {
-			this.#gameState = data;
-			this.#gameComponent.updateGameState(data);
-		});
 
 		this.#gameSocket.on('error', (data) => {
 			console.debug('Error', data);

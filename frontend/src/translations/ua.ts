@@ -46,6 +46,10 @@ export const ua: TranslationSchema = {
 		cancel_friend_request: 'Скасувати запит на дружбу',
 		cancel_friend_request_confirm: 'Ви впевнені, що хочете скасувати цей запит на дружбу з вашого списку друзів? Цю дію неможливо скасувати.',
 	},
+	game: {
+		player_disconnected: 'Гравець {{playerName}} від\'єднався',
+		time_left_before_forfeit: 'Автоматична перемога через {{timeLeftMs}} секунд',
+	},
 	game_modes: {
 		ai: '1 vs AI',
 		vs: '1 vs 1',

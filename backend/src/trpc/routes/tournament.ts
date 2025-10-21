@@ -5,6 +5,7 @@ import { TournamentType, GameType, TournamentStatus } from "@prisma/client";
 import { updateGameStats, updateTournamentWinnerStats } from "../../utils/statsUtils";
 
 export const tournamentRouter = t.router({
+    
     getAvailableTournaments: publicProcedure
         .query(async ({ ctx }) => {
             const tournaments = await ctx.db.tournament.findMany({
@@ -175,6 +176,8 @@ export const tournamentRouter = t.router({
                 isRegisteredToTournament
             };
         }),
+
+    
 
     getBracket: publicProcedure
         .input(z.object({
@@ -399,5 +402,220 @@ export const tournamentRouter = t.router({
                 tournamentsPlayed,
                 winRate: tournamentsPlayed > 0 ? Math.round((tournamentsWon / tournamentsPlayed) * 100) : 0
             };
-        })
+        }),
+
+    joinTournament: protectedProcedure
+        .input(z.object({ tournamentId: z.string(), password: z.string().optional() }))
+        .mutation(async ({ ctx, input }) => {
+            const tournament = await ctx.db.tournament.findUnique({
+                where: { id: input.tournamentId },
+                include: { participants: true }
+            });
+
+            if (!tournament) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Tournament not found' });
+            }
+
+            if (tournament.password && tournament.password !== input.password) {
+                throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid password' });
+            }
+
+            const alreadyJoined = tournament.participants.some(p => p.userId === ctx.user!.id);
+            if (alreadyJoined) {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Already joined this tournament' });
+            }
+
+            const maxParticipants = 8;
+            if (tournament.participants.length >= maxParticipants) {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Tournament is full' });
+            }
+
+            const participant = await ctx.db.tournamentParticipant.create({
+                data: { tournamentId: input.tournamentId, userId: ctx.user!.id },
+                include: { user: { select: { id: true, username: true } } }
+            });
+
+            return participant;
+        }),
+
+    leaveTournament: protectedProcedure
+        .input(z.object({ tournamentId: z.string() }))
+        .mutation(async ({ ctx, input }) => {
+            const tournament = await ctx.db.tournament.findUnique({
+                where: { id: input.tournamentId },
+                include: { participants: true, games: true }
+            });
+
+            if (!tournament) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Tournament not found' });
+            }
+
+            if (tournament.status !== 'WAITING_PLAYERS') {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot leave tournament that has already started' });
+            }
+
+            const participant = await ctx.db.tournamentParticipant.findFirst({
+                where: { tournamentId: input.tournamentId, userId: ctx.user!.id }
+            });
+
+            if (!participant) {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'You are not a participant in this tournament' });
+            }
+
+            await ctx.db.tournamentParticipant.delete({ where: { id: participant.id } });
+            return { success: true } as const;
+        }),
+
+    startTournament: protectedProcedure
+        .input(z.object({ tournamentId: z.string() }))
+        .mutation(async ({ ctx, input }) => {
+            const t = await ctx.db.tournament.findUnique({
+                where: { id: input.tournamentId },
+                include: {
+                    participants: { include: { user: true } },
+                    games: true
+                }
+            });
+
+            if (!t) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Tournament not found' });
+            }
+
+            if (t.createdById !== ctx.user!.id) {
+                throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the tournament creator can start the tournament' });
+            }
+
+            if (t.games.length > 0) {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Tournament already started' });
+            }
+
+            const maxParticipants = 8;
+            if (t.participants.length < maxParticipants) {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Tournament is not full' });
+            }
+
+            await ctx.db.tournament.update({
+                where: { id: t.id },
+                data: { status: 'IN_PROGRESS' as TournamentStatus }
+            });
+
+            const participantIds = t.participants.map(p => p.userId);
+            const roundsCount = Math.log2(t.participants.length);
+            let parentRoundGameIds: string[] = [];
+
+            const finalGame = await ctx.db.game.create({
+                data: {
+                    type: 'TOURNAMENT',
+                    startDate: new Date(),
+                    tournamentId: t.id,
+                    leftPlayerId: participantIds[0],
+                    rightPlayerId: participantIds[1],
+                    scoreGoal: 7
+                },
+                select: { id: true }
+            });
+
+            parentRoundGameIds = [finalGame.id];
+
+            for (let r = roundsCount - 2; r >= 0; r--) {
+                const gamesInRound = 2 ** r;
+                const newRoundIds: string[] = [];
+                for (let gi = 0; gi < gamesInRound; gi++) {
+                    const nextGameId = parentRoundGameIds[Math.floor(gi / 2)];
+                    let leftPlayerId: string;
+                    let rightPlayerId: string;
+                    if (r === 0) {
+                        const pairIndex = gi * 2;
+                        leftPlayerId = participantIds[pairIndex];
+                        rightPlayerId = participantIds[pairIndex + 1];
+                    } else {
+                        leftPlayerId = participantIds[0];
+                        rightPlayerId = participantIds[1];
+                    }
+                    const created = await ctx.db.game.create({
+                        data: {
+                            type: 'TOURNAMENT',
+                            startDate: new Date(),
+                            tournamentId: t.id,
+                            leftPlayerId,
+                            rightPlayerId,
+                            nextGameId,
+                            scoreGoal: 7
+                        },
+                        select: { id: true }
+                    });
+                    newRoundIds.push(created.id);
+                }
+                parentRoundGameIds = newRoundIds;
+            }
+
+            return await ctx.db.tournament.findUnique({
+                where: { id: t.id },
+                include: {
+                    participants: { include: { user: true } },
+                    games: { include: { leftPlayer: true, rightPlayer: true }, orderBy: { startDate: 'asc' } }
+                }
+            });
+        }),
+
+    cancelTournament: protectedProcedure
+        .input(z.object({ tournamentId: z.string() }))
+        .mutation(async ({ ctx, input }) => {
+            const t = await ctx.db.tournament.findUnique({
+                where: { id: input.tournamentId },
+                include: { participants: true, games: true }
+            });
+
+            if (!t) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Tournament not found' });
+            }
+
+            if (t.createdById !== ctx.user!.id) {
+                throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the tournament creator can cancel the tournament' });
+            }
+
+            if (t.status === 'COMPLETED') {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot cancel a completed tournament' });
+            }
+
+            await ctx.db.tournament.update({
+                where: { id: t.id },
+                data: { status: 'CANCELLED' as TournamentStatus, endDate: new Date() }
+            });
+
+            return { success: true } as const;
+        }),
+
+    createTournament: protectedProcedure
+        .input(z.object({
+            name: z.string().min(3).max(50),
+            type: z.nativeEnum(TournamentType),
+            password: z.string().optional(),
+            startDate: z.string().datetime().optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const tournament = await ctx.db.tournament.create({
+                data: {
+                    name: input.name,
+                    type: input.type,
+                    password: input.password,
+                    startDate: input.startDate ? new Date(input.startDate) : new Date(),
+                    createdById: ctx.user!.id,
+                },
+                include: {
+                    createdBy: { select: { id: true, username: true } },
+                    participants: {
+                        include: {
+                            user: { select: { id: true, username: true } }
+                        }
+                    }
+                }
+            });
+
+            await ctx.db.tournamentParticipant.create({
+                data: { tournamentId: tournament.id, userId: ctx.user!.id }
+            });
+
+            return tournament;
+        }),
 });

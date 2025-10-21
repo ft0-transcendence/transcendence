@@ -46,6 +46,10 @@ export const it: TranslationSchema = {
 		cancel_friend_request: 'Annulla richiesta di amicizia',
 		cancel_friend_request_confirm: 'Sei sicuro di voler annullare questa richiesta di amicizia dalla tua lista di amici? Questa azione non può essere annullata.',
 	},
+	game: {
+		player_disconnected: 'Giocatore {{playerName}} si è disconnesso',
+		time_left_before_forfeit: 'Vittoria a tavolino in {{timeLeftMs}} secondi',
+	},
 	game_modes: {
 		ai: '1 vs IA',
 		vs: '1 vs 1',

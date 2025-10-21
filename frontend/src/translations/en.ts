@@ -45,6 +45,10 @@ export const en = {
 		cancel_friend_request: 'Cancel Friend Request',
 		cancel_friend_request_confirm: 'Are you sure you want to cancel this friend request from your friends list? This action cannot be undone.',
 	},
+	game: {
+		player_disconnected: 'Player <b>{{playerName}}</b> disconnected',
+		time_left_before_forfeit: 'Forfeit in {{timeLeftMs}} seconds',
+	},
 
 	game_modes: {
 		ai: '1 vs AI',

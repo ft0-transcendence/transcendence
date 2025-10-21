@@ -39,14 +39,15 @@ export class OnlineGame extends Game {
 		this.onFinish = onFinish;
 		this.updateGameActivity = updateGameActivity;
 		this.unsubscribeTick = this.onTick((state, now) => {
-			if (this.socketNamespace) {
+			if (this.disconnectedUntil.size > 0) {
+				this.checkGraceAndForfeit(now);
+			} else if (this.socketNamespace) {
 				this.socketNamespace.to(this.gameId).emit("game-state", state);
 			}
 			if (this.state === GameState.FINISH && !this.finished) {
 				console.log(`Game ${this.gameId} ended naturally with score ${this.scores.left}-${this.scores.right}`);
 				this.finish();
 			}
-			this.checkGraceAndForfeit(now);
 		});
 
 		// Listen for score updates to update database
@@ -241,24 +242,25 @@ export class OnlineGame extends Game {
 			for (const [playerId, until] of this.disconnectedUntil.entries()) {
 				const timeLeft = until - now;
 
+				// TODO: remove this
 				// Send abort warning when time reaches ABORT_WARNING_AT_MS
-				if (timeLeft <= this.ABORT_WARNING_AT_MS && timeLeft > 0 && !this.abortWarningsSent.has(playerId)) {
-					this.abortWarningsSent.add(playerId);
-					const playerName = this.getPlayerName(playerId);
-					const opponentName = this.getPlayerName(this.getOpponentPlayerId(playerId) ?? '');
+				// if (timeLeft <= this.ABORT_WARNING_AT_MS && timeLeft > 0 && !this.abortWarningsSent.has(playerId)) {
+				// 	this.abortWarningsSent.add(playerId);
+				// 	const playerName = this.getPlayerName(playerId);
+				// 	const opponentName = this.getPlayerName(this.getOpponentPlayerId(playerId) ?? '');
 
-					if (this.socketNamespace) {
-						this.socketNamespace.to(this.gameId).emit("game-abort-warning", {
-							disconnectedPlayerId: playerId,
-							disconnectedPlayerName: playerName,
-							opponentName: opponentName,
-							timeLeftMs: timeLeft,
-							message: `Il gioco terminerà tra ${Math.ceil(timeLeft / 1000)} secondi se ${playerName} non si riconnette`
-						});
-					}
-				}
+				// 	if (this.socketNamespace) {
+				// 		this.socketNamespace.to(this.gameId).emit("game-abort-warning", {
+				// 			disconnectedPlayerId: playerId,
+				// 			disconnectedPlayerName: playerName,
+				// 			opponentName: opponentName,
+				// 			timeLeftMs: timeLeft,
+				// 			message: `Il gioco terminerà tra ${Math.ceil(timeLeft / 1000)} secondi se ${playerName} non si riconnette`
+				// 		});
+				// 	}
+				// }
 
-				// Forfeit 
+				// Forfeit
 				if (now >= until) {
 					const opponentId = this.getOpponentPlayerId(playerId);
 					const playerName = this.getPlayerName(playerId);

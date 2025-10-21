@@ -68,9 +68,9 @@ export class HomeController extends RouteController {
 
 					<!-- Friends List -->
 					<div class="flex flex-col w-full grow border-b border-white/15 md:border-none relative md:overflow-hidden">
-						<div class="flex items-center justify-between bg-black/50 p-4">
+						<div class="flex items-center justify-between bg-black/50 p-4 overflow-y-hidden">
 							<div class="flex items-center gap-2">
-								<h2 class="capitalize text-lg font-semibold text-gray-300" data-i18n="${k('generic.friends')}">Friends</h2>
+								<h2 class="capitalize text-md xl:text-lg font-semibold text-gray-300" data-i18n="${k('generic.friends')}">Friends</h2>
 								<button id="${this.id}-add-friend-btn"
 										class="cursor-pointer w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
 										title="${t('generic.add_friend')}">
@@ -79,8 +79,8 @@ export class HomeController extends RouteController {
 							</div>
 
 
-							<div class="flex grow justify-end ice">
-								<div class="px-2 text-sm text-gray-400">
+							<div class="flex grow justify-end gap-2">
+								<div class="text-xs xl:text-sm text-gray-400">
 									<span class="friends-count">0</span>
 									<span data-i18n="${k('generic.online')}">ONLINE</span>
 								</div>
@@ -99,13 +99,13 @@ export class HomeController extends RouteController {
 							</div>
 						</form>
 
-						<ul id="${this.id}-friends-list" class="flex flex-col gap-2 w-full grow overflow-y-auto px-4 py-2"></ul>
+						<ul id="${this.id}-friends-list" class="flex flex-col gap-2 w-full grow overflow-y-auto xl:px-4 py-2"></ul>
 
 						<div class="md:grow"></div>
 
 						<div class="flex flex-col md:overflow-hidden min-h-0">
 							<div class="flex items-center p-4 bg-black/50 border-t border-white/15">
-								<h2 class="capitalize text-lg font-semibold text-gray-300" data-i18n="${k('generic.sent_friend_requests')}">Sent requests</h2>
+								<h2 class="capitalize text-md xl:text-lg font-semibold text-gray-300" data-i18n="${k('generic.sent_friend_requests')}">Sent requests</h2>
 								<div class="flex grow justify-end items-center text-xs font-bold">
 									<button class="toggle-pending-friends show-pending-friends uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400 hidden" data-i18n="${k('generic.show')}">Show</button>
 									<button class="toggle-pending-friends hide-pending-friends uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400" data-i18n="${k('generic.hide')}">Hide</button>
@@ -695,8 +695,8 @@ export class HomeController extends RouteController {
 			</div>
 
 			<!-- Friend Info -->
-			<div class="flex flex-col grow">
-				<span class="text-sm font-semibold friend-username">${friend.username}</span>
+			<div class="flex flex-col grow overflow-hidden">
+				<span class="text-sm font-semibold friend-username overflow-hidden text-ellipsis line-clamp-1">${friend.username}</span>
 				<span class="text-xs text-gray-400 friend-status capitalize" data-i18n="${friend.state === 'online' ? k('generic.online') : k('generic.offline')}">
 					${friend.state === 'online' ? t('generic.online') : t('generic.offline')}
 				</span>
