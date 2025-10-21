@@ -1,4 +1,6 @@
 import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState } from "./game";
+import { db } from '../src/trpc/db.js';
+import { GameType } from '@prisma/client';
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
@@ -96,9 +98,6 @@ export class OnlineGame extends Game {
 			console.log(`🎮 Both players ready for game ${this.gameId}, creating in database now`);
 			
 			try {
-				const { db } = await import('../src/trpc/db.js');
-				const { GameType } = await import('@prisma/client');
-				
 				await db.game.create({
 					data: {
 						id: this.gameId,
