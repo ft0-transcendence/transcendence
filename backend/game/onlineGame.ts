@@ -12,6 +12,7 @@ export class OnlineGame extends Game {
 	protected finished = false;
 	protected onFinish?: FinishCallback;
 	public wasForfeited = false;
+	public pendingDbCreation: any = null;
 
 	private readonly GRACE_MS = 15000; // 15s
 	private readonly ABORT_WARNING_AT_MS = 5000; // Warning quando rimangono 5s
@@ -79,9 +80,39 @@ export class OnlineGame extends Game {
 			this.playerRightReady = true;
 		}
 		if (this.playerLeftReady && this.playerRightReady) {
+			// Both players ready - create in database if not already created
+			this.createInDatabaseIfNeeded();
+			
 			this.start();
 			if (this.socketNamespace) {
 				this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
+			}
+		}
+	}
+
+	private async createInDatabaseIfNeeded() {
+		if (this.pendingDbCreation) {
+			console.log(`🎮 Both players ready for game ${this.gameId}, creating in database now`);
+			
+			try {
+				const { db } = await import('../src/trpc/db');
+				const { GameType } = await import('@prisma/client');
+				
+				await db.game.create({
+					data: {
+						id: this.gameId,
+						startDate: new Date(),
+						type: GameType.VS,
+						leftPlayerId: this.pendingDbCreation.leftPlayerId,
+						rightPlayerId: this.pendingDbCreation.rightPlayerId,
+						scoreGoal: this.pendingDbCreation.scoreGoal,
+					},
+				});
+				
+				console.log(`✅ Game ${this.gameId} successfully created in database`);
+				this.pendingDbCreation = null; // Clear pending flag
+			} catch (error) {
+				console.error(`❌ Failed to create game ${this.gameId} in database:`, error);
 			}
 		}
 	}

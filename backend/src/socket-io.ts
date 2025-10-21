@@ -93,6 +93,7 @@ function setupMatchmakingNamespace(io: Server) {
 		socket.on("join-matchmaking", () => {
 			// Wrapping async is necessary because ^ the second parameter of `join-matchmaking` can take only a synchronous function, and here i need to use async/await
 			(async () => {
+				// Check for active games in database
 				const activeGameWithCurrentUser = await db.game.findFirst({
 					where: {
 						endDate: null,
@@ -130,6 +131,25 @@ function setupMatchmakingNamespace(io: Server) {
 					}
 				}
 
+				// Also check for games in cache that might not be in DB yet (pending DB creation)
+				for (const [gameId, game] of cache.active_1v1_games) {
+					if (game.isPlayerInGame(user.id)) {
+						const opponent = game.leftPlayer?.id === user.id ? game.rightPlayer : game.leftPlayer;
+						
+						if (opponent) {
+							const opponentData: GameUserInfo = { id: opponent.id, username: opponent.username, isPlayer: true };
+
+							fastify.log.info('User already in active cached game, skipping matchmaking', user.username);
+
+							socket.emit('match-found', {
+								gameId: gameId,
+								opponent: opponentData,
+							});
+							return;
+						}
+					}
+				}
+
 				fastify.log.info('Matchmaking socket joined matchmaking. id=%s, username=%s', socket.id, user.username);
 
 				const currentQueueLength = cache.matchmaking.queuedPlayers.length;
@@ -149,6 +169,7 @@ function setupMatchmakingNamespace(io: Server) {
 					player1.emit('match-found', { gameId, opponent: player2Data });
 					player2.emit('match-found', { gameId, opponent: player1Data });
 
+					// Create game instance but don't save to DB yet
 					const newGame = new OnlineGame(
 						gameId,
 						onlineVersusGameNamespace,
@@ -182,8 +203,8 @@ function setupMatchmakingNamespace(io: Server) {
 
 								// Update player statistics only if game was not aborted
 								if (!isAborted) {
-									const winnerId = state.scores.left > state.scores.right ? player1.id : player2.id;
-									const loserId = state.scores.left > state.scores.right ? player2.id : player1.id;
+									const winnerId = state.scores.left > state.scores.right ? player1Data.id : player2Data.id;
+									const loserId = state.scores.left > state.scores.right ? player2Data.id : player1Data.id;
 									
 									await updateGameStats(db, winnerId, loserId);
 								}
@@ -195,33 +216,36 @@ function setupMatchmakingNamespace(io: Server) {
 							fastify.log.info("Game %s persisted and removed from cache.", gameId);
 						},
 						async (gameInstance) => {
-							// Update game activity timestamp and current scores
-							await db.game.update({
-								where: { id: gameId },
-								data: { 
-									updatedAt: new Date(),
-									leftPlayerScore: gameInstance.scores.left,
-									rightPlayerScore: gameInstance.scores.right
-								}
-							});
+							// Update game activity timestamp and current scores only if game exists in DB
+							try {
+								await db.game.update({
+									where: { id: gameId },
+									data: { 
+										updatedAt: new Date(),
+										leftPlayerScore: gameInstance.scores.left,
+										rightPlayerScore: gameInstance.scores.right
+									}
+								});
+							} catch (error) {
+								// Game might not exist in DB yet, ignore error
+								console.log(`Game ${gameId} not yet in DB, skipping update`);
+							}
 						}
 					);
 
-					const game = await db.game.create({
-						data: {
-							id: gameId,
-							startDate: new Date(),
-							type: GameType.VS,
-							leftPlayerId: player1.data.user.id,
-							rightPlayerId: player2.data.user.id,
-							scoreGoal: 7,
-						},
-						include: { leftPlayer: true, rightPlayer: true },
-					});
-
+					// Set players but don't create in DB yet
 					newGame.setPlayers(player1Data, player2Data);
+					
+					// Store game info for later DB creation
+					newGame.pendingDbCreation = {
+						leftPlayerId: player1Data.id,
+						rightPlayerId: player2Data.id,
+						scoreGoal: 7
+					};
 
 					cache.active_1v1_games.set(gameId, newGame);
+					
+					fastify.log.info('Game %s created in memory, waiting for both players to connect before saving to DB', gameId);
 				}
 			})();
 		});
