@@ -1,5 +1,5 @@
 import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState } from "./game";
-import { db } from '../src/trpc/db.js';
+import { db } from '../src/trpc/db';
 import { GameType } from '@prisma/client';
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;

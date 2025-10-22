@@ -114,7 +114,6 @@ function setupMatchmakingNamespace(io: Server) {
 							data: { endDate: new Date() },
 						});
 					} else {
-						// partita davvero attiva → riusala
 						const opponent = activeGameWithCurrentUser.leftPlayerId === user.id
 							? activeGameWithCurrentUser.rightPlayer
 							: activeGameWithCurrentUser.leftPlayer;
@@ -177,7 +176,6 @@ function setupMatchmakingNamespace(io: Server) {
 						async (state) => {
 							console.log(`🎮 Game ${gameId} onFinish callback called with scores: ${state.scores.left}-${state.scores.right}`);
 							
-							// Check if game was forfeited due to disconnection
 							const isAborted = newGame.wasForfeited;
 
 							const updateData: any = {
@@ -186,7 +184,6 @@ function setupMatchmakingNamespace(io: Server) {
 								rightPlayerScore: state.scores.right,
 							};
 
-							// If aborted due to disconnection, add abort information
 							if (isAborted) {
 								updateData.abortDate = new Date();
 								updateData.abortReason = 'Player disconnection timeout';
@@ -201,13 +198,6 @@ function setupMatchmakingNamespace(io: Server) {
 								});
 								console.log(`✅ Game ${gameId} successfully updated in database:`, result);
 
-								// Update player statistics only if game was not aborted
-								if (!isAborted) {
-									const winnerId = state.scores.left > state.scores.right ? player1Data.id : player2Data.id;
-									const loserId = state.scores.left > state.scores.right ? player2Data.id : player1Data.id;
-									
-									await updateGameStats(db, winnerId, loserId);
-								}
 							} catch (error) {
 								console.error(`❌ Game ${gameId} failed to update database:`, error);
 							}
@@ -216,7 +206,6 @@ function setupMatchmakingNamespace(io: Server) {
 							fastify.log.info("Game %s persisted and removed from cache.", gameId);
 						},
 						async (gameInstance) => {
-							// Update game activity timestamp and current scores only if game exists in DB
 							try {
 								await db.game.update({
 									where: { id: gameId },
@@ -227,13 +216,11 @@ function setupMatchmakingNamespace(io: Server) {
 									}
 								});
 							} catch (error) {
-								// Game might not exist in DB yet, ignore error
 								console.log(`Game ${gameId} not yet in DB, skipping update`);
 							}
 						}
 					);
 
-					// Set players but don't create in DB yet
 					newGame.setPlayers(player1Data, player2Data);
 					
 					// Store game info for later DB creation
@@ -248,83 +235,6 @@ function setupMatchmakingNamespace(io: Server) {
 					fastify.log.info('Game %s created in memory, waiting for both players to connect before saving to DB', gameId);
 				}
 			})();
-		});
-
-		socket.on("check-players-in-room", (gameId: string) => {
-			const game = cache.active_1v1_games.get(gameId);
-			if (!game) {
-				socket.emit('players-in-room-result', { 
-					gameId, 
-					bothInRoom: false, 
-					error: 'Game not found' 
-				});
-				return;
-			}
-
-			// Check if both players are connected to the game room
-			const connectedPlayers = game.getConnectedPlayers();
-			const playersInRoom = connectedPlayers.filter(p => p.isPlayer).length;
-			
-			fastify.log.info('Checking players in room for game %s: %d/2 players connected', gameId, playersInRoom);
-
-			if (playersInRoom === 2) {
-				// Both players in room, game can start
-				socket.emit('players-in-room-result', { 
-					gameId, 
-					bothInRoom: true 
-				});
-			} else {
-				// Not all players in room, start grace period
-				socket.emit('players-in-room-result', { 
-					gameId, 
-					bothInRoom: false,
-					playersInRoom: playersInRoom,
-					timeLeftMs: 10000
-				});
-				
-				// Start 10-second grace period
-				const gracePeriodEnd = Date.now() + 10000;
-				const graceInterval = setInterval(() => {
-					const timeLeft = gracePeriodEnd - Date.now();
-					
-					if (timeLeft <= 0) {
-						// Grace period expired, cancel game
-						clearInterval(graceInterval);
-						
-						socket.emit('game-cancelled', {
-							reason: 'grace-period-expired',
-							message: 'La partita è stata cancellata perché non tutti i giocatori si sono connessi in tempo'
-						});
-						
-						// Remove game from cache
-						cache.active_1v1_games.delete(gameId);
-						fastify.log.warn('Game %s cancelled due to grace period expiry', gameId);
-						return;
-					}
-					
-					// Check if both players joined during grace period
-					const currentConnectedPlayers = game.getConnectedPlayers().filter(p => p.isPlayer).length;
-					if (currentConnectedPlayers === 2) {
-						// Both players joined!
-						clearInterval(graceInterval);
-						socket.emit('grace-period-update', {
-							gameId,
-							bothInRoom: true,
-							timeLeftMs: timeLeft
-						});
-						return;
-					}
-					
-					// Send update
-					socket.emit('grace-period-update', {
-						gameId,
-						bothInRoom: false,
-						timeLeftMs: timeLeft,
-						playersInRoom: currentConnectedPlayers
-					});
-					
-				}, 1000);
-			}
 		});
 
 	});
@@ -357,7 +267,6 @@ function setupOnlineVersusGameNamespace(io: Server) {
 			const isPlayerInGame = game.isPlayerInGame(user.id);
 			gameUserInfo.isPlayer = isPlayerInGame;
 
-			// Set the socket namespace for the game if it's not already set
 			game.setSocketNamespace(onlineVersusGameNamespace);
 
 			game.addConnectedUser(gameUserInfo);
@@ -377,17 +286,14 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				const playersInRoom = connectedPlayers.filter(p => p.isPlayer).length;
 				
 				if (playersInRoom === 2) {
-					// Both players connected! Game can start normally
 					fastify.log.info('Both players connected to game %s, game ready to start', gameId);
 				} else {
-					// Only one player connected, start grace period timer
 					fastify.log.info('Only %d/2 players connected to game %s, starting grace period', playersInRoom, gameId);
 					
-					// Start 10-second grace period for the missing player
+					// Start 30-second grace period for the missing player
 					setTimeout(() => {
 						const currentConnectedPlayers = game.getConnectedPlayers().filter(p => p.isPlayer).length;
 						if (currentConnectedPlayers < 2) {
-							// Still missing players after grace period, cancel game
 							fastify.log.warn('Grace period expired for game %s, cancelling game', gameId);
 							
 							onlineVersusGameNamespace.to(gameId).emit('game-cancelled', {
@@ -395,10 +301,9 @@ function setupOnlineVersusGameNamespace(io: Server) {
 								message: 'La partita è stata cancellata perché non tutti i giocatori si sono connessi in tempo'
 							});
 							
-							// Remove game from cache
 							cache.active_1v1_games.delete(gameId);
 						}
-					}, 10000);
+					}, 30000);
 				}
 			}
 
