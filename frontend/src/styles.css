@@ -96,3 +96,44 @@ img {
 .friend-status-icon.friend-status-icon-offline {
 	@apply !bg-zinc-700;
 }
+
+
+/* PROGRESS CIRCLE */
+.progress-circle {
+	--percent: 75;
+	/* fallback */
+	--size: 64px;
+	--track-color: #333;
+	--fill-color: #4caf50;
+	--bg-color: #111;
+	--progress-width: 5px;
+
+	width: var(--size);
+	height: var(--size);
+	border-radius: 50%;
+	background: conic-gradient(var(--fill-color) calc(var(--percent) * 1%),
+			var(--track-color) 0);
+	display: grid;
+	place-items: center;
+	position: relative;
+}
+
+.progress-circle::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: calc(var(--size) - var(--progress-width) * 2);
+	height: calc(var(--size) - var(--progress-width) * 2);
+	transform: translate(-50%, -50%);
+	border-radius: 50%;
+	background: var(--bg-color);
+}
+
+.progress-circle span {
+	position: relative;
+	z-index: 1;
+	color: #fff;
+	font-weight: bold;
+	font-size: 0.9rem;
+}

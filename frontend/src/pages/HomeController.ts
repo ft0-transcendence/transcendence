@@ -19,52 +19,85 @@ export class HomeController extends RouteController {
 	#friendsListContainer: HTMLElement | null = null;
 
 	#loadingOverlays: {
-		activeGames: LoadingOverlay,
 		FriendRequests: LoadingOverlay,
 		last20Matches: LoadingOverlay,
 		pendingFriends: LoadingOverlay,
 	} = {
-			activeGames: new LoadingOverlay('active-games'),
 			FriendRequests: new LoadingOverlay('FriendRequests'),
 			last20Matches: new LoadingOverlay('last-20-matches'),
 			pendingFriends: new LoadingOverlay('pending-friends'),
 		}
 
+	#userStats: RouterOutputs['user']['getUserStats'] | null = null;
+
 	constructor() {
 		super();
 		this.titleSuffix = 'Home';
 
-		this.registerChildComponent(this.#loadingOverlays.activeGames);
 		this.registerChildComponent(this.#loadingOverlays.FriendRequests);
 		this.registerChildComponent(this.#loadingOverlays.last20Matches);
 		this.registerChildComponent(this.#loadingOverlays.pendingFriends);
 	}
 
 
+
 	async preRender() {
+		this.#userStats = await api.user.getUserStats.query();
 	}
 
 	async render() {
 		const userData = authManager.user;
+		const userStats = this.#userStats!;
 
 		return /*html*/`
 		<div class="flex flex-col w-full grow md:overflow-hidden">
 			<div class="flex flex-col items-center w-full grow md:grid md:grid-cols-5 overflow-hidden">
 				<div class="flex flex-col items-center overflow-y-auto md:overflow-y-hidden md:h-full md:overflow-hidden w-full text-center md:col-span-1 bg-zinc-900/50 overflow-hidden shrink-0">
-					<!-- User Profile -->
-					<div class="flex flex-col items-center w-full p-6 h-44 border-b border-b-white/15 bg-zinc-800/50 shrink-0 overflow-hidden">
-						<div class="relative">
+				<!-- User Profile (Mobile) -->
+				<div class="md:!hidden flex flex-col items-center w-full px-4 py-4 border-b border-white/15 bg-zinc-900/50">
+					<div class="flex flex-col items-center gap-2">
+						<div class="relative w-20 h-20 flex items-center justify-center">
 							<img src="${authManager.userImageUrl}"
-								 alt="User image"
-								 class="user-image w-24 h-24 rounded-full aspect-square object-cover shrink-0 ring-2 ring-amber-500/50 ring-offset-zinc-900">
+								alt="User image"
+								class="user-image w-20 h-20 rounded-full object-cover shrink-0 ring-2 ring-amber-500/50 ring-offset-zinc-900">
 							<div class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-green-500 border-2 border-zinc-900"></div>
 						</div>
-						<div class="w-full flex justify-center items-center overflow-hidden text-base font-bold">
-							<div class="user-username overflow-ellipsis line-clamp-1">
-								${userData?.username}
-							</div>
+						<div class="text-base font-bold truncate max-w-[180px] text-center">
+							${userData?.username}
 						</div>
 					</div>
+
+					<!-- Mobile Stats -->
+					<div class="user-stats-container grid grid-cols-6 gap-3 w-full mt-4 text-center">
+						<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-2">
+							<span class="text-lg font-semibold">${userStats.totalWins}</span>
+							<span class="text-xs text-gray-400 capitalize" data-i18n="${k('generic.wins')}">Wins</span>
+						</div>
+						<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-2">
+							<span class="text-lg font-semibold">${userStats.totalLosses}</span>
+							<span class="text-xs text-gray-400 capitalize" data-i18n="${k('generic.losses')}">Losses</span>
+						</div>
+						<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-2">
+							<span class="text-lg font-semibold">${userStats.tournamentsWon}</span>
+							<span class="text-xs text-gray-400 capitalize" data-i18n="${k('generic.tournaments_won')}">Tournaments Won</span>
+						</div>
+
+						<div class="flex flex-col items-center justify-center bg-black/30 rounded-md p-1 col-span-3">
+							<div class="progress-circle" style="--percent:${100};--size:42px;">
+								<span>${userStats.totalGames}</span>
+							</div>
+							<div class="text-xs text-gray-400 capitalize mt-1" data-i18n="${k('generic.played_games')}">Played Games</div>
+						</div>
+
+						<div class="flex flex-col items-center justify-center bg-black/30 rounded-md p-1 col-span-3">
+							<div class="progress-circle" style="--percent:${userStats.winRate};--size:42px;">
+								<span>${userStats.winRate}%</span>
+							</div>
+							<div class="text-xs text-gray-400 capitalize mt-1" data-i18n="${k('generic.win_rate')}">Win Rate</div>
+						</div>
+
+					</div>
+				</div>
 
 					<!-- Friends List -->
 					<div class="flex flex-col w-full grow border-b border-white/15 md:border-none relative md:overflow-hidden">
@@ -123,20 +156,55 @@ export class HomeController extends RouteController {
 
 				<!-- content -->
 				<div class="grow flex flex-col w-full text-center md:h-full md:col-span-4 md:border-l md:border-l-white/15 md:overflow-hidden">
-					<section class="hidden md:flex flex-col w-full justify-center h-44 px-4 pt-2 border-b border-b-white/15 shrink-0 relative overflow-x-auto">
-						<h4 class="capitalize font-bold" data-i18n="${k('generic.currently_active_games')}">Currently Active Games</h4>
-						<!-- Active games will be listed here -->
-						<ul id="${this.id}-active-games" class="flex flex-row gap-4 w-full items-center justify-center grow overflow-x-auto">
-							<span>N/A</span>
-						</ul>
+					<!-- User Profile -->
+					<section class="hidden md:flex justify-start gap-4 items-center px-6 py-3 border-b border-b-white/15 shrink-0 relative overflow-x-auto">
+						<div class="flex flex-col justify-start border-b-white/15 gap-2">
+							<div class="relative w-24 h-24 flex items-center justify-center">
+								<img src="${authManager.userImageUrl}"
+										alt="User image"
+										class="user-image w-24 h-24 rounded-full object-cover shrink-0 ring-2 ring-amber-500/50 ring-offset-zinc-900">
+								<div class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-green-500 border-2 border-zinc-900"></div>
+							</div>
+							<div class="flex justify-center items-center overflow-hidden text-base font-bold">
+								<div class="user-username overflow-ellipsis line-clamp-1">
+									${userData?.username}
+								</div>
+							</div>
+						</div>
+						<!-- User Stats (Desktop) -->
+						<div class="user-stats-container hidden md:grid grid-cols-6 gap-2 w-full text-center mt-4">
 
+							<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-lg col-span-2">
+								<span class="text-xl font-semibold">${userStats.totalWins}</span>
+								<span class="text-sm text-gray-400 capitalize " data-i18n="${k('generic.wins')}">Wins</span>
+							</div>
 
-						<!-- Loading Overlay -->
-						${await this.#loadingOverlays.activeGames.silentRender()}
+							<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-lg col-span-2">
+								<span class="text-xl font-semibold">${userStats.totalLosses}</span>
+								<span class="text-sm text-gray-400 capitalize" data-i18n="${k('generic.losses')}">Losses</span>
+							</div>
+							<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-lg col-span-2">
+								<span class="text-xl font-semibold">${userStats.tournamentsWon}</span>
+								<span class="text-sm text-gray-400 capitalize" data-i18n="${k('generic.tournaments_won')}">Tournaments Won</span>
+							</div>
+
+							<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-lg col-span-3">
+								<span class="text-xl font-semibold">${userStats.totalGames}</span>
+								<span class="text-sm text-gray-400 capitalize" data-i18n="${k('generic.played_games')}">Played Games</span>
+							</div>
+
+							<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-lg col-span-3">
+								<div class="progress-circle" style="--percent:${userStats.winRate};--size:64px;">
+									<span>${userStats.winRate}%</span>
+								</div>
+								<span class="text-sm text-gray-400 capitalize mt-2" data-i18n="${k('generic.win_rate')}">Win Rate</span>
+							</div>
+
+						</div>
 					</section>
 					<section class="flex flex-col md:flex-row grow bg-black md:overflow-hidden">
 						<div class="flex flex-col w-full md:w-1/5 min-w-[320px] bg-zinc-950 md:h-full p-2 min-h-32 relative">
-							<h4 class="capitalize font-bold" data-i18n="${k('generic.friend_requests')}">Friend Requests</h4>
+							<h4 class="capitalize font-bold" data-i18n="${k('generic.incomming_friend_requests')}">Incomming Friend Requests</h4>
 							<!-- FriendRequests will be listed here -->
 							<ul id="${this.id}-FriendRequests" class="grow flex flex-col w-full p-2 md:overflow-y-auto">
 							</ul>
@@ -145,7 +213,10 @@ export class HomeController extends RouteController {
 							${await this.#loadingOverlays.FriendRequests.silentRender()}
 						</div>
 						<div class="flex flex-col grow p-2 min-h-32 md:overflow-hidden relative">
-							<h4 class="capitalize font-bold" data-i18n="${k('generic.last_20_matches')}">Last 20 Matches</h4>
+							<div class="flex gap-1 items-center justify-center py-2">
+								<h4 class="capitalize font-bold" data-i18n="${k('generic.last_20_matches')}">Last 20 Matches</h4>
+								<span class="hidden last-20-matches-winrate"></span>
+							</div>
 							<!-- Game history will be listed here -->
 							<ul id="${this.id}-game-history" class="grow flex flex-col w-full p-2 md:overflow-y-auto">
 							</ul>
@@ -259,10 +330,6 @@ export class HomeController extends RouteController {
 		this.#updateFriendsCount();
 
 
-		// Active Games
-		this.#activeGamesContainer = document.querySelector(`#${this.id}-active-games`);
-		this.#fetchAndRenderActiveGames();
-
 		// FriendRequests
 		this.#FriendRequestsContainer = document.querySelector(`#${this.id}-FriendRequests`);
 		this.#fetchAndRenderFriendRequests();
@@ -359,6 +426,14 @@ export class HomeController extends RouteController {
 		if (!this.#last20MatchesContainer) return;
 
 		this.#last20MatchesContainer.innerHTML = ``;
+		const winRateElement = document.querySelector('.last-20-matches-winrate');
+		winRateElement?.classList.add('hidden');
+		if (matches.length > 0 && winRateElement) {
+			const wins = matches.reduce((acc, match) => acc + (match.result === 'W' ? 1 : 0), 0);
+			winRateElement.textContent = `(${Math.round(wins / matches.length * 100)}%)`;
+			winRateElement.classList.remove('hidden');
+		}
+
 		for (const match of matches) {
 			const matchElement = document.createElement('li');
 			matchElement.className = 'match-item group hover:bg-white/5 transition-colors even:bg-zinc-500/5';
@@ -405,62 +480,6 @@ export class HomeController extends RouteController {
 		updateDOMTranslations(this.#last20MatchesContainer);
 	}
 	// END LAST 20 MATCHES FUNCTIONS -------------------------------------------------------------------------------------
-
-
-	// ACTIVE GAMES FUNCTIONS ---------------------------------------------------------------------------------------
-	#activeGamesContainer: HTMLElement | null = null;
-	async #fetchAndRenderActiveGames() {
-		if (!this.#activeGamesContainer) return;
-		this.#loadingOverlays.activeGames.show();
-		const activeGames = await api.game.getActiveGames.query();
-		this.#renderActiveGames(activeGames);
-		this.#loadingOverlays.activeGames.hide();
-	}
-
-	#renderActiveGames(activeGames: RouterOutputs['game']['getActiveGames']) {
-		if (!this.#activeGamesContainer) return;
-
-		this.#activeGamesContainer.innerHTML = ``;
-		for (const game of activeGames) {
-			const gameElement = document.createElement('li');
-			gameElement.className = 'shrink-0 bg-black hover:bg-black/90 game-item group transition-colors rounded-lg even:bg-zinc-500/5 h-full flex items-center justify-center';
-			gameElement.id = `game-${game.id}`;
-			gameElement.innerHTML = /*html*/`
-			<div class="flex items-center justify-center px-1 py-2">
-				<div class="grid grid-cols-3 gap-1 items-center col-span-4">
-					<div class="flex flex-col justify-center items-center gap-1 text-xs">
-						<img src="${getProfilePictureUrlByUserId(game.leftPlayer.id)}"
-						 alt="${game.leftPlayer.username}'s avatar"
-						 class="w-6 h-6 rounded-full object-cover match-image ring-1 ring-white/10">
-						<span>${game.leftPlayer.username}</span>
-					</div>
-					<div class="text-base font-bold flex items-center justify-center">
-						<span class="${game.leftPlayerScore > game.rightPlayerScore ? 'text-green-500' : 'text-red-500'}">${game.leftPlayerScore}</span>
-						<span>:</span>
-						<span class="${game.leftPlayerScore > game.rightPlayerScore ? 'text-red-500' : 'text-green-500'}">${game.rightPlayerScore}</span>
-					</div>
-					<div class="flex flex-col justify-center items-center gap-1 text-xs">
-						<img src="${getProfilePictureUrlByUserId(game.rightPlayer.id)}"
-						 alt="${game.rightPlayer.username}'s avatar"
-						 class="w-6 h-6 rounded-full object-cover match-image ring-1 ring-white/10">
-						 <span>${game.rightPlayer.username}</span>
-					</div>
-				</div>
-			</div>
-		`;
-			this.#activeGamesContainer.appendChild(gameElement);
-		}
-		if (activeGames.length === 0) {
-			this.#activeGamesContainer.innerHTML = /*html*/ `
-				<div class="flex flex-col items-center justify-center w-full grow">
-					<span class="text-lg text-gray-400" data-i18n="${k('generic.no_games')}">No games found</span>
-				</div>
-			`;
-		}
-		updateDOMTranslations(this.#activeGamesContainer);
-	}
-
-	// END ACTIVE GAMES FUNCTIONS --------------------------------------------------------------------------------------
 
 	// FRRIENDREQUESTS FUNCTIONS -----------------------------------------------------------------------------------------
 	#FriendRequestsContainer: HTMLElement | null = null;
