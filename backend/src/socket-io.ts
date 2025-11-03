@@ -8,7 +8,7 @@ import { BracketGenerator } from '../game/bracketGenerator';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
-import { updateGameStats } from './utils/statsUtils';
+
 
 type SocketData = {
 	user: User;

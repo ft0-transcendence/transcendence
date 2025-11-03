@@ -2,7 +2,7 @@ import { OnlineGame } from "./onlineGame";
 import { GameUserInfo, GameStatus } from "./game";
 import { db } from "../src/trpc/db";
 import {  } from "../main";
-import { updateGameStats, updateTournamentWinnerStats } from "../src/utils/statsUtils";
+import { updateTournamentWinnerStats } from "../src/utils/statsUtils";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
@@ -68,11 +68,7 @@ export class TournamentGame extends OnlineGame {
                 return;
             }
 
-            // Update player statistics for tournament game
-            const loserId = this.scores.left > this.scores.right ? this.rightPlayer?.id : this.leftPlayer?.id;
-            if (loserId) {
-                await updateGameStats(db, winnerId, loserId);
-            }
+            // Statistics are now calculated dynamically from the database
 
             // Trova partita successiva
             const currentGame = await db.game.findUnique({

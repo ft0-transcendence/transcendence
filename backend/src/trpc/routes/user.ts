@@ -6,6 +6,50 @@ import { AppLanguage } from '../../../shared_exports';
 const MAX_PROFILE_PICTURE_SIZE_MB = 2.5;
 const MAX_PROFILE_PICTURE_SIZE_BYTES = MAX_PROFILE_PICTURE_SIZE_MB * 1024 * 1024;
 
+async function calculateUserStats(db: any, userId: string) {
+	const userGames = await db.game.findMany({
+		where: {
+			endDate: { not: null },
+			abortDate: null,
+			OR: [
+				{ leftPlayerId: userId },
+				{ rightPlayerId: userId }
+			]
+		},
+		select: {
+			leftPlayerId: true,
+			rightPlayerId: true,
+			leftPlayerScore: true,
+			rightPlayerScore: true
+		}
+	});
+
+	let totalWins = 0;
+	let totalLosses = 0;
+
+	for (const game of userGames) {
+		const isLeftPlayer = game.leftPlayerId === userId;
+		const userScore = isLeftPlayer ? game.leftPlayerScore : game.rightPlayerScore;
+		const opponentScore = isLeftPlayer ? game.rightPlayerScore : game.leftPlayerScore;
+
+		if (userScore > opponentScore) {
+			totalWins++;
+		} else if (userScore < opponentScore) {
+			totalLosses++;
+		}
+	}
+
+	const totalGames = totalWins + totalLosses;
+	const winRate = totalGames > 0 ? (totalWins / totalGames) * 100 : 0;
+
+	return {
+		totalWins,
+		totalLosses,
+		totalGames,
+		winRate: Math.round(winRate * 100) / 100 // Round to 2 decimal places
+	};
+}
+
 export const userRouter = t.router({
 	getUser: protectedProcedure
 		.query(async ({ctx}) => {
@@ -123,10 +167,8 @@ export const userRouter = t.router({
 			const user = await ctx.db.user.findUnique({
 				where: { id: ctx.user!.id },
 				select: {
-					totalWins: true,
-					totalLosses: true,
-					tournamentsWon: true,
-					username: true
+					username: true,
+					tournamentsWon: true
 				}
 			});
 
@@ -134,13 +176,12 @@ export const userRouter = t.router({
 				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
 			}
 
-			const totalGames = user.totalWins + user.totalLosses;
-			const winRate = totalGames > 0 ? (user.totalWins / totalGames) * 100 : 0;
+			const stats = await calculateUserStats(ctx.db, ctx.user!.id);
 
 			return {
-				...user,
-				totalGames,
-				winRate: Math.round(winRate * 100) / 100 // Round to 2 decimal places
+				username: user.username,
+				tournamentsWon: user.tournamentsWon,
+				...stats
 			};
 		}),
 
@@ -152,10 +193,8 @@ export const userRouter = t.router({
 			const user = await ctx.db.user.findUnique({
 				where: { id: input.userId },
 				select: {
-					totalWins: true,
-					totalLosses: true,
-					tournamentsWon: true,
-					username: true
+					username: true,
+					tournamentsWon: true
 				}
 			});
 
@@ -163,13 +202,12 @@ export const userRouter = t.router({
 				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
 			}
 
-			const totalGames = user.totalWins + user.totalLosses;
-			const winRate = totalGames > 0 ? (user.totalWins / totalGames) * 100 : 0;
+			const stats = await calculateUserStats(ctx.db, input.userId);
 
 			return {
-				...user,
-				totalGames,
-				winRate: Math.round(winRate * 100) / 100 // Round to 2 decimal places
+				username: user.username,
+				tournamentsWon: user.tournamentsWon,
+				...stats
 			};
 		})
 })
