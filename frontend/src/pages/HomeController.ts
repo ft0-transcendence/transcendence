@@ -67,7 +67,7 @@ export class HomeController extends RouteController {
 						</div>
 					</div>
 
-					<!-- Mobile Stats -->
+					<!-- User Stats (Mobile) -->
 					<div class="user-stats-container grid grid-cols-6 gap-3 w-full mt-4 text-center">
 						<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-2">
 							<span class="text-lg font-semibold">${userStats.totalWins}</span>
@@ -82,10 +82,8 @@ export class HomeController extends RouteController {
 							<span class="text-xs text-gray-400 capitalize" data-i18n="${k('generic.tournaments_won')}">Tournaments Won</span>
 						</div>
 
-						<div class="flex flex-col items-center justify-center bg-black/30 rounded-md p-1 col-span-3">
-							<div class="progress-circle" style="--percent:${100};--size:42px;">
-								<span>${userStats.totalGames}</span>
-							</div>
+						<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-3">
+							<span class="text-lg font-semibold">${userStats.totalGames}</span>
 							<div class="text-xs text-gray-400 capitalize mt-1" data-i18n="${k('generic.played_games')}">Played Games</div>
 						</div>
 
