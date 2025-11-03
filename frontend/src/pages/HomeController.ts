@@ -53,49 +53,48 @@ export class HomeController extends RouteController {
 		<div class="flex flex-col w-full grow md:overflow-hidden">
 			<div class="flex flex-col items-center w-full grow md:grid md:grid-cols-5 overflow-hidden">
 				<div class="flex flex-col items-center overflow-y-auto md:overflow-y-hidden md:h-full md:overflow-hidden w-full text-center md:col-span-1 bg-zinc-900/50 overflow-hidden shrink-0">
-				<!-- User Profile (Mobile) -->
-				<div class="md:!hidden flex flex-col items-center w-full px-4 py-4 border-b border-white/15 bg-zinc-900/50">
-					<div class="flex flex-col items-center gap-2">
-						<div class="relative w-20 h-20 flex items-center justify-center">
-							<img src="${authManager.userImageUrl}"
-								alt="User image"
-								class="user-image w-20 h-20 rounded-full object-cover shrink-0 ring-2 ring-amber-500/50 ring-offset-zinc-900">
-							<div class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-green-500 border-2 border-zinc-900"></div>
-						</div>
-						<div class="text-base font-bold truncate max-w-[180px] text-center">
-							${userData?.username}
-						</div>
-					</div>
-
-					<!-- User Stats (Mobile) -->
-					<div class="user-stats-container grid grid-cols-6 gap-3 w-full mt-4 text-center">
-						<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-2">
-							<span class="text-lg font-semibold">${userStats.totalWins}</span>
-							<span class="text-xs text-gray-400 capitalize" data-i18n="${k('generic.wins')}">Wins</span>
-						</div>
-						<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-2">
-							<span class="text-lg font-semibold">${userStats.totalLosses}</span>
-							<span class="text-xs text-gray-400 capitalize" data-i18n="${k('generic.losses')}">Losses</span>
-						</div>
-						<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-2">
-							<span class="text-lg font-semibold">${userStats.tournamentsWon}</span>
-							<span class="text-xs text-gray-400 capitalize" data-i18n="${k('generic.tournaments_won')}">Tournaments Won</span>
-						</div>
-
-						<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-3">
-							<span class="text-lg font-semibold">${userStats.totalGames}</span>
-							<div class="text-xs text-gray-400 capitalize mt-1" data-i18n="${k('generic.played_games')}">Played Games</div>
-						</div>
-
-						<div class="flex flex-col items-center justify-center bg-black/30 rounded-md p-1 col-span-3">
-							<div class="progress-circle" style="--percent:${userStats.winRate};--size:42px;">
-								<span>${userStats.winRate}%</span>
+					<!-- User Profile (Mobile) -->
+					<div class="md:!hidden flex flex-col items-center w-full px-4 py-4 border-b border-white/15 bg-zinc-900/50">
+						<div class="flex flex-col items-center gap-2">
+							<div class="relative w-20 h-20 flex items-center justify-center">
+								<img src="${authManager.userImageUrl}"
+									alt="User image"
+									class="user-image w-20 h-20 rounded-full object-cover shrink-0 ring-2 ring-amber-500/50 ring-offset-zinc-900">
+								<div class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-green-500 border-2 border-zinc-900"></div>
 							</div>
-							<div class="text-xs text-gray-400 capitalize mt-1" data-i18n="${k('generic.win_rate')}">Win Rate</div>
+							<div class="text-base font-bold truncate max-w-[180px] text-center">
+								${userData?.username}
+							</div>
 						</div>
 
+						<!-- User Stats (Mobile) -->
+						<div class="user-stats-container grid grid-cols-6 gap-3 w-full mt-4 text-center">
+							<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-2">
+								<span class="text-lg font-semibold">${userStats.totalWins}</span>
+								<span class="text-xs text-gray-400 capitalize" data-i18n="${k('generic.wins')}">Wins</span>
+							</div>
+							<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-2">
+								<span class="text-lg font-semibold">${userStats.totalLosses}</span>
+								<span class="text-xs text-gray-400 capitalize" data-i18n="${k('generic.losses')}">Losses</span>
+							</div>
+							<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-2">
+								<span class="text-lg font-semibold">${userStats.tournamentsWon}</span>
+								<span class="text-xs text-gray-400 capitalize" data-i18n="${k('generic.tournaments_won')}">Tournaments Won</span>
+							</div>
+
+							<div class="flex flex-col items-center justify-center p-2 bg-black/30 rounded-md col-span-3">
+								<span class="text-lg font-semibold">${userStats.totalGames}</span>
+								<div class="text-xs text-gray-400 capitalize mt-1" data-i18n="${k('generic.played_games')}">Played Games</div>
+							</div>
+
+							<div class="flex flex-col items-center justify-center bg-black/30 rounded-md p-1 col-span-3">
+								<div class="progress-circle" style="--percent:${userStats.winRate};--size:42px;">
+									<span>${userStats.winRate}%</span>
+								</div>
+								<div class="text-xs text-gray-400 capitalize mt-1" data-i18n="${k('generic.win_rate')}">Win Rate</div>
+							</div>
+						</div>
 					</div>
-				</div>
 
 					<!-- Friends List -->
 					<div class="flex flex-col w-full grow border-b border-white/15 md:border-none relative md:overflow-hidden">
