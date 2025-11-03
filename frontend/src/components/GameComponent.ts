@@ -221,6 +221,7 @@ export class GameComponent extends ComponentController {
 			this.#destroyGameEventListeners();
 			this.#unsubscribeFromSocketEvents(this.#props.socketConnection);
 			this.#gameFinished = true;
+			document.querySelector(`${this.id}-exit-container`)?.classList.remove('!hidden');
 		}
 	}
 
@@ -236,13 +237,13 @@ export class GameComponent extends ComponentController {
 
 	public showError(error: string) {
 		toast.error('Error', error);
-		const errorContainer = document.getElementById(`${this.id}-error-container`)!;
+		const errorContainer = document.getElementById(`${this.id}-exit-container`)!;
 		const errorMessage = document.getElementById(`${this.id}-error-message`)!;
 		errorContainer.classList.remove('!hidden');
 		errorMessage.innerHTML = error;
 	}
 	public hideError() {
-		const errorContainer = document.getElementById(`${this.id}-error-container`)!;
+		const errorContainer = document.getElementById(`${this.id}-exit-container`)!;
 		errorContainer.classList.add('!hidden');
 	}
 
@@ -452,12 +453,13 @@ export class GameComponent extends ComponentController {
 					<div id="${this.id}-game-overlay-message-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
 					</div>
 				</div>
-				<div id="${this.id}-error-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
+				<div id="${this.id}-exit-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
 					<h4 id="${this.id}-error-message" class="text-red-500"></h4>
 
 					<a href="/play" data-route="/play" class="route-link nav-route" data-i18n="${k('generic.go_back')}">
 						Go back
 					</a>
+
 				</div>
 
 				<!-- Mobile Controls -->
