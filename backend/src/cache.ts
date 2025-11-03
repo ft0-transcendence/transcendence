@@ -5,7 +5,7 @@ import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
 import { db } from "./trpc/db";
 import { fastify } from "../main";
-import { updateGameStats } from "./utils/statsUtils";
+
 
 export type Cache = {
 	matchmaking: {
@@ -105,13 +105,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 					data: updateData,
 				});
 
-				// Update player statistics only if game was not aborted
-				if (!isAborted) {
-					const winnerId = state.scores.left > state.scores.right ? game.leftPlayerId : game.rightPlayerId;
-					const loserId = state.scores.left > state.scores.right ? game.rightPlayerId : game.leftPlayerId;
-					
-					await updateGameStats(db, winnerId, loserId);
-				}
+				// Statistics are now calculated dynamically from the database
 
 				cache.active_1v1_games.delete(game.id);
 				fastify.log.info("VS Game %s persisted and removed from cache.", game.id);
