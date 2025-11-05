@@ -87,6 +87,7 @@ model TournamentParticipant {
 }
 
 enum GameType {
+	AI
     VS
     TOURNAMENT
 }

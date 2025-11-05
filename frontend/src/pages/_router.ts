@@ -12,6 +12,9 @@ import { OnlineMatchmakingController } from "./play/online/1v1/OnlineMatchmaking
 import { OnlineVersusGameController } from "./play/online/1v1/OnlineVersusGameController";
 import { LocalVersusAiGameController } from "./play/local/LocalVersusAiGameController";
 import { LocalVersusPlayerGameController } from "./play/local/LocalVersusPlayerGameController";
+import { TournamentsListController as OnlineTournamentsListController } from "./play/online/tournament/OnlineTournamentsListController";
+import { OnlineTournamentDetailsController } from "./play/online/tournament/OnlineTournamentDetailsController";
+import { OnlineTournamentGameController } from "./play/online/tournament/OnlineTournamentGameController";
 
 export type Route = {
 	path: string;
@@ -46,16 +49,6 @@ const routes: Route[] = [
 		newLayout: () => new BaseLayout(),
 	},
 	{
-		path: '/tournaments',
-		newController: () => new TournamentsController(),
-		newLayout: () => new BaseLayout(),
-	},
-	// {
-	// 	path: '/tournament/:id',
-	// 	newController: () => new TournamentController(),
-	// 	newLayout: () => new BaseLayout(),
-	// },
-	{
 		path: '/play',
 		newController: () => new GameSelectorController(),
 		newLayout: () => new BaseLayout(),
@@ -81,6 +74,21 @@ const routes: Route[] = [
 		newController: (params) => new OnlineVersusGameController(params),
 		newLayout: () => new BaseLayout(),
 		authRequired: true,
+	},
+	{
+		path: '/play/online/tournaments',
+		newController: () => new OnlineTournamentsListController(),
+		newLayout: () => new BaseLayout(),
+	},
+	{
+		path: '/play/online/tournaments/:tournamentId',
+		newController: (params) => new OnlineTournamentDetailsController(params),
+		newLayout: () => new BaseLayout(),
+	},
+	{
+		path: '/play/online/tournaments/:tournamentId/:gameId',
+		newController: (params) => new OnlineTournamentGameController(params),
+		newLayout: () => new BaseLayout(),
 	},
 	{
 		path: '/settings',
