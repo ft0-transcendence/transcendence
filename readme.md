@@ -174,10 +174,11 @@ npm run build
 
 ## Run on production
 
+### Local production (without Docker)
+
 ```bash
 npm run start
 ```
-
 
 If you want to run the backend only, run
 
@@ -189,6 +190,23 @@ If you want to run the frontend only, run
 
 ```bash
 npm run start:frontend
+```
+
+### Docker production
+
+If you want to run the application with Docker and HTTPS
+
+```bash
+docker compose up --build -d
+```
+
+The application will be available at `https://localhost`
+
+The SSL certificates are automatically generated on first run and stored in a Docker volume. To regenerate them, remove the volume:
+
+```bash
+docker compose down -v
+docker compose up --build -d
 ```
 
 ---
