@@ -42,7 +42,7 @@ export const en = {
 		remove_friend_success: 'Friend removed successfully',
 		hide: 'Hide',
 		show: 'Show',
-		sent_friend_requests: 'Sent requests',
+		sent_friend_requests: 'Sent Friend Requests',
 		cancel_friend_request: 'Cancel Friend Request',
 		cancel_friend_request_confirm: 'Are you sure you want to cancel this friend request from your friends list? This action cannot be undone.',
 		wins: 'Wins',

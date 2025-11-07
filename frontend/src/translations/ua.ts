@@ -43,7 +43,7 @@ export const ua: TranslationSchema = {
 		remove_friend_success: 'Друг успішно видалений',
 		hide: 'Сховати',
 		show: 'Показати',
-		sent_friend_requests: 'Відправлені запити',
+		sent_friend_requests: 'Відправлені запити на дружбу',
 		cancel_friend_request: 'Скасувати запит на дружбу',
 		cancel_friend_request_confirm: 'Ви впевнені, що хочете скасувати цей запит на дружбу з вашого списку друзів? Цю дію неможливо скасувати.',
 		wins: 'Перемоги',

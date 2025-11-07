@@ -19,13 +19,13 @@ export class HomeController extends RouteController {
 	#friendsListContainer: HTMLElement | null = null;
 
 	#loadingOverlays: {
-		FriendRequests: LoadingOverlay,
+		incomingFriendRequests: LoadingOverlay,
+		sentFriendRequests: LoadingOverlay,
 		last20Matches: LoadingOverlay,
-		pendingFriends: LoadingOverlay,
 	} = {
-			FriendRequests: new LoadingOverlay('FriendRequests'),
+			incomingFriendRequests: new LoadingOverlay('FriendRequests'),
+			sentFriendRequests: new LoadingOverlay('sent-friend-requests'),
 			last20Matches: new LoadingOverlay('last-20-matches'),
-			pendingFriends: new LoadingOverlay('pending-friends'),
 		}
 
 	#userStats: RouterOutputs['user']['getUserStats'] | null = null;
@@ -34,9 +34,9 @@ export class HomeController extends RouteController {
 		super();
 		this.titleSuffix = 'Home';
 
-		this.registerChildComponent(this.#loadingOverlays.FriendRequests);
+		this.registerChildComponent(this.#loadingOverlays.incomingFriendRequests);
 		this.registerChildComponent(this.#loadingOverlays.last20Matches);
-		this.registerChildComponent(this.#loadingOverlays.pendingFriends);
+		this.registerChildComponent(this.#loadingOverlays.sentFriendRequests);
 	}
 
 
@@ -52,7 +52,7 @@ export class HomeController extends RouteController {
 		return /*html*/`
 		<div class="flex flex-col w-full grow md:overflow-hidden">
 			<div class="flex flex-col items-center w-full grow md:grid md:grid-cols-5 overflow-hidden">
-				<div class="flex flex-col items-center overflow-y-auto md:overflow-y-hidden md:h-full md:overflow-hidden w-full text-center md:col-span-1 bg-zinc-900/50 overflow-hidden shrink-0">
+				<div class="flex flex-col items-center overflow-y-auto md:overflow-y-hidden md:h-full md:overflow-hidden w-full md:col-span-1 bg-zinc-900/50 overflow-hidden shrink-0">
 					<!-- User Profile (Mobile) -->
 					<div class="md:!hidden flex flex-col items-center w-full px-4 py-4 border-b border-white/15 bg-zinc-900/50">
 						<div class="flex flex-col items-center gap-2">
@@ -89,35 +89,35 @@ export class HomeController extends RouteController {
 
 							<div class="flex flex-col items-center justify-center bg-black/30 rounded-md p-1 col-span-3">
 								<div class="progress-circle" style="--percent:${userStats.winRate};--size:42px;">
-									<span>${userStats.winRate}%</span>
+									<span style="font-size: 0.69rem;">${userStats.winRate}%</span>
 								</div>
 								<div class="text-xs text-gray-400 capitalize mt-1" data-i18n="${k('generic.win_rate')}">Win Rate</div>
 							</div>
 						</div>
 					</div>
 
-					<!-- Friends List -->
-					<div class="flex flex-col w-full grow border-b border-white/15 md:border-none relative md:overflow-hidden">
-						<div class="flex items-center justify-between bg-black/50 p-4 overflow-y-hidden">
-							<div class="flex items-center gap-2">
-								<h2 class="capitalize text-md xl:text-lg font-semibold text-gray-300" data-i18n="${k('generic.friends')}">Friends</h2>
-								<button id="${this.id}-add-friend-btn"
-										class="cursor-pointer w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
-										title="${t('generic.add_friend')}">
-									<i class="toggle-friend-add-icon fa fa-plus text-sm"></i>
-								</button>
-							</div>
+					<div class="flex flex-col w-full relative md:overflow-hidden grow">
+						<div class="flex flex-col justify-center bg-neutral-950 gap-1 p-4 overflow-y-hidden">
+							<div class="flex items-center gap-2 justify-between">
+								<h2 class="capitalize text-md font-semibold text-gray-300 text-left" data-i18n="${k('generic.friends')}">Friends</h2>
 
-
-							<div class="flex grow justify-end gap-2">
 								<div class="text-xs xl:text-sm text-gray-400">
 									<span class="friends-count">0</span>
 									<span data-i18n="${k('generic.online')}">ONLINE</span>
 								</div>
+							</div>
+
+
+							<div class="flex grow justify-between gap-2">
+								<button id="${this.id}-add-friend-btn"
+										class="cursor-pointer w-6 h-6 mx-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+										title="${t('generic.add_friend')}">
+									<i class="toggle-friend-add-icon fa fa-plus text-sm"></i>
+								</button>
 
 								<div class="text-xs font-bold flex justify-end items-center">
-									<button class="toggle-friends show-friends uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400 hidden" data-i18n="${k('generic.show')}">Show</button>
-									<button class="toggle-friends hide-friends uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400" data-i18n="${k('generic.hide')}">Hide</button>
+									<button class="toggle-my-friends show uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400 hidden" data-i18n="${k('generic.show')}">Show</button>
+									<button class="toggle-my-friends hide uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400" data-i18n="${k('generic.hide')}">Hide</button>
 								</div>
 							</div>
 						</div>
@@ -129,25 +129,8 @@ export class HomeController extends RouteController {
 							</div>
 						</form>
 
-						<ul id="${this.id}-friends-list" class="flex flex-col gap-2 w-full grow overflow-y-auto xl:px-4 py-2"></ul>
-
-						<div class="md:grow"></div>
-
-						<div class="flex flex-col md:overflow-hidden min-h-0">
-							<div class="flex items-center p-4 bg-black/50 border-t border-white/15">
-								<h2 class="capitalize text-md xl:text-lg font-semibold text-gray-300" data-i18n="${k('generic.sent_friend_requests')}">Sent requests</h2>
-								<div class="flex grow justify-end items-center text-xs font-bold">
-									<button class="toggle-pending-friends show-pending-friends uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400 hidden" data-i18n="${k('generic.show')}">Show</button>
-									<button class="toggle-pending-friends hide-pending-friends uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400" data-i18n="${k('generic.hide')}">Hide</button>
-								</div>
-							</div>
-
-							<ul id="${this.id}-pending-friends-list" class="flex flex-col gap-2 w-full grow overflow-y-auto px-4 py-2 empty:!p-0"></ul>
-						</div>
-
-
-						<!-- Loading Overlay -->
-						${await this.#loadingOverlays.pendingFriends.silentRender()}
+						<!-- Friends List -->
+						<ul id="${this.id}-friends-list" class="flex flex-col gap-2 w-full grow overflow-y-auto xl:px-4 py-2 text-center bg-neutral-950/20 max-h-72 md:max-h-none"></ul>
 					</div>
 				</div>
 
@@ -199,17 +182,43 @@ export class HomeController extends RouteController {
 
 						</div>
 					</section>
-					<section class="flex flex-col md:flex-row grow bg-black md:overflow-hidden">
-						<div class="flex flex-col w-full md:w-1/5 min-w-[320px] bg-zinc-950 md:h-full p-2 min-h-32 relative">
-							<h4 class="capitalize font-bold" data-i18n="${k('generic.incomming_friend_requests')}">Incoming Friend Requests</h4>
-							<!-- FriendRequests will be listed here -->
-							<ul id="${this.id}-FriendRequests" class="grow flex flex-col w-full p-2 md:overflow-y-auto">
-							</ul>
+					<section class="flex flex-col md:flex-row grow md:overflow-hidden">
+						<div class="flex flex-col md:overflow-hidden min-h-0 md:min-h-32 w-full md:w-1/5 min-w-[320px] relative md:h-full">
+							<div class="incomming-friend-requests-container flex flex-col overflow-hidden">
+								<div class="flex items-center p-4 bg-neutral-950 border-t md:border-t-0 border-white/15 shrink-0">
+									<h2 class="capitalize text-md font-semibold text-gray-300 text-left" data-i18n="${k('generic.incoming_friend_requests')}">Incoming Friend Requests</h2>
+									<div class="flex grow justify-end items-center text-xs font-bold">
+										<button class="toggle-incoming-friend-requests show uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400 hidden" data-i18n="${k('generic.show')}">Show</button>
+										<button class="toggle-incoming-friend-requests hide uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400" data-i18n="${k('generic.hide')}">Hide</button>
+									</div>
+								</div>
 
-							<!-- Loading Overlay -->
-							${await this.#loadingOverlays.FriendRequests.silentRender()}
+								<ul id="${this.id}-incomming-friend-requests-list" class="flex flex-col gap-2 w-full grow overflow-y-auto px-4 py-2 empty:!p-0 bg-neutral-950/20 max-h-72 md:max-h-none"></ul>
+
+
+								<!-- Loading Overlay -->
+								${await this.#loadingOverlays.incomingFriendRequests.silentRender()}
+							</div>
+							<div class="sent-friend-requests-container flex flex-col overflow-hidden">
+								<div class="flex flex-col md:overflow-hidden min-h-0 relative">
+									<div class="flex items-center p-4 bg-neutral-950 border-t border-white/15">
+										<h2 class="capitalize text-md font-semibold text-gray-300 text-left" data-i18n="${k('generic.sent_friend_requests')}">Sent requests</h2>
+										<div class="flex grow justify-end items-center text-xs font-bold">
+											<button class="toggle-sent-friend-requests show uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400 hidden" data-i18n="${k('generic.show')}">Show</button>
+											<button class="toggle-sent-friend-requests hide uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400" data-i18n="${k('generic.hide')}">Hide</button>
+										</div>
+									</div>
+
+									<ul id="${this.id}-sent-friend-requests-list" class="flex flex-col gap-2 w-full grow overflow-y-auto px-4 py-2 empty:!p-0 text-center bg-neutral-950/20 max-h-72 md:max-h-none"></ul>
+
+									<!-- Loading Overlay -->
+									${await this.#loadingOverlays.sentFriendRequests.silentRender()}
+								</div>
+							</div>
 						</div>
-						<div class="flex flex-col grow p-2 min-h-32 md:overflow-hidden relative">
+
+
+						<div class="flex flex-col grow p-2 min-h-32 md:overflow-hidden relative bg-black">
 							<div class="flex gap-1 items-center justify-center py-2">
 								<h4 class="capitalize font-bold" data-i18n="${k('generic.last_20_matches')}">Last 20 Matches</h4>
 								<span class="hidden last-20-matches-winrate"></span>
@@ -242,19 +251,19 @@ export class HomeController extends RouteController {
 		this.#friendsListContainer = document.querySelector(`#${this.id}-friends-list`);
 		this.#baseSocket = authManager.getBaseSocketConnection();
 		if (this.#baseSocket) {
-			this.#loadingOverlays.pendingFriends.show();
+			this.#loadingOverlays.sentFriendRequests.show();
 			const currentFriends = authManager.friendsList;
 			for (const friend of currentFriends) {
 				this.#upsertFriend(friend);
 			}
-			this.#loadingOverlays.pendingFriends.hide();
+			this.#loadingOverlays.sentFriendRequests.hide();
 			this.#baseSocket.on('friends-list', (friendsList) => {
 				console.debug('Friends list updated', friendsList);
-				this.#loadingOverlays.pendingFriends.show();
+				this.#loadingOverlays.sentFriendRequests.show();
 				for (const friend of friendsList) {
 					this.#upsertFriend(friend);
 				}
-				this.#loadingOverlays.pendingFriends.hide();
+				this.#loadingOverlays.sentFriendRequests.hide();
 			});
 			this.#baseSocket.on('friend-updated', (friend) => {
 				console.debug('Friend updated', friend);
@@ -268,14 +277,18 @@ export class HomeController extends RouteController {
 				this.#removeFriendFromList(data.friendId);
 				if (data.message) {
 					toast.info(t('generic.friends'), data.message);
-					this.#removePendingFriendFromList(data.friendId);
+					this.#removeSentFriendRequestFromList(data.friendId);
 					this.#removeFriendFromList(data.friendId);
-					this.#removeFriendFromRequestsList(data.friendId);
+					this.#removeIncomingFriendRequestFromList(data.friendId);
 				}
 			});
 			this.#baseSocket.on('friend-request-received', (friendRequest) => {
 				console.debug('Friend request received', friendRequest);
-				this.#renderFriendRequest(friendRequest);
+				const friendElement = this.#createIncomingFriendRequestItem(friendRequest);
+				if (this.#incomingFriendRequestsContainer && friendElement) {
+					this.#incomingFriendRequestsContainer.appendChild(friendElement);
+					updateDOMTranslations(this.#incomingFriendRequestsContainer);
+				}
 				if (friendRequest.message) {
 					toast.info(t('generic.friend_requests'), friendRequest.message);
 				}
@@ -284,24 +297,24 @@ export class HomeController extends RouteController {
 				console.debug('Friend request sent', data);
 				if (data.message) {
 					toast.success(t('generic.friend_requests'), data.message);
-					this.#upsertPendingFriend(data);
+					this.#upsertSentFriendRequestItem(data);
 				}
 			});
 			this.#baseSocket.on('friend-request-accepted', (data) => {
 				console.debug('Friend request accepted', data);
 				if (data.message) {
 					toast.success(t('generic.friend_requests'), data.message);
-					this.#removeFriendFromRequestsList(data.friendRelationId);
-					this.#removePendingFriendFromList(data.friendRelationId);
+					this.#removeIncomingFriendRequestFromList(data.friendRelationId);
+					this.#removeSentFriendRequestFromList(data.friendRelationId);
 				}
 			});
 			this.#baseSocket.on('friend-request-rejected', (data) => {
 				console.debug('Friend request rejected', data);
 				if (data.message) {
 					toast.info(t('generic.friend_requests'), data.message);
-					this.#removePendingFriendFromList(data.friendRelationId);
+					this.#removeSentFriendRequestFromList(data.friendRelationId);
 					this.#removeFriendFromList(data.friendRelationId);
-					this.#removeFriendFromRequestsList(data.friendRelationId);
+					this.#removeIncomingFriendRequestFromList(data.friendRelationId);
 				}
 			});
 			this.#baseSocket.on('friend-request-rejected-by-me', (data) => {
@@ -312,8 +325,8 @@ export class HomeController extends RouteController {
 			});
 			this.#baseSocket.on('pending-friend-removed', (data) => {
 				console.debug('Pending friend removed', data);
-				this.#removePendingFriendFromList(data.friendId);
-				this.#removeFriendFromRequestsList(data.friendId);
+				this.#removeSentFriendRequestFromList(data.friendId);
+				this.#removeIncomingFriendRequestFromList(data.friendId);
 				if (data.message) {
 					toast.info(t('generic.friend_requests'), data.message);
 				}
@@ -322,38 +335,41 @@ export class HomeController extends RouteController {
 			console.warn('No socket connection. Something weird happened...');
 		}
 
-		this.#pendingFriendsListContainer = document.querySelector(`#${this.id}-pending-friends-list`);
 
 		this.#updateFriendsCount();
 
 
-		// FriendRequests
-		this.#FriendRequestsContainer = document.querySelector(`#${this.id}-FriendRequests`);
-		this.#fetchAndRenderFriendRequests();
+		// Incoming Friend Requests
+		this.#incomingFriendRequestsContainer = document.querySelector(`#${this.id}-incomming-friend-requests-list`);
+		this.#fetchAndRenderIncomingFriendRequests();
+		document.querySelectorAll('.toggle-incoming-friend-requests')?.forEach(btn => btn.addEventListener('click', this.toggleIncomingFriendRequestsVisibilityClickEvent));
+
 
 		// Last 20 Matches
 		this.#last20MatchesContainer = document.querySelector(`#${this.id}-game-history`);
 		this.#fetchAndRenderLast20Matches();
 
-		// Friends List
-		document.querySelectorAll('.toggle-friends')?.forEach(btn => btn.addEventListener('click', this.toggleFriendsVisibilityClickEvent));
+		// My Friends List
+		document.querySelectorAll('.toggle-my-friends')?.forEach(btn => btn.addEventListener('click', this.toggleFriendsVisibilityClickEvent));
 
-		// Pending Friends
+		// Sent Friend Requests
+		this.#sentFriendRequestsListContainer = document.querySelector(`#${this.id}-sent-friend-requests-list`);
 		this.#fetchAndRenderPendingFriends();
-		document.querySelectorAll('.toggle-pending-friends')?.forEach(btn => btn.addEventListener('click', this.togglePendingFriendsVisibilityClickEvent));
+		document.querySelectorAll('.toggle-sent-friend-requests')?.forEach(btn => btn.addEventListener('click', this.toggleSentFriendsVisibilityClickEvent));
 	}
 
 	async destroy() {
 		this.#friendsListContainer?.querySelectorAll('.friend-remove-btn')?.forEach(btn => btn.removeEventListener('click', this.onDeleteFriendClickEvent));
 
-		document.querySelectorAll('.toggle-friends')?.forEach(btn => btn.removeEventListener('click', this.toggleFriendsVisibilityClickEvent));
+		document.querySelectorAll('.toggle-my-friends')?.forEach(btn => btn.removeEventListener('click', this.toggleFriendsVisibilityClickEvent));
 
-		document.querySelectorAll('.toggle-pending-friends')?.forEach(btn => btn.removeEventListener('click', this.togglePendingFriendsVisibilityClickEvent));
+		document.querySelectorAll('.toggle-sent-friend-requests')?.forEach(btn => btn.removeEventListener('click', this.toggleSentFriendsVisibilityClickEvent));
+		document.querySelectorAll('.toggle-incoming-friend-requests')?.forEach(btn => btn.removeEventListener('click', this.toggleIncomingFriendRequestsVisibilityClickEvent));
 
-		const eventsToUnsubscribe = ['friends-list', 'friend-updated', 'friend-removed', 'friend-request-received', 'friend-request-sent', 'friend-request-accepted', 'friend-request-rejected', 'friend-request-rejected-by-me', 'pending-friend-removed']
+		const socketEventsToUnsubscribe = ['friends-list', 'friend-updated', 'friend-removed', 'friend-request-received', 'friend-request-sent', 'friend-request-accepted', 'friend-request-rejected', 'friend-request-rejected-by-me', 'pending-friend-removed']
 
 		if (this.#baseSocket) {
-			for (const event of eventsToUnsubscribe) {
+			for (const event of socketEventsToUnsubscribe) {
 				this.#baseSocket.off(event);
 			}
 		}
@@ -410,7 +426,7 @@ export class HomeController extends RouteController {
 	}
 
 
-	// LAST 20 MATCHES FUNCTIONS ---------------------------------------------------------------------------------------
+	// START LAST 20 MATCHES FUNCTIONS ---------------------------------------------------------------------------------------
 	#last20MatchesContainer: HTMLElement | null = null;
 	async #fetchAndRenderLast20Matches() {
 		if (!this.#last20MatchesContainer) return;
@@ -478,33 +494,42 @@ export class HomeController extends RouteController {
 	}
 	// END LAST 20 MATCHES FUNCTIONS -------------------------------------------------------------------------------------
 
-	// FRRIENDREQUESTS FUNCTIONS -----------------------------------------------------------------------------------------
-	#FriendRequestsContainer: HTMLElement | null = null;
-	async #fetchAndRenderFriendRequests() {
-		if (!this.#FriendRequestsContainer) return;
-		this.#loadingOverlays.FriendRequests.show();
+	// START INCOMING FRIEND REQUESTS FUNCTIONS -----------------------------------------------------------------------------------------
+	#incomingFriendRequestsContainer: HTMLElement | null = null;
+	#incommingFriendRequestsVisible: boolean = true;
+
+
+	async #fetchAndRenderIncomingFriendRequests() {
+		if (!this.#incomingFriendRequestsContainer) return;
+		this.#loadingOverlays.incomingFriendRequests.show();
 		const pendingFriendsRequests = await api.friendship.getPendingRequests.query();
-		this.#renderFriendRequests(pendingFriendsRequests);
-		this.#loadingOverlays.FriendRequests.hide();
+		this.#renderFriendIncomingRequests(pendingFriendsRequests);
+		this.#loadingOverlays.incomingFriendRequests.hide();
 	}
-	#renderFriendRequests(pendingFriendsRequests: RouterOutputs['friendship']['getPendingRequests']) {
-		if (!this.#FriendRequestsContainer) return;
-		this.#FriendRequestsContainer.innerHTML = ``;
+	#renderFriendIncomingRequests(pendingFriendsRequests: RouterOutputs['friendship']['getPendingRequests']) {
+		if (!this.#incomingFriendRequestsContainer) return;
+		this.#incomingFriendRequestsContainer.innerHTML = ``;
 		for (const friendRequest of pendingFriendsRequests) {
-			this.#renderFriendRequest(friendRequest);
+			const friendElement = this.#createIncomingFriendRequestItem(friendRequest);
+
+			if (friendElement){
+				this.#incomingFriendRequestsContainer.appendChild(friendElement);
+				updateDOMTranslations(this.#incomingFriendRequestsContainer);
+			}
+
 		}
 		if (pendingFriendsRequests.length === 0) {
-			this.#FriendRequestsContainer.innerHTML = /*html*/`
-				<div class="flex flex-col items-center justify-center w-full grow">
-					<span class="text-lg text-gray-400" data-i18n="${k('generic.no_friend_requests')}">Nothing here</span>
-				</div>
-			`;
+			// this.#incomingFriendRequestsContainer.innerHTML = /*html*/`
+			// 	<div class="flex flex-col items-center justify-center w-full grow">
+			// 		<span class="text-lg text-gray-400" data-i18n="${k('generic.no_friend_requests')}">Nothing here</span>
+			// 	</div>
+			// `;
 		}
-		updateDOMTranslations(this.#FriendRequestsContainer);
+		updateDOMTranslations(this.#incomingFriendRequestsContainer);
 	}
 
-	#renderFriendRequest(friendRequest: RouterOutputs['friendship']['getPendingRequests'][number]) {
-		if (!this.#FriendRequestsContainer) return;
+	#createIncomingFriendRequestItem(friendRequest: RouterOutputs['friendship']['getPendingRequests'][number]) {
+		if (!this.#incomingFriendRequestsContainer) return null;
 
 		const friendElement = document.createElement('li');
 		friendElement.className = `friend-item group ${isMobile() ? 'even:bg-white/5' : 'hover:bg-white/5'} transition-colors rounded-lg`;
@@ -533,10 +558,8 @@ export class HomeController extends RouteController {
 			</div>
 		`;
 
-		this.#FriendRequestsContainer.appendChild(friendElement);
-
 		friendElement.querySelector('.accept-friend-btn')?.addEventListener('click', () => {
-			this.#acceptFriendRequest({ requestId: friendRequest.id })
+			this.#acceptIncomingFriendRequest({ requestId: friendRequest.id })
 				.then(result => {
 					if (result) {
 						friendElement.remove();
@@ -544,18 +567,18 @@ export class HomeController extends RouteController {
 				});
 		}, { once: true });
 		friendElement.querySelector('.reject-friend-btn')?.addEventListener('click', () => {
-			this.#rejectFriendRequest({ requestId: friendRequest.id })
+			this.#rejectIncomingFriendRequest({ requestId: friendRequest.id })
 				.then(result => {
 					if (result) {
 						friendElement.remove();
 					}
 				});
 		}, { once: true });
-		updateDOMTranslations(this.#FriendRequestsContainer);
 
+		return friendElement;
 	}
 
-	async #acceptFriendRequest(dto: RouterInputs['friendship']['acceptFriendRequest']) {
+	async #acceptIncomingFriendRequest(dto: RouterInputs['friendship']['acceptFriendRequest']) {
 		try {
 			const result = await api.friendship.acceptFriendRequest.mutate(dto);
 			console.debug('Friend request accepted', result);
@@ -577,7 +600,7 @@ export class HomeController extends RouteController {
 		}
 		return false;
 	}
-	async #rejectFriendRequest(dto: RouterInputs['friendship']['rejectFriendRequest']) {
+	async #rejectIncomingFriendRequest(dto: RouterInputs['friendship']['rejectFriendRequest']) {
 		try {
 			const result = await api.friendship.rejectFriendRequest.mutate(dto);
 			console.debug('Friend request rejected', result);
@@ -600,7 +623,7 @@ export class HomeController extends RouteController {
 		return false;
 	}
 
-	#removeFriendFromRequestsList(friendId: string) {
+	#removeIncomingFriendRequestFromList(friendId: string) {
 		const friendElement = document.querySelector(`.friend-item[data-userid="${friendId}"]`);
 		if (friendElement) {
 			friendElement.remove();
@@ -608,8 +631,21 @@ export class HomeController extends RouteController {
 		}
 	}
 
+	private toggleIncomingFriendRequestsVisibilityClickEvent = this.#toggleIncomingFriendRequestsVisibility.bind(this);
+	#toggleIncomingFriendRequestsVisibility() {
+		const showIncomingFriendRequests = document.querySelector('.toggle-incoming-friend-requests.show');
+		const hideIncomingFriendRequests = document.querySelector('.toggle-incoming-friend-requests.hide');
 
-	// END FRIEND REQUESTS FUNCTIONS -------------------------------------------------------------------------------------
+		this.#incommingFriendRequestsVisible = !this.#incommingFriendRequestsVisible;
+
+		showIncomingFriendRequests?.classList.toggle('hidden', this.#incommingFriendRequestsVisible);
+		hideIncomingFriendRequests?.classList.toggle('hidden', !this.#incommingFriendRequestsVisible);
+		document.querySelector('.toggle-incoming-friend-requests-divider')?.classList.toggle('hidden', !this.#incommingFriendRequestsVisible);
+
+		document.querySelector(`#${this.id}-incomming-friend-requests-list`)?.classList.toggle('!hidden', !this.#incommingFriendRequestsVisible);
+	}
+
+	// END INCOMING FRIEND REQUESTS FUNCTIONS -------------------------------------------------------------------------------------
 
 
 	// FRIEND LIST FUNCTIONS -------------------------------------------------------------------------------------------
@@ -617,8 +653,8 @@ export class HomeController extends RouteController {
 
 	private toggleFriendsVisibilityClickEvent = this.#toggleFriendsVisibility.bind(this);
 	#toggleFriendsVisibility() {
-		const showFriends = document.querySelector('.show-friends');
-		const hideFriends = document.querySelector('.hide-friends');
+		const showFriends = document.querySelector('.toggle-my-friends.show');
+		const hideFriends = document.querySelector('.toggle-my-friends.hide');
 
 		this.#friendsListVisible = !this.#friendsListVisible;
 
@@ -773,55 +809,56 @@ export class HomeController extends RouteController {
 	}
 
 	// END FRIEND LIST FUNCTIONS ---------------------------------------------------------------------------------------
-	// START PENDING FRIENDS FUNCTIONS ---------------------------------------------------------------------------------
-	#pendingFriendsListContainer: HTMLElement | null = null;
+
+	// START SENT FRIEND REQUESTS FUNCTIONS ---------------------------------------------------------------------------------
+	#sentFriendRequestsListContainer: HTMLElement | null = null;
 	#pendingFriendsVisible: boolean = true;
 
 
 
 	async #fetchAndRenderPendingFriends() {
-		this.#loadingOverlays.pendingFriends.show();
+		this.#loadingOverlays.sentFriendRequests.show();
 		const pendingFriends = await api.friendship.getSentRequests.query();
 		console.debug('Pending friends', pendingFriends);
 
 		for (const friend of pendingFriends) {
-			this.#upsertPendingFriend(friend);
+			this.#upsertSentFriendRequestItem(friend);
 		}
 
-		this.#loadingOverlays.pendingFriends.hide();
+		this.#loadingOverlays.sentFriendRequests.hide();
 	}
 
-	private togglePendingFriendsVisibilityClickEvent = this.#togglePendingFriendsVisibility.bind(this);
-	#togglePendingFriendsVisibility() {
-		const showPendingFriends = document.querySelector('.show-pending-friends');
-		const hidePendingFriends = document.querySelector('.hide-pending-friends');
+	private toggleSentFriendsVisibilityClickEvent = this.#toggleSentFriendsVisibility.bind(this);
+	#toggleSentFriendsVisibility() {
+		const showPendingFriends = document.querySelector('.toggle-sent-friend-requests.show');
+		const hidePendingFriends = document.querySelector('.toggle-sent-friend-requests.hide');
 
 		this.#pendingFriendsVisible = !this.#pendingFriendsVisible;
 
 		showPendingFriends?.classList.toggle('hidden', this.#pendingFriendsVisible);
 		hidePendingFriends?.classList.toggle('hidden', !this.#pendingFriendsVisible);
-		document.querySelector('.toggle-pending-friends-divider')?.classList.toggle('hidden', !this.#pendingFriendsVisible);
+		document.querySelector('.toggle-sent-friend-requests-divider')?.classList.toggle('hidden', !this.#pendingFriendsVisible);
 
-		document.querySelector(`#${this.id}-pending-friends-list`)?.classList.toggle('!hidden', !this.#pendingFriendsVisible);
+		document.querySelector(`#${this.id}-sent-friend-requests-list`)?.classList.toggle('!hidden', !this.#pendingFriendsVisible);
 	}
 
 
 
-	#upsertPendingFriend(friend: RouterOutputs['friendship']['getSentRequests'][number]) {
-		const existingFriend = document.querySelector(`#${this.id}-pending-friends-list li[id="pending-friend-${friend!.id}"]`) as HTMLElement | null;
+	#upsertSentFriendRequestItem(friend: RouterOutputs['friendship']['getSentRequests'][number]) {
+		const existingFriend = document.querySelector(`#${this.id}-sent-friend-requests-list li[id="pending-friend-${friend!.id}"]`) as HTMLElement | null;
 		if (existingFriend) {
-			this.#updatePendingFriendFields(friend, existingFriend);
+			this.#updateSentFriendRequestFields(friend, existingFriend);
 		} else {
-			const friendElement = this.#createPendingFriendElement(friend);
+			const friendElement = this.#createSentFriendRequestElement(friend);
 			if (friendElement) {
-				this.#pendingFriendsListContainer?.appendChild(friendElement);
+				this.#sentFriendRequestsListContainer?.appendChild(friendElement);
 
-				friendElement.querySelector('.pending-friend-remove-btn')?.addEventListener('click', this.onDeletePendingFriendClickEvent);
+				friendElement.querySelector('.pending-friend-remove-btn')?.addEventListener('click', this.onDeleteSentFriendRequestClickEvent);
 			}
 		}
 	}
 
-	#updatePendingFriendFields(friend: RouterOutputs['friendship']['getSentRequests'][number], friendElement: HTMLElement) {
+	#updateSentFriendRequestFields(friend: RouterOutputs['friendship']['getSentRequests'][number], friendElement: HTMLElement) {
 		if (!friend) return null;
 
 		const usernameField = friendElement.querySelector('.friend-username');
@@ -835,13 +872,13 @@ export class HomeController extends RouteController {
 		}
 	}
 
-	#createPendingFriendElement(friend: RouterOutputs['friendship']['getSentRequests'][number]) {
+	#createSentFriendRequestElement(friend: RouterOutputs['friendship']['getSentRequests'][number]) {
 		if (!friend) return null;
 		const friendElement = document.createElement('li');
 		friendElement.id = `pending-friend-${friend.id}`;
 		friendElement.setAttribute('data-userid', friend.friendRelationId);
 		friendElement.setAttribute('data-requestid', friend.id);
-		friendElement.className = `pending-friend-item group transition-colors rounded-lg ${isMobile() ? 'even:bg-gray-500/5' : ' '} hover:bg-white/5`;
+		friendElement.className = `sent-friend-request-item group transition-colors rounded-lg ${isMobile() ? 'even:bg-gray-500/5' : ' '} hover:bg-white/5`;
 		friendElement.innerHTML = /*html*/`
 		<div class="flex items-center gap-3 p-2">
 			<!-- Friend Avatar -->
@@ -871,23 +908,23 @@ export class HomeController extends RouteController {
 	}
 
 
-	private onDeletePendingFriendClickEvent = this.#onDeletePendingFriendClick.bind(this);
-	#onDeletePendingFriendClick(event: Event) {
-		console.debug('Pending Friend delete button clicked', event);
+	private onDeleteSentFriendRequestClickEvent = this.#onDeleteSentFriendRequestClick.bind(this);
+	#onDeleteSentFriendRequestClick(event: Event) {
+		console.debug('[SentFriendRequest] delete button clicked', event);
 		const target = event.target as HTMLElement;
-		const friendElement = target.closest('.pending-friend-item');
+		const friendElement = target.closest('.sent-friend-request-item');
 		if (!friendElement) {
-			console.debug('Pending Friend button clicked, but no friend element found');
+			console.debug('[SentFriendRequest] button clicked, but no friend element found');
 			return;
 		};
 		const friendId = friendElement.getAttribute('data-userid');
 		if (!friendId) {
-			console.debug('Pending Friend button clicked, but no friend id found');
+			console.debug('[SentFriendRequest] button clicked, but no friend id found');
 			return;
 		}
 		const friendRequestId = friendElement.getAttribute('data-requestid');
 		if (!friendRequestId) {
-			console.debug('Pending Friend button clicked, but no friend request id found');
+			console.debug('[SentFriendRequest] button clicked, but no friend request id found');
 			return;
 		}
 
@@ -921,14 +958,14 @@ export class HomeController extends RouteController {
 	}
 
 
-	#removePendingFriendFromList(friendId: string) {
-		const friendElement = document.querySelector(`.pending-friend-item[data-userid="${friendId}"]`);
+	#removeSentFriendRequestFromList(friendId: string) {
+		const friendElement = document.querySelector(`.sent-friend-request-item[data-userid="${friendId}"]`);
 		if (friendElement) {
 			friendElement.remove();
 			this.#updateFriendsCount();
 		}
 	}
 
-	// END PENDING FRIENDS FUNCTIONS -----------------------------------------------------------------------------------
+	// END SENT FRIEND REQUESTS FUNCTIONS -----------------------------------------------------------------------------------
 
 }

@@ -80,6 +80,7 @@ img {
 	border-radius: 0.125rem;
 }
 
+
 .horiz-divider {
 	@apply w-full h-px my-2 bg-white/20;
 }
@@ -136,4 +137,13 @@ img {
 	color: #fff;
 	font-weight: bold;
 	font-size: 0.9rem;
+}
+
+
+:is(.incomming-friend-requests-container, .sent-friend-requests-container):has(ul:not(:empty)):has(ul:not(.\!hidden)) {
+	@apply md:basis-full;
+}
+
+:is(.incomming-friend-requests-container, .sent-friend-requests-container):has(ul:is(.\!hidden, :empty)) {
+	@apply md:shrink-0;
 }

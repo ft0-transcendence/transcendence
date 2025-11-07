@@ -5,6 +5,12 @@ module.exports = {
 		extend: {
 			colors: {
 			},
+			fontSize: {
+				xxs: '0.5rem',
+			},
+			lineHeight: {
+				xxs: '0.5rem',
+			},
 		},
 	},
 	plugins: [],
