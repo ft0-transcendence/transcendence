@@ -201,7 +201,7 @@ export class HomeController extends RouteController {
 					</section>
 					<section class="flex flex-col md:flex-row grow bg-black md:overflow-hidden">
 						<div class="flex flex-col w-full md:w-1/5 min-w-[320px] bg-zinc-950 md:h-full p-2 min-h-32 relative">
-							<h4 class="capitalize font-bold" data-i18n="${k('generic.incomming_friend_requests')}">Incomming Friend Requests</h4>
+							<h4 class="capitalize font-bold" data-i18n="${k('generic.incomming_friend_requests')}">Incoming Friend Requests</h4>
 							<!-- FriendRequests will be listed here -->
 							<ul id="${this.id}-FriendRequests" class="grow flex flex-col w-full p-2 md:overflow-y-auto">
 							</ul>
