@@ -8,7 +8,7 @@ import toast from "./Toast";
 export abstract class ViewController {
 	protected type: "page" | "layout" | "component" = "page";
 
-	#id = `${this.constructor.name}_${Math.random().toString(36).substring(2, 15)}`;
+	#id = CSS.escape(`${this.constructor.name}_${Math.random().toString(36).substring(2, 15)}`);
 	#currentRoute: string;
 
 	#isDestroyed = false;
