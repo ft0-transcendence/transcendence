@@ -32,7 +32,7 @@ export const en = {
 		no_notifications: 'Nothing here',
 		accept_friend_request: 'Accept',
 		reject_friend_request: 'Reject',
-		incomming_friend_requests: 'Incoming Friend Requests',
+		incoming_friend_requests: 'Incoming Friend Requests',
 		friend_requests: 'Friend Requests',
 		no_friend_requests: 'No friend requests so far',
 		remove_friend: 'Remove Friend',

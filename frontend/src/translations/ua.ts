@@ -33,7 +33,7 @@ export const ua: TranslationSchema = {
 		no_notifications: 'Немає сповіщень',
 		accept_friend_request: 'Прийняти',
 		reject_friend_request: 'Відхилити',
-		incomming_friend_requests: 'Вхідні запити на дружбу',
+		incoming_friend_requests: 'Вхідні запити на дружбу',
 		friend_requests: 'Запити на дружбу',
 		no_friend_requests: 'Немає запитів на дружбу',
 		remove_friend: 'Видалити друга',
