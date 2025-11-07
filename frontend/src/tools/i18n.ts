@@ -145,24 +145,63 @@ export const t = <K extends LanguageKeys>(key: K, options?: Record<string, any>)
 export const getTranslation = t;
 
 export function updateDOMTranslations(container: HTMLElement | Document = document) {
-	container.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => {
-		const key = el.getAttribute('data-i18n');
-		if (!key) return;
-		const varsAttr = el.getAttribute('data-i18n-vars');
+	const getValue =(element: HTMLElement, attributePrefix: string = '') => {
+		const attrPrefixStr = attributePrefix ? `${attributePrefix}-` : '';
+		const key = element.getAttribute(`data-${attrPrefixStr}i18n`);
+		if (!key) return {key, translation: ''};
+		const varsAttr = element.getAttribute(`data-${attrPrefixStr}i18n-vars`);
 		let vars = {};
 		if (varsAttr) {
 			try {
 				vars = JSON.parse(varsAttr);
 			} catch (error) {
-				console.warn('Error parsing vars for i18n element', el, error);
+				console.warn('Error parsing vars for i18n element', element, error);
 			}
 		}
-		const translation = i18next.t(key, vars);
-		if (translation === key) {
-			console.warn(`Translation for key '${key}' not found. Falling to the textContent of the element.`);
-		} else {
-			el.innerHTML = translation;
+		return {key, translation: i18next.t(key, vars)};
+	}
+
+
+	container.querySelectorAll<HTMLElement>('[data-i18n], [data-title-i18n], [data-placeholder-i18n]').forEach(el => {
+		try {
+			const {key: textKey, translation: textTranslation} = getValue(el);
+			if (textKey){
+				if (textTranslation === textKey) {
+					console.warn(`Translation for key '${textKey}' not found. Falling to the textContent of the element.`);
+				} else {
+					el.innerHTML = textTranslation;
+				}
+			}
+		} catch (error) {
+			console.warn('[i18n] Error updating element', error);
 		}
+
+		try {
+			const {key: titleKey, translation: titleTranslation} = getValue(el, 'title');
+			if (titleKey){
+				if (titleTranslation === titleKey) {
+					console.warn(`Translation for key '${titleKey}' not found. Falling to the title of the element.`);
+				} else {
+					el.title = titleTranslation;
+				}
+			}
+		} catch (error) {
+			console.warn('[i18n] Error updating title', error);
+		}
+
+		try {
+			const {key: placeholderKey, translation: placeholderTranslation} = getValue(el, 'placeholder');
+			if (placeholderKey){
+				if (placeholderTranslation === placeholderKey) {
+					console.warn(`Translation for key '${placeholderKey}' not found. Falling to the placeholder of the element.`);
+				} else {
+					(el as HTMLInputElement).placeholder = placeholderTranslation;
+				}
+			}
+		} catch (error) {
+			console.warn('[i18n] Error updating placeholder', error);
+		}
+
 	});
 
 }

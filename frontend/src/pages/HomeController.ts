@@ -111,7 +111,7 @@ export class HomeController extends RouteController {
 							<div class="flex grow justify-between gap-2">
 								<button id="${this.id}-add-friend-btn"
 										class="cursor-pointer w-6 h-6 mx-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
-										title="${t('generic.add_friend')}">
+										title="${t('generic.add_friend')}" data-title-i18n="${k('generic.add_friend')}">
 									<i class="toggle-friend-add-icon fa fa-plus text-sm"></i>
 								</button>
 
@@ -124,7 +124,7 @@ export class HomeController extends RouteController {
 						<form id="${this.id}-add-friend-form" class="text-left relative hidden px-4 py-3 bg-black/25">
 							<label for="${this.id}-add-friend-input" class="text-sm text-gray-400" data-i18n="${k('generic.add_friend')}">Add Friend</label>
 							<div class="flex relative border border-gray-300/5 bg-white/5 p-2 text-sm focus-within:border-teal-500 rounded-md focus-within:ring-teal-500">
-								<input id="${this.id}-add-friend-input" type="text" class="ring-0 border-0 outline-0 text-white w-full" placeholder="username">
+								<input id="${this.id}-add-friend-input" type="text" class="ring-0 border-0 outline-0 text-white w-full" placeholder="username" data-placeholder-i18n="${k('generic.username')}">
 								<button type="submit" class="cursor-pointer hover:text-gray-200 active:text-white"><i class="fa fa-send text-sm"></i><span class="hidden md:flex" data-i18n="${k('generic.send')}">Send</span></button>
 							</div>
 						</form>
