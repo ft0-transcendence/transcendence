@@ -1,4 +1,3 @@
-import { userRouter } from '../../../backend/src/trpc/routes/user';
 type ToastOptions = {
 	duration?: number; // Duration in milliseconds
 	onClose?: () => void;
@@ -12,20 +11,17 @@ class Toast {
 
 	private defaultOptions: ToastOptions = {
 		duration: 5000,
-		onClose: () => { },
+		onClose: () => {},
 	}
-
 
 	constructor() {
 		const container = document.getElementById('toast_container');
 		if (!container) {
-			console.debug('Toast container not found. Creating a new one...');
 			this.#container = document.createElement('div');
 			this.#container.id = 'toast_container';
-			this.#container.className = 'fixed top-0 right-0 flex flex-col gap-2';
+			this.#container.className = 'fixed top-4 right-4 flex flex-col gap-2 z-[9999] sm:right-4 sm:top-4';
 			document.body.appendChild(this.#container);
-		}
-		else {
+		} else {
 			this.#container = container;
 		}
 	}
@@ -36,7 +32,6 @@ class Toast {
 	public info(title: string | null, message: string, options?: ToastOptions) {
 		return this.createToast('info', title, message, options);
 	}
-
 	public error(title: string | null, message: string, options?: ToastOptions) {
 		return this.createToast('error', title, message, options);
 	}
@@ -46,62 +41,100 @@ class Toast {
 
 	private createToast(type: 'success' | 'error' | 'info' | 'warn', title: string | null, message: string, options?: ToastOptions) {
 		const toast = document.createElement('div');
-		toast.className = `last:mb-4 first:mt-4 mx-4 pt-2 pb-4 text-white rounded-lg shadow-lg bg-neutral-800 toast-${type} relative opacity-100 overflow-hidden`;
-		toast.innerHTML = `
-			<div class="px-4 toast-header  mb-2 gap-2 flex items-center border-b border-b-white/20">
-				<div class="toast-icon ${options?.titleIcon || ''}"></div>
-				<div class="toast-title text-base font-semibold">${title ?? ''}</div>
-				<button class="close_toast absolute top-1 right-3 text-2xl font-semibold cursor-pointer" aria-label="Close">&times;</button>
-			</div>
-			<div class="text-sm px-4 overflow-hidden text-ellipsis">
-				${message}
-			</div>
-			<div class="toast_timeout_progress bg-black h-1 w-full absolute bottom-0 left-0 opacity-50"></div>
+
+		// Base glassy style + type colors
+		toast.className = `
+			w-full sm:w-80 px-4 py-3 rounded-xl shadow-lg relative overflow-hidden
+			backdrop-blur-md border flex flex-col gap-2 transition-all duration-200
+			${this.#getBgColorClass(type)} ${this.#getBorderColorClass(type)} ${this.#getTextColorClass(type)}
 		`;
-		toast.querySelector('button.close_toast')?.addEventListener('click', () => {
-			this.close(toast);
+
+		toast.innerHTML = `
+			<div class="flex items-center gap-2 mb-1">
+				<div class="toast-icon ${options?.titleIcon || ''}"></div>
+				<div class="toast-title font-semibold text-sm sm:text-base">${title ?? ''}</div>
+				<button class="ml-auto text-xl font-bold cursor-pointer close_toast" aria-label="Close">&times;</button>
+			</div>
+			<div class="text-xs sm:text-sm break-words">${message}</div>
+			<div class="toast_timeout_progress h-1 w-full absolute bottom-0 left-0 rounded-b-lg bg-white/30"></div>
+		`;
+
+		// Close button
+		toast.querySelector('button.close_toast')?.addEventListener('click', () => this.#close(toast));
+
+		// Swipe-to-dismiss
+		let startX: number | null = null;
+		toast.addEventListener('touchstart', (e) => startX = e.touches[0].clientX);
+		toast.addEventListener('touchmove', (e) => {
+			if (startX === null) return;
+			const deltaX = e.touches[0].clientX - startX;
+			toast.style.transform = `translateX(${deltaX}px)`;
+			toast.style.opacity = `${Math.max(0, 1 - Math.abs(deltaX) / 150)}`;
 		});
+		toast.addEventListener('touchend', (e) => {
+			if (startX === null) return;
+			const deltaX = e.changedTouches[0].clientX - startX;
+			if (Math.abs(deltaX) > 100) this.#close(toast);
+			else {
+				toast.style.transform = '';
+				toast.style.opacity = '1';
+			}
+			startX = null;
+		});
+
 		this.#toasts.push(toast);
 		this.#container.appendChild(toast);
 
-		const timeout = options ? options?.duration : this.defaultOptions.duration;
-
-		if (timeout && timeout >= 0 && !(options ? options.preventClose : this.defaultOptions.preventClose)) {
+		// Progress and auto-close
+		const timeout = options?.duration ?? this.defaultOptions.duration;
+		if (timeout && !options?.preventClose) {
 			const progressBar = toast.querySelector('.toast_timeout_progress') as HTMLElement;
 			const endTime = Date.now() + timeout;
 
 			const updateProgress = () => {
 				const remainingTime = endTime - Date.now();
-				const percentage = Math.max(0, remainingTime * 100 / timeout);
-				progressBar.style.width = `${percentage}%`;
-				if (remainingTime <= 0) {
-					this.close(toast);
-				} else {
-					requestAnimationFrame(updateProgress);
-				}
+				progressBar.style.width = `${Math.max(0, remainingTime * 100 / timeout)}%`;
+				if (remainingTime > 0) requestAnimationFrame(updateProgress);
+				else this.#close(toast);
 			}
 			updateProgress();
 
-			setTimeout(() => {
-				this.close(toast);
-			}, timeout);
+			setTimeout(() => this.#close(toast), timeout);
 		}
 	}
 
-	private close(toast: HTMLElement) {
-		toast.classList.add('fade-out');
+	#getBgColorClass(type: string) {
+		switch (type) {
+			case 'success': return 'bg-green-600/25';
+			case 'error': return 'bg-red-600/25';
+			case 'info': return 'bg-blue-600/25';
+			case 'warn': return 'bg-yellow-500/25';
+			default: return 'bg-neutral-800/25';
+		}
+	}
+	#getBorderColorClass(type: string) {
+		switch (type) {
+			case 'success': return 'border-green-600/50';
+			case 'error': return 'border-red-600/50';
+			case 'info': return 'border-blue-600/50';
+			case 'warn': return 'border-yellow-400/50';
+			default: return 'border-white/30';
+		}
+	}
+	#getTextColorClass(type: string) {
+		return 'text-white';
+	}
+
+	#close(toast: HTMLElement) {
+		toast.classList.add('opacity-0', 'scale-95');
 		setTimeout(() => {
 			toast.remove();
 			this.#toasts = this.#toasts.filter(t => t !== toast);
-			if (this.defaultOptions.onClose) {
-				this.defaultOptions.onClose();
-			}
-		}, 250); // Match the fade-out duration in CSS
+			this.defaultOptions.onClose?.();
+		}, 200);
 	}
-
 }
 
 export const toast = new Toast();
 window.toast = toast;
-
 export default toast;
