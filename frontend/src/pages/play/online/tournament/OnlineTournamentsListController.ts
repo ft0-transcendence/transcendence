@@ -22,12 +22,10 @@ export class TournamentsListController extends RouteController {
 
 	protected async render() {
 		return /*html*/`
-		<div class="flex flex-col relative grow p-4 bg-neutral-900">
-			<div class="flex items-center justify-between mb-4">
+		<div class="flex flex-col relative grow bg-neutral-900">
+			<header class="sticky top-0 right-0 z-10 bg-black/50 flex items-center py-3 px-6 w-full">
 				<h1 class="text-2xl font-bold" data-i18n="${k('generic.tournaments')}">Tournaments</h1>
-			</div>
 
-			<header class="sticky top-0 right-0 z-10 bg-black/50 flex items-center py-3 px-6 rounded-md w-full">
 				<div class="grow"></div>
 				<div class="flex justify-end">
 					<button id="${this.id}-create-tournament-btn"
@@ -38,7 +36,7 @@ export class TournamentsListController extends RouteController {
 					</button>
 				</div>
 			</header>
-			<div class="relative grow flex flex-col items-center w-full">
+			<div class="relative grow flex flex-col items-center w-full px-4 py-2">
 				<ul id="${this.id}-tournaments-list"
 					class="w-full max-w-5xl flex flex-col gap-3 items-center grow overflow-y-auto px-2">
 				</ul>
@@ -48,36 +46,36 @@ export class TournamentsListController extends RouteController {
 
 
 			<div id="${this.id}-create-tournament-modal" class="fixed inset-0 z-40 hidden items-center justify-center">
-			<div class="absolute inset-0 bg-black/80 backdrop-blur-sm" data-modal-backdrop></div>
-			<div class="relative z-50 w-full max-w-md mx-4 bg-neutral-900 rounded-lg p-5 shadow-xl">
-				<h3 class="text-lg font-semibold mb-3" data-i18n="${k('generic.create_tournament')}">Create Tournament</h3>
-				<form id="${this.id}-create-tournament-form" class="flex flex-col gap-3 text-white">
-				<label for="${this.id}-tournament-name" class="text-sm text-gray-300" data-i18n="${k('generic.tournament_name')}">Tournament name</label>
-				<input id="${this.id}-tournament-name" type="text"
-						class="w-full bg-neutral-600/20 text-white p-2 rounded-md border border-white/5 focus-within:ring-1 focus-within:ring-amber-400"
-						placeholder="My Tournament" required data-placeholder-i18n="${k('generic.tournament_name_placeholder')}" />
+				<div class="absolute inset-0 bg-black/80 backdrop-blur-sm" data-modal-backdrop></div>
+				<div class="relative z-50 w-full max-w-md mx-4 bg-neutral-900 rounded-lg p-5 shadow-xl">
+					<h3 class="text-lg font-semibold mb-3" data-i18n="${k('generic.create_tournament')}">Create Tournament</h3>
+					<form id="${this.id}-create-tournament-form" class="flex flex-col gap-3 text-white">
+						<label for="${this.id}-tournament-name" class="text-sm text-gray-300" data-i18n="${k('generic.tournament_name')}">Tournament name</label>
+						<input id="${this.id}-tournament-name" type="text"
+								class="w-full bg-neutral-600/20 text-white p-2 rounded-md border border-white/5 focus-within:ring-1 focus-within:ring-amber-400"
+								placeholder="My Tournament" required data-placeholder-i18n="${k('generic.tournament_name_placeholder')}" />
 
-				<label for="${this.id}-tournament-start" class="text-sm text-gray-300" data-i18n="${k('generic.start_date_and_time')}">Start date & time</label>
-				<input id="${this.id}-tournament-start" type="datetime-local" step="30"
-						class="w-full bg-neutral-600/20 text-white p-2 rounded-md border border-white/5 focus-within:ring-1 focus-within:ring-amber-400"
-						required />
+						<label for="${this.id}-tournament-start" class="text-sm text-gray-300" data-i18n="${k('generic.start_date_and_time')}">Start date & time</label>
+						<input id="${this.id}-tournament-start" type="datetime-local" step="30"
+								class="w-full bg-neutral-600/20 text-white p-2 rounded-md border border-white/5 focus-within:ring-1 focus-within:ring-amber-400"
+								required />
 
-				<div class="flex items-center justify-between">
-					<div class="text-sm text-gray-300" data-i18n="${k('generic.max_participants')}">Max participants</div>
-					<div class="text-sm font-semibold px-5">8</div>
+						<div class="flex items-center justify-between">
+							<div class="text-sm text-gray-300" data-i18n="${k('generic.max_participants')}">Max participants</div>
+							<div class="text-sm font-semibold px-5">8</div>
+						</div>
+
+						<div class="flex gap-2 justify-end mt-2">
+							<button type="button" id="${this.id}-create-modal-cancel"
+									class="px-3 py-1 rounded-md bg-black/50 hover:bg-black/75 transition-colors cursor-pointer">Cancel</button>
+							<button type="submit" id="${this.id}-create-modal-submit"
+									class="px-3 py-1 rounded-md bg-amber-500 hover:bg-amber-400 transition-colors text-black font-semibold cursor-pointer">Create</button>
+						</div>
+					</form>
 				</div>
-
-				<div class="flex gap-2 justify-end mt-2">
-					<button type="button" id="${this.id}-create-modal-cancel"
-							class="px-3 py-1 rounded-md bg-black/50 hover:bg-black/75 transition-colors cursor-pointer">Cancel</button>
-					<button type="submit" id="${this.id}-create-modal-submit"
-							class="px-3 py-1 rounded-md bg-amber-500 hover:bg-amber-400 transition-colors text-black font-semibold cursor-pointer">Create</button>
-				</div>
-				</form>
-			</div>
 			</div>
 		</div>
-    `;
+	`;
 	}
 
 	protected async postRender() {
