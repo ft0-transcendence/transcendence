@@ -51,6 +51,7 @@ export const ua: TranslationSchema = {
 		tournaments_won: 'Турніри виграно',
 		played_games: 'Гри зіграно',
 		win_rate: '% Виграшів',
+		tournaments: 'Турніри',
 	},
 	game: {
 		player_disconnected: 'Гравець {{playerName}} від\'єднався',

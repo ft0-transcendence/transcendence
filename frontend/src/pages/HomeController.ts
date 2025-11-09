@@ -184,7 +184,7 @@ export class HomeController extends RouteController {
 					</section>
 					<section class="flex flex-col md:flex-row grow md:overflow-hidden">
 						<div class="flex flex-col md:overflow-hidden min-h-0 md:min-h-32 w-full md:w-1/5 min-w-[320px] relative md:h-full">
-							<div class="incomming-friend-requests-container flex flex-col overflow-hidden">
+							<div class="incomming-friend-requests-container flex flex-col overflow-hidden relative">
 								<div class="flex items-center p-4 bg-neutral-950 border-t md:border-t-0 border-white/15 shrink-0">
 									<h2 class="capitalize text-md font-semibold text-gray-300 text-left" data-i18n="${k('generic.incoming_friend_requests')}">Incoming Friend Requests</h2>
 									<div class="flex grow justify-end items-center text-xs font-bold">
@@ -199,21 +199,19 @@ export class HomeController extends RouteController {
 								<!-- Loading Overlay -->
 								${await this.#loadingOverlays.incomingFriendRequests.silentRender()}
 							</div>
-							<div class="sent-friend-requests-container flex flex-col overflow-hidden">
-								<div class="flex flex-col md:overflow-hidden min-h-0 relative">
-									<div class="flex items-center p-4 bg-neutral-950 border-t border-white/15">
-										<h2 class="capitalize text-md font-semibold text-gray-300 text-left" data-i18n="${k('generic.sent_friend_requests')}">Sent requests</h2>
-										<div class="flex grow justify-end items-center text-xs font-bold">
-											<button class="toggle-sent-friend-requests show uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400 hidden" data-i18n="${k('generic.show')}">Show</button>
-											<button class="toggle-sent-friend-requests hide uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400" data-i18n="${k('generic.hide')}">Hide</button>
-										</div>
+							<div class="sent-friend-requests-container flex flex-col overflow-hidden relative">
+								<div class="flex items-center p-4 bg-neutral-950 border-t border-white/15">
+									<h2 class="capitalize text-md font-semibold text-gray-300 text-left" data-i18n="${k('generic.sent_friend_requests')}">Sent requests</h2>
+									<div class="flex grow justify-end items-center text-xs font-bold">
+										<button class="toggle-sent-friend-requests show uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400 hidden" data-i18n="${k('generic.show')}">Show</button>
+										<button class="toggle-sent-friend-requests hide uppercase cursor-pointer text-white hover:text-yellow-500 active:text-yellow-400" data-i18n="${k('generic.hide')}">Hide</button>
 									</div>
-
-									<ul id="${this.id}-sent-friend-requests-list" class="flex flex-col gap-2 w-full grow overflow-y-auto px-4 py-2 empty:!p-0 text-center bg-neutral-950/20 max-h-72 md:max-h-none"></ul>
-
-									<!-- Loading Overlay -->
-									${await this.#loadingOverlays.sentFriendRequests.silentRender()}
 								</div>
+
+								<ul id="${this.id}-sent-friend-requests-list" class="flex flex-col gap-2 w-full grow overflow-y-auto px-4 py-2 empty:!p-0 text-center bg-neutral-950/20 max-h-72 md:max-h-none"></ul>
+
+								<!-- Loading Overlay -->
+								${await this.#loadingOverlays.sentFriendRequests.silentRender()}
 							</div>
 						</div>
 

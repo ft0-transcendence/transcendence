@@ -50,6 +50,7 @@ export const en = {
 		tournaments_won: 'Tournaments Won',
 		played_games: 'Played Games',
 		win_rate: 'Win Rate',
+		tournaments: 'Tournaments',
 	},
 	game: {
 		player_disconnected: 'Player <b>{{playerName}}</b> disconnected',

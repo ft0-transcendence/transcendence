@@ -51,6 +51,7 @@ export const it: TranslationSchema = {
 		tournaments_won: 'Tornei vinti',
 		played_games: 'Partite giocate',
 		win_rate: '% Di vittoria',
+		tournaments: 'Tornei',
 	},
 	game: {
 		player_disconnected: 'Giocatore {{playerName}} si è disconnesso',

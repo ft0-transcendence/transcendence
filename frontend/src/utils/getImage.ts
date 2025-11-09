@@ -8,5 +8,7 @@ export const getImageByUrlOrBlob = (imgUrl: string | null, imgBlob: Uint8Array<A
 }
 
 export const getProfilePictureUrlByUserId = (userId: string) => {
-	return `/api/avatar/${userId}?t=${Date.now()}`;
+	const now = Date.now();
+	const nearest5Minute = now - (now % (60 * 5 * 1000));
+	return `/api/avatar/${userId}?t=${nearest5Minute}`;
 }
