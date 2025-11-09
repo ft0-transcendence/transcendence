@@ -37,45 +37,37 @@ export class LocalVersusPlayerGameController extends RouteController {
 		return /*html*/`
 			<div class="flex flex-col grow">
 				<!-- Username Prompt -->
-				<div id="${this.id}-username-container" class="flex flex-col items-center justify-center grow">
-					<div class="bg-zinc-800/50 p-8 rounded-lg max-w-md w-full shadow-md">
-						<h2 class="text-2xl font-bold mb-6 text-center" data-i18n="${k('play.enter_players_usernames')}">Enter Players Usernames</h2>
-						<form id="${this.id}-username-form" class="flex flex-col gap-6">
-							<!-- Left Player -->
-							<div class="flex flex-col gap-2">
-								<label class="text-sm text-gray-300" data-i18n="${k('play.left_player_input_label')}">Left Player (W, S keys)</label>
-								<input
-									type="text"
-									id="${this.id}-left-username-input"
-									class="px-4 py-2 bg-zinc-700 rounded border border-zinc-600 focus:border-amber-500 focus:outline-none"
-									placeholder="Left player username"
-									maxlength="24"
-									required
-								>
-							</div>
+				<div id="${this.id}-username-container" class="relative z-50 w-full max-w-md mx-4 bg-neutral-950 rounded-lg p-5 shadow-xl my-auto self-center align-middle">
+					<h3 class="text-lg font-semibold mb-3" data-i18n="${k('play.enter_players_usernames')}">Enter Players Usernames</h3>
 
-							<!-- Right Player -->
-							<div class="flex flex-col gap-2">
-								<label class="text-sm text-gray-300" data-i18n="${k('play.right_player_input_label')}">Right Player (↑, ↓ keys)</label>
-								<input
-									type="text"
-									id="${this.id}-right-username-input"
-									class="px-4 py-2 bg-zinc-700 rounded border border-zinc-600 focus:border-amber-500 focus:outline-none"
-									placeholder="Right player username"
-									maxlength="24"
-									required
-								>
-							</div>
-
-							<button
-								type="submit"
-								class="px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded transition-colors mt-4"
-								data-i18n="${k('play.start_game')}"
+					<form id="${this.id}-username-form" class="flex flex-col gap-3 text-white">
+						<!-- Left Player -->
+						<label for="${this.id}-left-username-input" class="text-sm text-gray-300" data-i18n="${k('play.left_player_input_label')}">Left Player (w, s keys)</label>
+						<input type="text" id="${this.id}-left-username-input"
+								class="w-full bg-neutral-600/20 text-white p-2 rounded-md border border-white/5 focus-within:ring-1 focus-within:ring-amber-400"
+								placeholder="Left player username"
+								maxlength="24"
+								required
+								data-placeholder-i18n="${k('play.left_player_input_placeholder')}"
 							>
+
+						<!-- Right Player -->
+						<label for="${this.id}-right-username-input" class="text-sm text-gray-300" data-i18n="${k('play.right_player_input_label')}">Right Player (↑, ↓ keys)</label>
+						<input type="text"
+								id="${this.id}-right-username-input"
+								class="w-full bg-neutral-600/20 text-white p-2 rounded-md border border-white/5 focus-within:ring-1 focus-within:ring-amber-400"
+								placeholder="Right player username"
+								maxlength="24"
+								required
+								data-placeholder-i18n="${k('play.right_player_input_placeholder')}"
+							>
+
+						<div class="flex gap-2 justify-end mt-2">
+							<button type="submit" class="px-3 py-1 rounded-md bg-amber-500 hover:bg-amber-400 transition-colors text-black font-semibold cursor-pointer" data-i18n="${k('play.start_game')}">
 								Start Game
 							</button>
-						</form>
-					</div>
+						</div>
+					</form>
 				</div>
 
 				<!-- Game Container -->

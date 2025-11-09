@@ -44,27 +44,26 @@ export class LocalVersusAiGameController extends RouteController {
 		return /*html*/`
 			<div class="flex flex-col grow">
 				<!-- Username Prompt -->
-				<div id="${this.id}-username-container" class="flex flex-col items-center justify-center grow">
-					<div class="bg-zinc-800/50 p-8 rounded-lg max-w-md w-full shadow-md">
-						<h2 class="text-2xl font-bold mb-6 text-center" data-i18n="${k('play.enter_your_username')}">Enter Your Username</h2>
-						<form id="${this.id}-username-form" class="flex flex-col gap-4">
-							<input
-								type="text"
+				<div id="${this.id}-username-container" class="relative z-50 w-full max-w-md mx-4 bg-neutral-950 rounded-lg p-5 shadow-xl my-auto self-center align-middle">
+					<h3 class="text-lg font-semibold mb-3" data-i18n="${k('play.enter_your_username')}">Enter Your Username</h3>
+
+
+					<form id="${this.id}-username-form" class="flex flex-col gap-3 text-white">
+						<label for="${this.id}-username-input" class="text-sm text-gray-300" data-i18n="${k('generic.username')}">Username</label>
+						<input type="text"
 								id="${this.id}-username-input"
-								class="px-4 py-2 bg-zinc-700 rounded border border-zinc-600 focus:border-amber-500 focus:outline-none"
+								class="w-full bg-neutral-600/20 text-white p-2 rounded-md border border-white/5 focus-within:ring-1 focus-within:ring-amber-400"
 								placeholder="Username"
 								maxlength="24"
 								required
+								data-placeholder-i18n="${k('generic.username')}"
 							>
-							<button
-								type="submit"
-								class="px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded transition-colors"
-								data-i18n="${k('play.start_game')}"
-							>
+						<div class="flex gap-2 justify-end mt-2">
+							<button type="submit" class="px-3 py-1 rounded-md bg-amber-500 hover:bg-amber-400 transition-colors text-black font-semibold cursor-pointer" data-i18n="${k('play.start_game')}">
 								Start Game
 							</button>
-						</form>
-					</div>
+						</div>
+					</form>
 				</div>
 
 				<!-- Game Container -->
@@ -180,21 +179,21 @@ export class LocalVersusAiGameController extends RouteController {
 				const aiSide = this.#isPlayerLeft ? 'right' : 'left';
 				const aiPaddlePos = aiSide === 'left' ? state.paddles.left : state.paddles.right;
 				let target = 50;
-				
+
 				// Only move when ball is coming towards AI
 				if (aiSide === 'right' && state.ball.dirX >= 0) {
 					target = state.ball.y;
 				} else if (aiSide === 'left' && state.ball.dirX <= 0) {
 					target = state.ball.y;
 				}
-				
+
 				const diff = target - aiPaddlePos;
 				const deadZone = 5; // Larger dead zone to prevent micro-adjustments
-				
+
 				// Release all movements first
 				this.#game.release(aiSide, 'up');
 				this.#game.release(aiSide, 'down');
-				
+
 				// Apply movement only if outside dead zone
 				if (Math.abs(diff) > deadZone) {
 					if (diff > 0) {
