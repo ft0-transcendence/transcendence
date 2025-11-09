@@ -51,6 +51,20 @@ export const en = {
 		played_games: 'Played Games',
 		win_rate: 'Win Rate',
 		tournaments: 'Tournaments',
+		join_tournament: 'Join Tournament',
+		create_tournament: 'Create Tournament',
+		tournament_name: 'Tournament name',
+		start_date_and_time: 'Start date & time',
+		max_participants: 'Max participants',
+		tournament_name_placeholder: 'tournament name',
+		countdown: {
+			hours_minutes: 'in {{hours}}h {{minutes}}m',
+			minutes_seconds: 'in {{minutes}}m {{seconds}}s',
+			started: '...',
+		},
+	},
+	error: {
+		generic_server_error: 'Something went wrong. Please try again later.',
 	},
 	game: {
 		player_disconnected: 'Player <b>{{playerName}}</b> disconnected',
@@ -89,6 +103,8 @@ export const en = {
 		enter_players_usernames: 'Enter Players Usernames',
 		left_player_input_label: 'Left Player (W, S keys)',
 		right_player_input_label: 'Right Player (↑, ↓ keys)',
+		right_player_input_placeholder: 'right player username',
+		left_player_input_placeholder: 'left player username',
 	},
 
 	settings: {

@@ -52,6 +52,20 @@ export const ua: TranslationSchema = {
 		played_games: 'Гри зіграно',
 		win_rate: '% Виграшів',
 		tournaments: 'Турніри',
+		join_tournament: 'Приєднатися до турніру',
+		create_tournament: 'Створити турнір',
+		tournament_name: 'Назва турніру',
+		start_date_and_time: 'Дата та час початку',
+		max_participants: 'Максимальна кількість учасників',
+		tournament_name_placeholder: 'назва турніру',
+		countdown: {
+			hours_minutes: 'через {{hours}}г {{minutes}}х',
+			minutes_seconds: 'через {{minutes}}х {{seconds}}с',
+			started: '...',
+		},
+	},
+	error: {
+		generic_server_error: 'Щось пішло не так. Будь ласка, спробуйте ще раз пізніше.',
 	},
 	game: {
 		player_disconnected: 'Гравець {{playerName}} від\'єднався',
@@ -87,6 +101,8 @@ export const ua: TranslationSchema = {
 		enter_players_usernames: 'Введіть імена користувачів гравців',
 		left_player_input_label: 'Лівий гравець (клавіші W, S)',
 		right_player_input_label: 'Правий гравець (клавіші ↑, ↓)',
+		right_player_input_placeholder: 'правий гравець',
+		left_player_input_placeholder: 'лівий гравець',
 	},
 	settings: {
 		title: 'Налаштування профілю',

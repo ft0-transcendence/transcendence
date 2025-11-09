@@ -52,6 +52,20 @@ export const it: TranslationSchema = {
 		played_games: 'Partite giocate',
 		win_rate: '% Di vittoria',
 		tournaments: 'Tornei',
+		join_tournament: 'Partecipa al torneo',
+		create_tournament: 'Crea torneo',
+		tournament_name: 'Nome del torneo',
+		start_date_and_time: 'Data e ora di inizio',
+		max_participants: 'Partecipanti massimi',
+		tournament_name_placeholder: 'nome torneo',
+		countdown: {
+			hours_minutes: 'tra {{hours}}h {{minutes}}m',
+			minutes_seconds: 'tra {{minutes}}m {{seconds}}s',
+			started: '...',
+		},
+	},
+	error: {
+		generic_server_error: 'Qualcosa è andato storto. Per favore riprova più tardi.',
 	},
 	game: {
 		player_disconnected: 'Giocatore {{playerName}} si è disconnesso',
@@ -87,6 +101,8 @@ export const it: TranslationSchema = {
 		enter_players_usernames: 'Inserisci i nomi utente dei giocatori',
 		left_player_input_label: 'Giocatore sinistro (tasti W, S)',
 		right_player_input_label: 'Giocatore destro (tasti ↑, ↓)',
+		right_player_input_placeholder: 'giocatore destro',
+		left_player_input_placeholder: 'giocatore sinistro',
 	},
 	settings: {
 		title: 'Impostazioni del profilo',
