@@ -52,6 +52,8 @@ export const tournamentRouter = t.router({
                     username: p.user.username
                 }));
 
+                const isStarted = tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED';
+
                 return {
                     id: tournament.id,
                     name: tournament.name,
@@ -61,9 +63,9 @@ export const tournamentRouter = t.router({
                     createdBy: tournament.createdBy,
                     participantsCount: tournament._count.participants,
                     maxParticipants: 8,
-                    hasPassword: !!tournament.password,
                     hasUserJoined,
-                    participants
+                    participants,
+                    isStarted
                 };
             });
         }),
@@ -185,7 +187,6 @@ export const tournamentRouter = t.router({
                     ...g,
                     scoreGoal: g.scoreGoal || 7
                 })),
-                hasPassword: !!tournament.password,
                 isRegisteredToTournament
             };
         }),
@@ -391,7 +392,7 @@ export const tournamentRouter = t.router({
                 tournaments: tournaments.map(t => ({
                     ...t,
                     userWon: t.winnerId === ctx.user!.id,
-                    userPosition: t.winnerId === ctx.user!.id ? 1 : null // Potremmo calcolare la posizione reale
+                    userPosition: t.winnerId === ctx.user!.id ? 1 : null
                 })),
                 nextCursor
             };
@@ -418,7 +419,7 @@ export const tournamentRouter = t.router({
         }),
 
     joinTournament: protectedProcedure
-        .input(z.object({ tournamentId: z.string(), password: z.string().optional() }))
+        .input(z.object({ tournamentId: z.string() }))
         .mutation(async ({ ctx, input }) => {
             const tournament = await ctx.db.tournament.findUnique({
                 where: { id: input.tournamentId },
@@ -427,10 +428,6 @@ export const tournamentRouter = t.router({
 
             if (!tournament) {
                 throw new TRPCError({ code: 'NOT_FOUND', message: 'Tournament not found' });
-            }
-
-            if (tournament.password && tournament.password !== input.password) {
-                throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid password' });
             }
 
             const alreadyJoined = tournament.participants.some(p => p.userId === ctx.user!.id);
@@ -476,7 +473,30 @@ export const tournamentRouter = t.router({
             }
 
             await ctx.db.tournamentParticipant.delete({ where: { id: participant.id } });
-            return { success: true } as const;
+
+            // Check if tournament empty
+            const remainingParticipants = await ctx.db.tournamentParticipant.count({
+                where: { tournamentId: input.tournamentId }
+            });
+
+            if (remainingParticipants === 0) {
+                await ctx.db.tournament.delete({
+                    where: { id: input.tournamentId }
+                });
+                
+                console.log(`Tournament ${input.tournamentId} deleted - no participants remaining`);
+                
+                return { 
+                    success: true, 
+                    tournamentDeleted: true,
+                    message: 'Tournament deleted as no participants remain'
+                } as const;
+            }
+
+            return { 
+                success: true, 
+                tournamentDeleted: false 
+            } as const;
         }),
 
     startTournament: protectedProcedure
@@ -507,9 +527,13 @@ export const tournamentRouter = t.router({
                 throw new TRPCError({ code: 'BAD_REQUEST', message: 'Tournament is not full' });
             }
 
+            // Update tournament status AND set actual start date
             await ctx.db.tournament.update({
                 where: { id: t.id },
-                data: { status: 'IN_PROGRESS' as TournamentStatus }
+                data: { 
+                    status: 'IN_PROGRESS' as TournamentStatus,
+                    startDate: new Date()
+                }
             });
 
             const participantIds = t.participants.map(p => p.userId);
@@ -603,16 +627,18 @@ export const tournamentRouter = t.router({
         .input(z.object({
             name: z.string().min(3).max(50),
             type: z.nativeEnum(TournamentType),
-            password: z.string().optional(),
             startDate: z.string().datetime().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
+            // If no startDate set to 1 hour from now
+            const defaultStartDate = new Date();
+            defaultStartDate.setHours(defaultStartDate.getHours() + 1);
+            
             const tournament = await ctx.db.tournament.create({
                 data: {
                     name: input.name,
                     type: input.type,
-                    password: input.password,
-                    startDate: input.startDate ? new Date(input.startDate) : new Date(),
+                    startDate: input.startDate ? new Date(input.startDate) : defaultStartDate,
                     createdById: ctx.user!.id,
                 },
                 include: {
