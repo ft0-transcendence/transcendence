@@ -109,7 +109,15 @@ export class TournamentsListController extends RouteController {
 					hasPassword: false,
 					startDate: randomDateStart(new Date(2025, 11, 6), new Date(2026, 11, 10)),
 					status: "WAITING_PLAYERS",
-					type: "EIGHT"
+					type: "EIGHT",
+					hasUserJoined: true,
+					participants: [
+						{ username: 'sasha', id: '101790553581164733341' },
+						{ username: 'john', id: '117999440280603199126' },
+						{ username: 'kayle', id: '101790553581164733341' },
+						{ username: 'alex', id: '117999440280603199126' },
+						{ username: 'alex2', id: '117999440280603199129' },
+					]
 				},
 				{
 					id: '2',
@@ -123,7 +131,14 @@ export class TournamentsListController extends RouteController {
 					hasPassword: true,
 					startDate: randomDateStart(new Date(Date.now() + 60 * 60 * 1000), new Date(Date.now() + 60 * 60 * 24 * 1000)),
 					status: "WAITING_PLAYERS",
-					type: "EIGHT"
+					type: "EIGHT",
+					hasUserJoined: false,
+					participants: [
+						{ username: 'john', id: '117999440280603199126' },
+						{ username: 'kayle', id: '101790553581164733341' },
+						{ username: 'alex', id: '117999440280603199126' },
+						{ username: 'alex2', id: '117999440280603199129' },
+					]
 				},
 				{
 					id: '3',
@@ -137,7 +152,14 @@ export class TournamentsListController extends RouteController {
 					hasPassword: true,
 					startDate: randomDateStart(new Date(Date.now() + 60 * 1000), new Date(Date.now() + 60 * 60 * 1000)),
 					status: "WAITING_PLAYERS",
-					type: "EIGHT"
+					type: "EIGHT",
+					hasUserJoined: false,
+					participants: [
+						{ username: 'john', id: '117999440280603199126' },
+						{ username: 'kayle', id: '101790553581164733341' },
+						{ username: 'alex', id: '117999440280603199126' },
+						{ username: 'alex2', id: '117999440280603199129' },
+					]
 				},
 				{
 					id: '3',
@@ -151,7 +173,14 @@ export class TournamentsListController extends RouteController {
 					hasPassword: true,
 					startDate: new Date(),
 					status: "IN_PROGRESS",
-					type: "EIGHT"
+					type: "EIGHT",
+					hasUserJoined: false,
+					participants: [
+						{ username: 'john', id: '117999440280603199126' },
+						{ username: 'kayle', id: '101790553581164733341' },
+						{ username: 'alex', id: '117999440280603199126' },
+						{ username: 'alex2', id: '117999440280603199129' },
+					]
 				}
 			];
 			for (const tournament of mockTournaments) {
@@ -190,6 +219,8 @@ export class TournamentsListController extends RouteController {
 
 		const createdByInitials = tournament.createdBy.username.split(/[\s_]+/).map(s => s[0]).join('');
 
+		const joinedUsersTooltip = tournament.participants.map(p => p.username).join(', ')?.replace(/["']/g, '');
+
 		li.innerHTML = /*html*/`
 		<a data-route="/play/online/tournaments/${tournament.id}" href="/play/online/tournaments/${tournament.id}"
 			class="flex flex-col w-full gap-3">
@@ -209,13 +240,26 @@ export class TournamentsListController extends RouteController {
 
 				<!-- Content -->
 				<div class="flex flex-col sm:flex-col sm:items-center sm:justify-between min-w-0 gap-1">
-					<div class="text-xs text-white px-2 py-1 rounded-full ${statusClass} font-semibold text-center w-fit">
-						${tournament.status.replace('_', ' ')}
-					</div>
-					<div class="flex gap-2 items-center sm:items-start sm:flex-col sm:gap-1">
-						${isJoinable ?
-							/*html*/`<div class="join-tournament-btn px-5 py-2.5 uppercase rounded-md bg-stone-600 hover:bg-stone-500 transition-colors text-sm font-semibold text-center">Join</div>`
-				: ''}
+
+					<div class="flex gap-2 items-center sm:justify-start sm:flex-col sm:gap-1">
+						${tournament.hasUserJoined
+							? /*html*/`
+							<div class="register-status uppercase text-green-600 font-bold text-sm" data-i18n="${k('generic.registered')}">
+								Registered
+							</div>
+							`
+							: ``
+						}
+						<div ${tournament.hasUserJoined ? 'disabled' : ''}
+							data-i18n="${k('generic.tournament.join')}"
+							class="${!isJoinable || tournament.hasUserJoined ? 'hidden' : 'cursor-pointer'} join-tournament-btn px-5 py-2.5 uppercase rounded-md bg-stone-600 hover:bg-stone-500 transition-colors text-sm font-semibold text-center w-24">
+							Join
+						</div>
+						<div ${tournament.hasUserJoined ? 'disabled' : ''}
+							data-i18n="${k('generic.tournament.leave')}"
+							class="${!isJoinable || !tournament.hasUserJoined ? 'hidden' : ''} leave-tournament-btn px-5 py-2.5 uppercase rounded-md bg-red-700 hover:bg-red-600 transition-colors text-sm font-semibold text-center w-24">
+							Leave
+						</div>
 					</div>
 				</div>
 
@@ -223,21 +267,35 @@ export class TournamentsListController extends RouteController {
 
 			<div class="flex flex-wrap gap-4 text-xs md:text-sm text-stone-300 mt-1">
 				<div class="flex items-center gap-1">
-				<i class="fa fa-users text-stone-400"></i>
-				<span class="font-mono">${tournament.participantsCount ?? 0}/${tournament.maxParticipants ?? 8}</span>
+					<i class="fa fa-users text-stone-400"></i>
+					<span class="font-mono" title="${joinedUsersTooltip ?? 'n/a'}">
+						${tournament.participantsCount ?? 0}
+						/
+						${tournament.maxParticipants ?? 8}
+					</span>
 				</div>
 				<div class="flex items-center gap-1" title="${startTooltip}">
-				<i class="fa fa-clock-o text-stone-400"></i>
-				<span class="tournament-countdown font-mono text-sm">${remainingText}</span>
+					<i class="fa fa-clock-o text-stone-400"></i>
+					<span class="tournament-countdown font-mono text-sm">${remainingText}</span>
+				</div>
+				<div class="text-xs text-white px-2 py-1 rounded-full ${statusClass} font-semibold text-center w-fit">
+					${tournament.status.replace('_', ' ')}
 				</div>
 			</div>
 		</a>
 		`;
 
 		const joinBtn = li.querySelector('.join-tournament-btn') as HTMLButtonElement | null;
+		const leaveBtn = li.querySelector('.leave-tournament-btn') as HTMLButtonElement | null;
+
 		if (joinBtn) {
 			joinBtn.addEventListener('click', async (ev) => {
-				ev.preventDefault(); ev.stopPropagation();
+				ev.preventDefault();
+				ev.stopPropagation();
+				if (tournament.hasUserJoined) {
+					toast.info(t('generic.join_tournament'), t('generic.already_joined_troll_description') ?? "");
+					return;
+				}
 				try {
 					await api.tournament.joinTournament.mutate({ tournamentId: tournament.id });
 					joinBtn.remove();
@@ -248,6 +306,28 @@ export class TournamentsListController extends RouteController {
 						toast.error(t('generic.join_tournament'), msg);
 					} else {
 						toast.error(t('generic.join_tournament'), t('error.generic_server_error') ?? "");
+					}
+				}
+			});
+		}
+		if (leaveBtn) {
+			leaveBtn.addEventListener('click', async (ev) => {
+				ev.preventDefault();
+				ev.stopPropagation();
+				if (!tournament.hasUserJoined) {
+					toast.info(t('generic.leave_tournament'), t('generic.already_left_troll_description') ?? "");
+					return;
+				}
+				try {
+					await api.tournament.leaveTournament.mutate({ tournamentId: tournament.id });
+					toast.info(t('generic.leave_tournament'), t('generic.leave_tournament_success') ?? "");
+					this.#fetchAndShowTournaments();
+				} catch (err) {
+					if (err instanceof TRPCClientError) {
+						const msg = err.data?.zodError?.fieldErrors ? Object.values(err.data.zodError.fieldErrors).join(', ') : err.message;
+						toast.error(t('generic.leave_tournament'), msg);
+					} else {
+						toast.error(t('generic.leave_tournament'), t('error.generic_server_error') ?? "");
 					}
 				}
 			});
@@ -274,7 +354,7 @@ export class TournamentsListController extends RouteController {
 	#startCountdownUpdater() {
 		const update = () => {
 			document.querySelectorAll(`#${this.id}-tournaments-list .tournament-countdown`).forEach(el => {
-				const parent = el.closest('li');
+				const parent = el.parentElement;
 				if (!parent) return;
 				const titleContainer = parent.querySelector('[title]') as HTMLElement | null;
 				if (!titleContainer) return;

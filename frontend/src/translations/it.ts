@@ -63,6 +63,15 @@ export const it: TranslationSchema = {
 			minutes_seconds: 'tra {{minutes}}m {{seconds}}s',
 			started: '...',
 		},
+		already_joined_troll_description: "Bene, che è stato un buon tentativo, ma sei già nel torneo. Non puoi entrare due volte.",
+		already_left_troll_description: "Bene, che è stato un buon tentativo, ma sei già uscito dal torneo. Non puoi lasciare ciò a cui non sei registrato.",
+		leave_tournament: "Lascia Torneo",
+		tournament: {
+			join: "Partecipa",
+			leave: "Lascia",
+			registered: "Registrato",
+		},
+		leave_tournament_success: "Sei uscito dal torneo",
 	},
 	error: {
 		generic_server_error: 'Qualcosa è andato storto. Per favore riprova più tardi.',

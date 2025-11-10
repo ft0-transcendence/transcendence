@@ -63,6 +63,15 @@ export const ua: TranslationSchema = {
 			minutes_seconds: 'через {{minutes}}х {{seconds}}с',
 			started: '...',
 		},
+		already_joined_troll_description: "Хороша попроба, але ви вже у турнірі. Ви не можете зайти двічі.",
+		already_left_troll_description: "Хороша попроба, але ви вже вийшли з турніру. Ви не можете залишити турнір, на якому не зареєстровані.",
+		leave_tournament: "Вийти з турніру",
+		tournament: {
+			join: "Приєднатися",
+			leave: "Вийти",
+			registered: "Зареєстровано",
+		},
+		leave_tournament_success: "Ви успішно вийшли з турніру",
 	},
 	error: {
 		generic_server_error: 'Щось пішло не так. Будь ласка, спробуйте ще раз пізніше.',

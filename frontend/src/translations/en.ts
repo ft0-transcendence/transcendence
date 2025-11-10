@@ -62,6 +62,15 @@ export const en = {
 			minutes_seconds: 'in {{minutes}}m {{seconds}}s',
 			started: '...',
 		},
+		already_joined_troll_description: "Well, that was a good try, but you're already in the tournament. You can't join twice.",
+		already_left_troll_description: "Well, that was a good try, but you're already out of the tournament. You can't leave what you haven't joined.",
+		leave_tournament: "Leave Tournament",
+		tournament: {
+			join: "Join",
+			leave: "Leave",
+			registered: "Registered",
+		},
+		leave_tournament_success: "You have successfully left the tournament",
 	},
 	error: {
 		generic_server_error: 'Something went wrong. Please try again later.',
