@@ -52,6 +52,8 @@ export const tournamentRouter = t.router({
                     username: p.user.username
                 }));
 
+                const isStarted = tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED';
+
                 return {
                     id: tournament.id,
                     name: tournament.name,
@@ -63,7 +65,8 @@ export const tournamentRouter = t.router({
                     maxParticipants: 8,
                     hasPassword: !!tournament.password,
                     hasUserJoined,
-                    participants
+                    participants,
+                    isStarted
                 };
             });
         }),
@@ -530,9 +533,13 @@ export const tournamentRouter = t.router({
                 throw new TRPCError({ code: 'BAD_REQUEST', message: 'Tournament is not full' });
             }
 
+            // Update tournament status AND set actual start date
             await ctx.db.tournament.update({
                 where: { id: t.id },
-                data: { status: 'IN_PROGRESS' as TournamentStatus }
+                data: { 
+                    status: 'IN_PROGRESS' as TournamentStatus,
+                    startDate: new Date()
+                }
             });
 
             const participantIds = t.participants.map(p => p.userId);
@@ -630,12 +637,16 @@ export const tournamentRouter = t.router({
             startDate: z.string().datetime().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
+            // If no startDate set to 1 hour from now
+            const defaultStartDate = new Date();
+            defaultStartDate.setHours(defaultStartDate.getHours() + 1);
+            
             const tournament = await ctx.db.tournament.create({
                 data: {
                     name: input.name,
                     type: input.type,
                     password: input.password,
-                    startDate: input.startDate ? new Date(input.startDate) : new Date(),
+                    startDate: input.startDate ? new Date(input.startDate) : defaultStartDate,
                     createdById: ctx.user!.id,
                 },
                 include: {
