@@ -106,7 +106,6 @@ export class TournamentsListController extends RouteController {
 						username: 'sasha',
 						id: '101790553581164733341'
 					},
-					hasPassword: false,
 					startDate: randomDateStart(new Date(2025, 11, 6), new Date(2026, 11, 10)),
 					status: "WAITING_PLAYERS",
 					type: "EIGHT",
@@ -117,7 +116,8 @@ export class TournamentsListController extends RouteController {
 						{ username: 'kayle', id: '101790553581164733341' },
 						{ username: 'alex', id: '117999440280603199126' },
 						{ username: 'alex2', id: '117999440280603199129' },
-					]
+					],
+					isStarted: false,
 				},
 				{
 					id: '2',
@@ -128,7 +128,6 @@ export class TournamentsListController extends RouteController {
 						username: 'john',
 						id: '117999440280603199126'
 					},
-					hasPassword: true,
 					startDate: randomDateStart(new Date(Date.now() + 60 * 60 * 1000), new Date(Date.now() + 60 * 60 * 24 * 1000)),
 					status: "WAITING_PLAYERS",
 					type: "EIGHT",
@@ -138,7 +137,8 @@ export class TournamentsListController extends RouteController {
 						{ username: 'kayle', id: '101790553581164733341' },
 						{ username: 'alex', id: '117999440280603199126' },
 						{ username: 'alex2', id: '117999440280603199129' },
-					]
+					],
+					isStarted: false,
 				},
 				{
 					id: '3',
@@ -149,7 +149,6 @@ export class TournamentsListController extends RouteController {
 						username: 'kayle',
 						id: '101790553581164733341'
 					},
-					hasPassword: true,
 					startDate: randomDateStart(new Date(Date.now() + 60 * 1000), new Date(Date.now() + 60 * 60 * 1000)),
 					status: "WAITING_PLAYERS",
 					type: "EIGHT",
@@ -159,7 +158,8 @@ export class TournamentsListController extends RouteController {
 						{ username: 'kayle', id: '101790553581164733341' },
 						{ username: 'alex', id: '117999440280603199126' },
 						{ username: 'alex2', id: '117999440280603199129' },
-					]
+					],
+					isStarted: false,
 				},
 				{
 					id: '3',
@@ -170,7 +170,6 @@ export class TournamentsListController extends RouteController {
 						username: 'alex',
 						id: '117999440280603199126'
 					},
-					hasPassword: true,
 					startDate: new Date(),
 					status: "IN_PROGRESS",
 					type: "EIGHT",
@@ -180,7 +179,8 @@ export class TournamentsListController extends RouteController {
 						{ username: 'kayle', id: '101790553581164733341' },
 						{ username: 'alex', id: '117999440280603199126' },
 						{ username: 'alex2', id: '117999440280603199129' },
-					]
+					],
+					isStarted: false,
 				}
 			];
 			for (const tournament of mockTournaments) {

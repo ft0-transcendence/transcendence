@@ -63,7 +63,6 @@ export const tournamentRouter = t.router({
                     createdBy: tournament.createdBy,
                     participantsCount: tournament._count.participants,
                     maxParticipants: 8,
-                    hasPassword: !!tournament.password,
                     hasUserJoined,
                     participants,
                     isStarted
@@ -188,7 +187,6 @@ export const tournamentRouter = t.router({
                     ...g,
                     scoreGoal: g.scoreGoal || 7
                 })),
-                hasPassword: !!tournament.password,
                 isRegisteredToTournament
             };
         }),
@@ -394,7 +392,7 @@ export const tournamentRouter = t.router({
                 tournaments: tournaments.map(t => ({
                     ...t,
                     userWon: t.winnerId === ctx.user!.id,
-                    userPosition: t.winnerId === ctx.user!.id ? 1 : null // Potremmo calcolare la posizione reale
+                    userPosition: t.winnerId === ctx.user!.id ? 1 : null
                 })),
                 nextCursor
             };
@@ -421,7 +419,7 @@ export const tournamentRouter = t.router({
         }),
 
     joinTournament: protectedProcedure
-        .input(z.object({ tournamentId: z.string(), password: z.string().optional() }))
+        .input(z.object({ tournamentId: z.string() }))
         .mutation(async ({ ctx, input }) => {
             const tournament = await ctx.db.tournament.findUnique({
                 where: { id: input.tournamentId },
@@ -430,10 +428,6 @@ export const tournamentRouter = t.router({
 
             if (!tournament) {
                 throw new TRPCError({ code: 'NOT_FOUND', message: 'Tournament not found' });
-            }
-
-            if (tournament.password && tournament.password !== input.password) {
-                throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid password' });
             }
 
             const alreadyJoined = tournament.participants.some(p => p.userId === ctx.user!.id);
@@ -633,7 +627,6 @@ export const tournamentRouter = t.router({
         .input(z.object({
             name: z.string().min(3).max(50),
             type: z.nativeEnum(TournamentType),
-            password: z.string().optional(),
             startDate: z.string().datetime().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
@@ -645,7 +638,6 @@ export const tournamentRouter = t.router({
                 data: {
                     name: input.name,
                     type: input.type,
-                    password: input.password,
                     startDate: input.startDate ? new Date(input.startDate) : defaultStartDate,
                     createdById: ctx.user!.id,
                 },
