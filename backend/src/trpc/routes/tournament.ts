@@ -476,7 +476,30 @@ export const tournamentRouter = t.router({
             }
 
             await ctx.db.tournamentParticipant.delete({ where: { id: participant.id } });
-            return { success: true } as const;
+
+            // Check if tournament empty
+            const remainingParticipants = await ctx.db.tournamentParticipant.count({
+                where: { tournamentId: input.tournamentId }
+            });
+
+            if (remainingParticipants === 0) {
+                await ctx.db.tournament.delete({
+                    where: { id: input.tournamentId }
+                });
+                
+                console.log(`Tournament ${input.tournamentId} deleted - no participants remaining`);
+                
+                return { 
+                    success: true, 
+                    tournamentDeleted: true,
+                    message: 'Tournament deleted as no participants remain'
+                } as const;
+            }
+
+            return { 
+                success: true, 
+                tournamentDeleted: false 
+            } as const;
         }),
 
     startTournament: protectedProcedure
