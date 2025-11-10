@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, t } from "../trpc";
 import { z } from "zod";
 import { TournamentType, GameType, TournamentStatus } from "@prisma/client";
-import { updateGameStats, updateTournamentWinnerStats } from "../../utils/statsUtils";
+import { updateTournamentWinnerStats } from "../../utils/statsUtils";
 
 export const tournamentRouter = t.router({
     
@@ -42,17 +42,30 @@ export const tournamentRouter = t.router({
                 }
             });
 
-            return tournaments.map(tournament => ({
-                id: tournament.id,
-                name: tournament.name,
-                type: tournament.type,
-                status: tournament.status,
-                startDate: tournament.startDate,
-                createdBy: tournament.createdBy,
-                participantsCount: tournament._count.participants,
-                maxParticipants: 8,
-                hasPassword: !!tournament.password
-            }));
+            return tournaments.map(tournament => {
+                const hasUserJoined = ctx.user?.id 
+                    ? tournament.participants.some(p => p.user.id === ctx.user!.id)
+                    : false;
+
+                const participants = tournament.participants.map(p => ({
+                    id: p.user.id,
+                    username: p.user.username
+                }));
+
+                return {
+                    id: tournament.id,
+                    name: tournament.name,
+                    type: tournament.type,
+                    status: tournament.status,
+                    startDate: tournament.startDate,
+                    createdBy: tournament.createdBy,
+                    participantsCount: tournament._count.participants,
+                    maxParticipants: 8,
+                    hasPassword: !!tournament.password,
+                    hasUserJoined,
+                    participants
+                };
+            });
         }),
 
     getTournaments: publicProcedure
