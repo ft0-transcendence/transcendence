@@ -79,6 +79,9 @@ img {
 	background: #fff;
 	border-radius: 0.125rem;
 }
+button {
+	cursor: pointer;
+}
 
 
 .horiz-divider {
