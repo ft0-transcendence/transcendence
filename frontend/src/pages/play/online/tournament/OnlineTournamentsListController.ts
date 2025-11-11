@@ -2,7 +2,7 @@ import { api } from "@main";
 import { RouterOutputs } from "@shared";
 import { LoadingOverlay } from "@src/components/LoadingOverlay";
 import { router } from "@src/pages/_router";
-import { k, t } from "@src/tools/i18n";
+import { k, t, updateDOMTranslations } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
 import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
@@ -67,9 +67,9 @@ export class TournamentsListController extends RouteController {
 
 						<div class="flex gap-2 justify-end mt-2">
 							<button type="button" id="${this.id}-create-modal-cancel"
-									class="px-3 py-1 rounded-md bg-black/50 hover:bg-black/75 transition-colors cursor-pointer">Cancel</button>
+									class="px-3 py-1 rounded-md bg-black/50 hover:bg-black/75 transition-colors cursor-pointer" data-i18n="${k('generic.cancel')}">Cancel</button>
 							<button type="submit" id="${this.id}-create-modal-submit"
-									class="px-3 py-1 rounded-md bg-amber-500 hover:bg-amber-400 transition-colors text-black font-semibold cursor-pointer">Create</button>
+									class="px-3 py-1 rounded-md bg-amber-500 hover:bg-amber-400 transition-colors text-black font-semibold cursor-pointer" data-i18n="${k('generic.create')}">Create</button>
 						</div>
 					</form>
 				</div>
@@ -91,102 +91,102 @@ export class TournamentsListController extends RouteController {
 			if (!listEl) return;
 			listEl.innerHTML = '';
 			tournaments.forEach(t => listEl.appendChild(this.#createTournamentItem(t)));
-			const randomDateStart = (minDate: Date, maxDate: Date) => {
-				return new Date(minDate.getTime() + Math.random() * (maxDate.getTime() - minDate.getTime()));
-			};
 
+			//const randomDateStart = (minDate: Date, maxDate: Date) => {
+			//	return new Date(minDate.getTime() + Math.random() * (maxDate.getTime() - minDate.getTime()));
+			//};
 			// TODO: remove this mock data
-			const mockTournaments: typeof tournaments = [
-				{
-					id: '1',
-					name: 'Mock Tournament #1',
-					maxParticipants: 10,
-					participantsCount: 5,
-					createdBy: {
-						username: 'sasha',
-						id: '101790553581164733341'
-					},
-					startDate: randomDateStart(new Date(2025, 11, 6), new Date(2026, 11, 10)),
-					status: "WAITING_PLAYERS",
-					type: "EIGHT",
-					hasUserJoined: true,
-					participants: [
-						{ username: 'sasha', id: '101790553581164733341' },
-						{ username: 'john', id: '117999440280603199126' },
-						{ username: 'kayle', id: '101790553581164733341' },
-						{ username: 'alex', id: '117999440280603199126' },
-						{ username: 'alex2', id: '117999440280603199129' },
-					],
-					isStarted: false,
-				},
-				{
-					id: '2',
-					name: 'Mock Tournament #2',
-					maxParticipants: 8,
-					participantsCount: 4,
-					createdBy: {
-						username: 'john',
-						id: '117999440280603199126'
-					},
-					startDate: randomDateStart(new Date(Date.now() + 60 * 60 * 1000), new Date(Date.now() + 60 * 60 * 24 * 1000)),
-					status: "WAITING_PLAYERS",
-					type: "EIGHT",
-					hasUserJoined: false,
-					participants: [
-						{ username: 'john', id: '117999440280603199126' },
-						{ username: 'kayle', id: '101790553581164733341' },
-						{ username: 'alex', id: '117999440280603199126' },
-						{ username: 'alex2', id: '117999440280603199129' },
-					],
-					isStarted: false,
-				},
-				{
-					id: '3',
-					name: 'Mock Tournament #3',
-					maxParticipants: 8,
-					participantsCount: 4,
-					createdBy: {
-						username: 'kayle',
-						id: '101790553581164733341'
-					},
-					startDate: randomDateStart(new Date(Date.now() + 60 * 1000), new Date(Date.now() + 60 * 60 * 1000)),
-					status: "WAITING_PLAYERS",
-					type: "EIGHT",
-					hasUserJoined: false,
-					participants: [
-						{ username: 'john', id: '117999440280603199126' },
-						{ username: 'kayle', id: '101790553581164733341' },
-						{ username: 'alex', id: '117999440280603199126' },
-						{ username: 'alex2', id: '117999440280603199129' },
-					],
-					isStarted: false,
-				},
-				{
-					id: '3',
-					name: 'Mock Tournament #2',
-					maxParticipants: 8,
-					participantsCount: 8,
-					createdBy: {
-						username: 'alex',
-						id: '117999440280603199126'
-					},
-					startDate: new Date(),
-					status: "IN_PROGRESS",
-					type: "EIGHT",
-					hasUserJoined: false,
-					participants: [
-						{ username: 'john', id: '117999440280603199126' },
-						{ username: 'kayle', id: '101790553581164733341' },
-						{ username: 'alex', id: '117999440280603199126' },
-						{ username: 'alex2', id: '117999440280603199129' },
-					],
-					isStarted: false,
-				}
-			];
-			for (const tournament of mockTournaments) {
-				const el = this.#createTournamentItem(tournament);
-				listEl?.appendChild(el);
-			}
+			//const mockTournaments: typeof tournaments = [
+			//	{
+			//		id: '1',
+			//		name: 'Mock Tournament #1',
+			//		maxParticipants: 10,
+			//		participantsCount: 5,
+			//		createdBy: {
+			//			username: 'sasha',
+			//			id: '101790553581164733341'
+			//		},
+			//		startDate: randomDateStart(new Date(2025, 11, 6), new Date(2026, 11, 10)),
+			//		status: "WAITING_PLAYERS",
+			//		type: "EIGHT",
+			//		hasUserJoined: true,
+			//		participants: [
+			//			{ username: 'sasha', id: '101790553581164733341' },
+			//			{ username: 'john', id: '117999440280603199126' },
+			//			{ username: 'kayle', id: '101790553581164733341' },
+			//			{ username: 'alex', id: '117999440280603199126' },
+			//			{ username: 'alex2', id: '117999440280603199129' },
+			//		],
+			//		isStarted: false,
+			//	},
+			//	{
+			//		id: '2',
+			//		name: 'Mock Tournament #2',
+			//		maxParticipants: 8,
+			//		participantsCount: 4,
+			//		createdBy: {
+			//			username: 'john',
+			//			id: '117999440280603199126'
+			//		},
+			//		startDate: randomDateStart(new Date(Date.now() + 60 * 60 * 1000), new Date(Date.now() + 60 * 60 * 24 * 1000)),
+			//		status: "WAITING_PLAYERS",
+			//		type: "EIGHT",
+			//		hasUserJoined: false,
+			//		participants: [
+			//			{ username: 'john', id: '117999440280603199126' },
+			//			{ username: 'kayle', id: '101790553581164733341' },
+			//			{ username: 'alex', id: '117999440280603199126' },
+			//			{ username: 'alex2', id: '117999440280603199129' },
+			//		],
+			//		isStarted: false,
+			//	},
+			//	{
+			//		id: '3',
+			//		name: 'Mock Tournament #3',
+			//		maxParticipants: 8,
+			//		participantsCount: 4,
+			//		createdBy: {
+			//			username: 'kayle',
+			//			id: '101790553581164733341'
+			//		},
+			//		startDate: randomDateStart(new Date(Date.now() + 60 * 1000), new Date(Date.now() + 60 * 60 * 1000)),
+			//		status: "WAITING_PLAYERS",
+			//		type: "EIGHT",
+			//		hasUserJoined: false,
+			//		participants: [
+			//			{ username: 'john', id: '117999440280603199126' },
+			//			{ username: 'kayle', id: '101790553581164733341' },
+			//			{ username: 'alex', id: '117999440280603199126' },
+			//			{ username: 'alex2', id: '117999440280603199129' },
+			//		],
+			//		isStarted: false,
+			//	},
+			//	{
+			//		id: '3',
+			//		name: 'Mock Tournament #2',
+			//		maxParticipants: 8,
+			//		participantsCount: 8,
+			//		createdBy: {
+			//			username: 'alex',
+			//			id: '117999440280603199126'
+			//		},
+			//		startDate: new Date(),
+			//		status: "IN_PROGRESS",
+			//		type: "EIGHT",
+			//		hasUserJoined: false,
+			//		participants: [
+			//			{ username: 'john', id: '117999440280603199126' },
+			//			{ username: 'kayle', id: '101790553581164733341' },
+			//			{ username: 'alex', id: '117999440280603199126' },
+			//			{ username: 'alex2', id: '117999440280603199129' },
+			//		],
+			//		isStarted: false,
+			//	}
+			//];
+			//for (const tournament of mockTournaments) {
+			//	const el = this.#createTournamentItem(tournament);
+			//	listEl?.appendChild(el);
+			//}
 
 			this.#stopCountdownUpdater();
 			this.#startCountdownUpdater();
@@ -244,7 +244,7 @@ export class TournamentsListController extends RouteController {
 					<div class="flex gap-2 items-center sm:justify-start sm:flex-col sm:gap-1">
 						${tournament.hasUserJoined
 							? /*html*/`
-							<div class="register-status uppercase text-green-600 font-bold text-sm" data-i18n="${k('generic.registered')}">
+							<div class="register-status uppercase text-green-600 font-bold text-sm" data-i18n="${k('generic.tournament.registered')}">
 								Registered
 							</div>
 							`
@@ -252,12 +252,12 @@ export class TournamentsListController extends RouteController {
 						}
 						<div ${tournament.hasUserJoined ? 'disabled' : ''}
 							data-i18n="${k('generic.tournament.join')}"
-							class="${!isJoinable || tournament.hasUserJoined ? 'hidden' : 'cursor-pointer'} join-tournament-btn px-5 py-2.5 uppercase rounded-md bg-stone-600 hover:bg-stone-500 transition-colors text-sm font-semibold text-center w-24">
+							class="${!isJoinable || tournament.hasUserJoined ? 'hidden' : 'cursor-pointer'} join-tournament-btn px-5 py-2.5 uppercase rounded-md bg-stone-600 hover:bg-stone-500 transition-colors text-sm font-semibold text-center min-w-24">
 							Join
 						</div>
 						<div ${tournament.hasUserJoined ? 'disabled' : ''}
 							data-i18n="${k('generic.tournament.leave')}"
-							class="${!isJoinable || !tournament.hasUserJoined ? 'hidden' : ''} leave-tournament-btn px-5 py-2.5 uppercase rounded-md bg-red-700 hover:bg-red-600 transition-colors text-sm font-semibold text-center w-24">
+							class="${!isJoinable || !tournament.hasUserJoined ? 'hidden' : ''} leave-tournament-btn px-5 py-2.5 uppercase rounded-md bg-red-700 hover:bg-red-600 transition-colors text-sm font-semibold text-center min-w-24">
 							Leave
 						</div>
 					</div>
@@ -274,7 +274,7 @@ export class TournamentsListController extends RouteController {
 						${tournament.maxParticipants ?? 8}
 					</span>
 				</div>
-				<div class="flex items-center gap-1" title="${startTooltip}">
+				<div class="flex items-center gap-1" data-start-tooltip="${startTooltip}" title="${startTooltip}">
 					<i class="fa fa-clock-o text-stone-400"></i>
 					<span class="tournament-countdown font-mono text-sm">${remainingText}</span>
 				</div>
@@ -332,6 +332,7 @@ export class TournamentsListController extends RouteController {
 				}
 			});
 		}
+		updateDOMTranslations(li);
 
 		return li;
 	}
@@ -354,12 +355,13 @@ export class TournamentsListController extends RouteController {
 	#startCountdownUpdater() {
 		const update = () => {
 			document.querySelectorAll(`#${this.id}-tournaments-list .tournament-countdown`).forEach(el => {
-				const parent = el.parentElement;
+				const parent = el.closest('li');
 				if (!parent) return;
-				const titleContainer = parent.querySelector('[title]') as HTMLElement | null;
+				const titleContainer = parent.querySelector('[data-start-tooltip]') as HTMLElement | null;
 				if (!titleContainer) return;
-				const date = new Date(titleContainer.getAttribute('title')!);
+				const date = new Date(titleContainer.getAttribute('data-start-tooltip')!);
 				el.textContent = this.#formatRemainingTime(date);
+
 			});
 			this.#countdownInterval = setTimeout(update, 60 * 1000);
 		};

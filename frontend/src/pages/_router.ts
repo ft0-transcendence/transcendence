@@ -79,16 +79,19 @@ const routes: Route[] = [
 		path: '/play/online/tournaments',
 		newController: () => new OnlineTournamentsListController(),
 		newLayout: () => new BaseLayout(),
+		authRequired: true,
 	},
 	{
 		path: '/play/online/tournaments/:tournamentId',
 		newController: (params) => new OnlineTournamentDetailsController(params),
 		newLayout: () => new BaseLayout(),
+		authRequired: true,
 	},
 	{
 		path: '/play/online/tournaments/:tournamentId/:gameId',
 		newController: (params) => new OnlineTournamentGameController(params),
 		newLayout: () => new BaseLayout(),
+		authRequired: true,
 	},
 	{
 		path: '/settings',

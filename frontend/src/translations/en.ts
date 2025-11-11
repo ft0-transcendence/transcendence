@@ -71,6 +71,7 @@ export const en = {
 			registered: "Registered",
 		},
 		leave_tournament_success: "You have successfully left the tournament",
+		create: "Create",
 	},
 	error: {
 		generic_server_error: 'Something went wrong. Please try again later.',

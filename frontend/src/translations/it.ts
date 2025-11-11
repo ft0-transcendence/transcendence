@@ -72,6 +72,7 @@ export const it: TranslationSchema = {
 			registered: "Registrato",
 		},
 		leave_tournament_success: "Sei uscito dal torneo",
+		create: "Crea",
 	},
 	error: {
 		generic_server_error: 'Qualcosa è andato storto. Per favore riprova più tardi.',

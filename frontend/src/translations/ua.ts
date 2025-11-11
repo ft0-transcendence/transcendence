@@ -72,6 +72,7 @@ export const ua: TranslationSchema = {
 			registered: "Зареєстровано",
 		},
 		leave_tournament_success: "Ви успішно вийшли з турніру",
+		create: "Створити",
 	},
 	error: {
 		generic_server_error: 'Щось пішло не так. Будь ласка, спробуйте ще раз пізніше.',
