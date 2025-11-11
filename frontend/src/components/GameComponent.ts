@@ -349,8 +349,9 @@ export class GameComponent extends ComponentController {
 				<div class="flex flex-col gap-2 items-center justify-center bg-black/50 p-2">
 					<div class="flex items-center justify-center text-xl text-center">${data.message}</div>
 
-					<a href="/play" data-route="/play" class="route-link fake-route-link" data-i18n="${k('generic.go_back')}">
-						Go back
+					<a data-route="/play" href="/play" class="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-400 transition-colors">
+						<i class="fa fa-arrow-left"></i>
+						<span class="ml-1" data-i18n="${k('generic.go_back')}">Go back</span>
 					</a>
 				</div>
 			`;
@@ -456,8 +457,9 @@ export class GameComponent extends ComponentController {
 				<div id="${this.id}-exit-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
 					<h4 id="${this.id}-error-message" class="text-red-500"></h4>
 
-					<a href="/play" data-route="/play" class="route-link nav-route" data-i18n="${k('generic.go_back')}">
-						Go back
+					<a data-route="/play" href="/play" class="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-400 transition-colors">
+						<i class="fa fa-arrow-left"></i>
+						<span class="ml-1" data-i18n="${k('generic.go_back')}">Go back</span>
 					</a>
 
 				</div>

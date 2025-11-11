@@ -1,6 +1,7 @@
 import { RouteController } from '@tools/ViewController';
 import { notSuspiciousSvg } from '../assets/good_soup';
 import toast from '@tools/Toast';
+import { k } from '@src/tools/i18n';
 
 export class NotFoundController extends RouteController {
 	#removeCircleTimeoutMS = 5000;
@@ -26,7 +27,10 @@ export class NotFoundController extends RouteController {
 				</div>
 
 				<p class="mt-4 text-lg italic">The page you are <span class="font-bold font-serif">looking</span> for does not exist.</p>
-				<button data-route="/" class="route-link mt-6 rounded text-gray-400 hover:underline">Go back to Home</button>
+				<a data-route="/" href="/" class="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-400 transition-colors">
+					<i class="fa fa-home"></i>
+					<span class="ml-1" data-i18n="${k('generic.go_back')}">Go back</span>
+				</a>
 				<div id="circle" class="mouse_circle fixed top-full left-full w-40 h-40 rounded-full  pointer-events-none"></div>
 			</div>
 		`;

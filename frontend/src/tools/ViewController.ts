@@ -28,6 +28,25 @@ export abstract class ViewController {
 	protected get currentRoute(){ return this.#currentRoute; }
 	protected get isDestroyed() { return this.#isDestroyed; }
 
+
+	/**
+	 * Updates the title suffix of the page.
+	 *
+	 * Override this method on each controller to update the title suffix with i18n.
+	 *
+	 * Example:
+	 * ```
+	 * //HomeController.ts
+	 *
+	 * override updateTitleSuffix() {
+	 * 	this.titleSuffix = t('navbar.home') ?? "Home";
+	 * }
+	 * constructor(){
+	 * 	super();
+	 * 	this.updateTitleSuffix();
+	 * }
+	 * ```
+	 */
 	public updateTitleSuffix(){
 		this.titleSuffix = this.suffix ?? "";
 	}

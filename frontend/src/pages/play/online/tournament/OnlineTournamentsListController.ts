@@ -10,6 +10,14 @@ import { TRPCClientError } from "@trpc/client";
 
 export class TournamentsListController extends RouteController {
 
+	constructor(){
+		super();
+		this.updateTitleSuffix();
+	}
+	override updateTitleSuffix() {
+		this.titleSuffix = t('navbar.online_tournaments') ?? "Tournaments";
+	}
+
 	#loadingOverlays = {
 		tournamentList: new LoadingOverlay()
 	};
@@ -92,101 +100,101 @@ export class TournamentsListController extends RouteController {
 			listEl.innerHTML = '';
 			tournaments.forEach(t => listEl.appendChild(this.#createTournamentItem(t)));
 
-			//const randomDateStart = (minDate: Date, maxDate: Date) => {
-			//	return new Date(minDate.getTime() + Math.random() * (maxDate.getTime() - minDate.getTime()));
-			//};
+			const randomDateStart = (minDate: Date, maxDate: Date) => {
+				return new Date(minDate.getTime() + Math.random() * (maxDate.getTime() - minDate.getTime()));
+			};
 			// TODO: remove this mock data
-			//const mockTournaments: typeof tournaments = [
-			//	{
-			//		id: '1',
-			//		name: 'Mock Tournament #1',
-			//		maxParticipants: 10,
-			//		participantsCount: 5,
-			//		createdBy: {
-			//			username: 'sasha',
-			//			id: '101790553581164733341'
-			//		},
-			//		startDate: randomDateStart(new Date(2025, 11, 6), new Date(2026, 11, 10)),
-			//		status: "WAITING_PLAYERS",
-			//		type: "EIGHT",
-			//		hasUserJoined: true,
-			//		participants: [
-			//			{ username: 'sasha', id: '101790553581164733341' },
-			//			{ username: 'john', id: '117999440280603199126' },
-			//			{ username: 'kayle', id: '101790553581164733341' },
-			//			{ username: 'alex', id: '117999440280603199126' },
-			//			{ username: 'alex2', id: '117999440280603199129' },
-			//		],
-			//		isStarted: false,
-			//	},
-			//	{
-			//		id: '2',
-			//		name: 'Mock Tournament #2',
-			//		maxParticipants: 8,
-			//		participantsCount: 4,
-			//		createdBy: {
-			//			username: 'john',
-			//			id: '117999440280603199126'
-			//		},
-			//		startDate: randomDateStart(new Date(Date.now() + 60 * 60 * 1000), new Date(Date.now() + 60 * 60 * 24 * 1000)),
-			//		status: "WAITING_PLAYERS",
-			//		type: "EIGHT",
-			//		hasUserJoined: false,
-			//		participants: [
-			//			{ username: 'john', id: '117999440280603199126' },
-			//			{ username: 'kayle', id: '101790553581164733341' },
-			//			{ username: 'alex', id: '117999440280603199126' },
-			//			{ username: 'alex2', id: '117999440280603199129' },
-			//		],
-			//		isStarted: false,
-			//	},
-			//	{
-			//		id: '3',
-			//		name: 'Mock Tournament #3',
-			//		maxParticipants: 8,
-			//		participantsCount: 4,
-			//		createdBy: {
-			//			username: 'kayle',
-			//			id: '101790553581164733341'
-			//		},
-			//		startDate: randomDateStart(new Date(Date.now() + 60 * 1000), new Date(Date.now() + 60 * 60 * 1000)),
-			//		status: "WAITING_PLAYERS",
-			//		type: "EIGHT",
-			//		hasUserJoined: false,
-			//		participants: [
-			//			{ username: 'john', id: '117999440280603199126' },
-			//			{ username: 'kayle', id: '101790553581164733341' },
-			//			{ username: 'alex', id: '117999440280603199126' },
-			//			{ username: 'alex2', id: '117999440280603199129' },
-			//		],
-			//		isStarted: false,
-			//	},
-			//	{
-			//		id: '3',
-			//		name: 'Mock Tournament #2',
-			//		maxParticipants: 8,
-			//		participantsCount: 8,
-			//		createdBy: {
-			//			username: 'alex',
-			//			id: '117999440280603199126'
-			//		},
-			//		startDate: new Date(),
-			//		status: "IN_PROGRESS",
-			//		type: "EIGHT",
-			//		hasUserJoined: false,
-			//		participants: [
-			//			{ username: 'john', id: '117999440280603199126' },
-			//			{ username: 'kayle', id: '101790553581164733341' },
-			//			{ username: 'alex', id: '117999440280603199126' },
-			//			{ username: 'alex2', id: '117999440280603199129' },
-			//		],
-			//		isStarted: false,
-			//	}
-			//];
-			//for (const tournament of mockTournaments) {
-			//	const el = this.#createTournamentItem(tournament);
-			//	listEl?.appendChild(el);
-			//}
+			const mockTournaments: typeof tournaments = [
+				{
+					id: '1',
+					name: 'Mock Tournament #1',
+					maxParticipants: 10,
+					participantsCount: 5,
+					createdBy: {
+						username: 'sasha',
+						id: '101790553581164733341'
+					},
+					startDate: randomDateStart(new Date(2025, 11, 6), new Date(2026, 11, 10)),
+					status: "WAITING_PLAYERS",
+					type: "EIGHT",
+					hasUserJoined: true,
+					participants: [
+						{ username: 'sasha', id: '101790553581164733341' },
+						{ username: 'john', id: '117999440280603199126' },
+						{ username: 'kayle', id: '101790553581164733341' },
+						{ username: 'alex', id: '117999440280603199126' },
+						{ username: 'alex2', id: '117999440280603199129' },
+					],
+					isStarted: false,
+				},
+				{
+					id: '2',
+					name: 'Mock Tournament #2',
+					maxParticipants: 8,
+					participantsCount: 4,
+					createdBy: {
+						username: 'john',
+						id: '117999440280603199126'
+					},
+					startDate: randomDateStart(new Date(Date.now() + 60 * 60 * 1000), new Date(Date.now() + 60 * 60 * 24 * 1000)),
+					status: "WAITING_PLAYERS",
+					type: "EIGHT",
+					hasUserJoined: false,
+					participants: [
+						{ username: 'john', id: '117999440280603199126' },
+						{ username: 'kayle', id: '101790553581164733341' },
+						{ username: 'alex', id: '117999440280603199126' },
+						{ username: 'alex2', id: '117999440280603199129' },
+					],
+					isStarted: false,
+				},
+				{
+					id: '3',
+					name: 'Mock Tournament #3',
+					maxParticipants: 8,
+					participantsCount: 4,
+					createdBy: {
+						username: 'kayle',
+						id: '101790553581164733341'
+					},
+					startDate: randomDateStart(new Date(Date.now() + 60 * 1000), new Date(Date.now() + 60 * 60 * 1000)),
+					status: "WAITING_PLAYERS",
+					type: "EIGHT",
+					hasUserJoined: false,
+					participants: [
+						{ username: 'john', id: '117999440280603199126' },
+						{ username: 'kayle', id: '101790553581164733341' },
+						{ username: 'alex', id: '117999440280603199126' },
+						{ username: 'alex2', id: '117999440280603199129' },
+					],
+					isStarted: false,
+				},
+				{
+					id: '3',
+					name: 'Mock Tournament #2',
+					maxParticipants: 8,
+					participantsCount: 8,
+					createdBy: {
+						username: 'alex',
+						id: '117999440280603199126'
+					},
+					startDate: new Date(),
+					status: "IN_PROGRESS",
+					type: "EIGHT",
+					hasUserJoined: false,
+					participants: [
+						{ username: 'john', id: '117999440280603199126' },
+						{ username: 'kayle', id: '101790553581164733341' },
+						{ username: 'alex', id: '117999440280603199126' },
+						{ username: 'alex2', id: '117999440280603199129' },
+					],
+					isStarted: false,
+				}
+			];
+			for (const tournament of mockTournaments) {
+				const el = this.#createTournamentItem(tournament);
+				listEl?.appendChild(el);
+			}
 
 			this.#stopCountdownUpdater();
 			this.#startCountdownUpdater();
@@ -244,19 +252,19 @@ export class TournamentsListController extends RouteController {
 					<div class="flex gap-2 items-center sm:justify-start sm:flex-col sm:gap-1">
 						${tournament.hasUserJoined
 							? /*html*/`
-							<div class="register-status uppercase text-green-600 font-bold text-sm" data-i18n="${k('generic.tournament.registered')}">
+							<div class="register-status uppercase text-green-600 font-bold text-sm" data-i18n="${k('generic.tournamentList.registered')}">
 								Registered
 							</div>
 							`
 							: ``
 						}
 						<div ${tournament.hasUserJoined ? 'disabled' : ''}
-							data-i18n="${k('generic.tournament.join')}"
+							data-i18n="${k('generic.tournamentList.join')}"
 							class="${!isJoinable || tournament.hasUserJoined ? 'hidden' : 'cursor-pointer'} join-tournament-btn px-5 py-2.5 uppercase rounded-md bg-stone-600 hover:bg-stone-500 transition-colors text-sm font-semibold text-center min-w-24">
 							Join
 						</div>
 						<div ${tournament.hasUserJoined ? 'disabled' : ''}
-							data-i18n="${k('generic.tournament.leave')}"
+							data-i18n="${k('generic.tournamentList.leave')}"
 							class="${!isJoinable || !tournament.hasUserJoined ? 'hidden' : ''} leave-tournament-btn px-5 py-2.5 uppercase rounded-md bg-red-700 hover:bg-red-600 transition-colors text-sm font-semibold text-center min-w-24">
 							Leave
 						</div>

@@ -65,13 +65,14 @@ export const en = {
 		already_joined_troll_description: "Well, that was a good try, but you're already in the tournament. You can't join twice.",
 		already_left_troll_description: "Well, that was a good try, but you're already out of the tournament. You can't leave what you haven't joined.",
 		leave_tournament: "Leave Tournament",
-		tournament: {
+		tournamentList: {
 			join: "Join",
 			leave: "Leave",
 			registered: "Registered",
 		},
 		leave_tournament_success: "You have successfully left the tournament",
 		create: "Create",
+		tournament: "Tournament",
 	},
 	error: {
 		generic_server_error: 'Something went wrong. Please try again later.',
@@ -106,6 +107,7 @@ export const en = {
 		start_playing: 'Start Playing',
 		fullscreen_mode: 'Fullscreen mode',
 		landing_page: 'Landing Page',
+		online_tournaments: 'Online Tournaments',
 	},
 	play: {
 		enter_your_username: 'Enter Your Username',

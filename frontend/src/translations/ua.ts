@@ -66,13 +66,15 @@ export const ua: TranslationSchema = {
 		already_joined_troll_description: "Хороша попроба, але ви вже у турнірі. Ви не можете зайти двічі.",
 		already_left_troll_description: "Хороша попроба, але ви вже вийшли з турніру. Ви не можете залишити турнір, на якому не зареєстровані.",
 		leave_tournament: "Вийти з турніру",
-		tournament: {
+		tournamentList: {
 			join: "Приєднатися",
 			leave: "Вийти",
 			registered: "Зареєстровано",
+
 		},
 		leave_tournament_success: "Ви успішно вийшли з турніру",
 		create: "Створити",
+		tournament: "Турнір",
 	},
 	error: {
 		generic_server_error: 'Щось пішло не так. Будь ласка, спробуйте ще раз пізніше.',
@@ -104,6 +106,7 @@ export const ua: TranslationSchema = {
 		start_playing: 'Почати грати',
 		fullscreen_mode: 'Повноекранний режим',
 		landing_page: 'Головна сторінка',
+		online_tournaments: 'Онлайн турніри',
 	},
 	play: {
 		enter_your_username: 'Введіть своє ім’я користувача',

@@ -66,13 +66,14 @@ export const it: TranslationSchema = {
 		already_joined_troll_description: "Bene, che è stato un buon tentativo, ma sei già nel torneo. Non puoi entrare due volte.",
 		already_left_troll_description: "Bene, che è stato un buon tentativo, ma sei già uscito dal torneo. Non puoi lasciare ciò a cui non sei registrato.",
 		leave_tournament: "Lascia Torneo",
-		tournament: {
+		tournamentList: {
 			join: "Partecipa",
 			leave: "Lascia",
 			registered: "Registrato",
 		},
 		leave_tournament_success: "Sei uscito dal torneo",
 		create: "Crea",
+		tournament: "Torneo",
 	},
 	error: {
 		generic_server_error: 'Qualcosa è andato storto. Per favore riprova più tardi.',
@@ -104,6 +105,7 @@ export const it: TranslationSchema = {
 		start_playing: 'Inizia a giocare',
 		fullscreen_mode: 'Schermo intero',
 		landing_page: 'Pagina iniziale',
+		online_tournaments: 'Tornei online',
 	},
 	play: {
 		enter_your_username: 'Inserisci il tuo nome utente',
