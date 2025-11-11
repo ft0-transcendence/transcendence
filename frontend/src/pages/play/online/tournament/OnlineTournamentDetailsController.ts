@@ -227,7 +227,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 				try {
 					await api.tournament.joinTournament.mutate({ tournamentId: id });
 					toast.success(t("generic.join_tournament"), t("generic.join_tournament_success") ?? "");
-					router.navigate(`/play/online/tournaments/${id}`);
+					window.location.reload(); // TODO: this is a hack, but it works. Find a better solution.
 				} catch (err) {
 					if (err instanceof TRPCClientError) {
 						const msg = err.data?.zodError?.fieldErrors ? Object.values(err.data.zodError.fieldErrors).join(', ') : err.message;
