@@ -7,6 +7,7 @@ import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
 import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
 import { TRPCClientError } from "@trpc/client";
+import he from 'he';
 
 export class TournamentsListController extends RouteController {
 
@@ -143,7 +144,7 @@ export class TournamentsListController extends RouteController {
 						alt="${createdByInitials.toUpperCase()}"
 						class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover ring-1 ring-white/10">
 					<div class="flex flex-col min-w-0 grow">
-						<div class="text-sm sm:text-lg font-semibold truncate">${tournament.name}</div>
+						<div class="text-sm sm:text-lg font-semibold truncate">${he.escape(tournament.name)}</div>
 						<div class="text-xs text-stone-300 truncate">by ${tournament.createdBy.username}</div>
 					</div>
 				</div>
@@ -154,14 +155,6 @@ export class TournamentsListController extends RouteController {
 				<div class="flex flex-col sm:flex-col sm:items-center sm:justify-between min-w-0 gap-1">
 
 					<div class="flex gap-2 items-center sm:justify-start sm:flex-col sm:gap-1">
-						${tournament.hasUserJoined
-							? /*html*/`
-							<div class="register-status uppercase text-green-600 font-bold text-sm" data-i18n="${k('generic.tournamentList.registered')}">
-								Registered
-							</div>
-							`
-							: ``
-						}
 						<div ${tournament.hasUserJoined ? 'disabled' : ''}
 							data-i18n="${k('generic.tournamentList.join')}"
 							class="${!isJoinable || tournament.hasUserJoined ? 'hidden' : 'cursor-pointer'} join-tournament-btn px-5 py-2.5 uppercase rounded-md bg-stone-600 hover:bg-stone-500 transition-colors text-sm font-semibold text-center min-w-24">

@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import {protectedProcedure, publicProcedure, t} from "../trpc";
 import { z } from "zod";
 import { AppLanguage } from '../../../shared_exports';
+import sanitizeHtml from 'sanitize-html';
 
 const MAX_PROFILE_PICTURE_SIZE_MB = 2.5;
 const MAX_PROFILE_PICTURE_SIZE_BYTES = MAX_PROFILE_PICTURE_SIZE_MB * 1024 * 1024;

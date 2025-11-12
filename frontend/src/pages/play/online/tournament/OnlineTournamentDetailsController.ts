@@ -6,11 +6,18 @@ import { RouteController } from "@src/tools/ViewController";
 import { router } from "@src/pages/_router";
 import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
 import { TRPCClientError } from "@trpc/client";
+import { authManager } from "@src/tools/AuthManager";
+import { LoadingOverlay } from "@src/components/LoadingOverlay";
+import he from 'he';
 
 // TODO: it's a little messy, refactor this
 export class OnlineTournamentDetailsController extends RouteController {
 	#tournamentId: string = "";
 	#tournamentDto: RouterOutputs["tournament"]["getTournamentDetails"] | null = null;
+
+	#loadingOverlays = {
+		root: new LoadingOverlay(),
+	}
 
 	constructor(params: Record<string, string> | undefined = undefined) {
 		super(params);
@@ -27,6 +34,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 	}
 
 	protected async preRender() {
+		this.registerChildComponent(this.#loadingOverlays.root);
 		try {
 			this.#tournamentDto = await api.tournament.getTournamentDetails.query({tournamentId: this.#tournamentId});
 		} catch (err) {
@@ -71,7 +79,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 						<span data-i18n="${k("generic.back_to_list")}">Back to list</span>
 					</a>
 					<div class="grow"></div>
-					<div class="font-semibold text-xl">${tDto.name}</div>
+					<div class="font-semibold text-xl">${he.escape(tDto.name)}</div>
 				</header>
 
 				<!-- Overview -->
@@ -83,7 +91,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 									alt="${tDto.createdBy.username}"
 									class="w-12 h-12 rounded-full object-cover ring-1 ring-white/10">
 								<div>
-									<div class="font-semibold text-lg">${tDto.name}</div>
+									<div class="font-semibold text-lg">${he.escape(tDto.name)}</div>
 									<div class="text-sm text-stone-300" data-i18n="${k("generic.by_user")}" data-i18n-vars='${JSON.stringify({user: tDto.createdBy.username})}'>by ${tDto.createdBy.username}</div>
 								</div>
 							</div>
@@ -101,20 +109,14 @@ export class OnlineTournamentDetailsController extends RouteController {
 						</div>
 
 						<div class="mt-5 flex gap-3">
-							${tDto.isRegisteredToTournament
-								? /*html*/ `
-									<button id="${this.id}-leave-btn"
-										class="px-4 py-2 bg-red-700 hover:bg-red-600 rounded-md font-semibold text-sm">
-										<i class="fa fa-sign-out mr-1"></i>${t("generic.leave_tournament")}
-									</button>
-								`
-								: /*html*/ `
-									<button id="${this.id}-join-btn"
-										class="px-4 py-2 bg-green-700 hover:bg-green-600 rounded-md font-semibold text-sm">
-										<i class="fa fa-sign-in mr-1"></i>${t("generic.join_tournament")}
-									</button>
-								`
-							}
+							<button id="${this.id}-leave-btn"
+								class="${!tDto.isRegisteredToTournament ? 'hidden' : ''} px-4 py-2 bg-red-700 hover:bg-red-600 rounded-md font-semibold text-sm">
+								<i class="fa fa-sign-out mr-1"></i>${t("generic.leave_tournament")}
+							</button>
+							<button id="${this.id}-join-btn"
+								class="${tDto.isRegisteredToTournament ? 'hidden' : ''} px-4 py-2 bg-green-700 hover:bg-green-600 rounded-md font-semibold text-sm">
+								<i class="fa fa-sign-in mr-1"></i>${t("generic.join_tournament")}
+							</button>
 						</div>
 					</div>
 
@@ -124,15 +126,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 							<i class="fa fa-users"></i>
 							<span data-i18n="${k('generic.participants')}">Participants</span>
 						</h2>
-						<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-							${tDto.participants.map((p) => /*html*/ `
-								<div class="flex items-center gap-2 bg-neutral-700/50 p-2 rounded-md">
-									<img src="${getProfilePictureUrlByUserId(p.id)}"
-										alt="${p.username}"
-										class="w-8 h-8 rounded-full ring-1 ring-white/10 object-cover">
-									<span class="truncate">${p.username}</span>
-								</div>
-							`).join("")}
+						<div id="${this.id}-participants-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
 						</div>
 					</div>
 
@@ -211,6 +205,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 					</div>
 
 				</div>
+				${await this.#loadingOverlays.root.silentRender()}
 			</div>
 		`;
 	}
@@ -218,16 +213,21 @@ export class OnlineTournamentDetailsController extends RouteController {
 	protected async postRender() {
 		if (!this.#tournamentDto) return;
 
+		this.#renderParticipantsList(this.#tournamentDto.participants);
+
 		const joinBtn = document.querySelector(`#${this.id}-join-btn`) as HTMLButtonElement | null;
 		const leaveBtn = document.querySelector(`#${this.id}-leave-btn`) as HTMLButtonElement | null;
 		const id = this.#tournamentId;
 
 		if (joinBtn) {
 			joinBtn.addEventListener("click", async () => {
+				this.#loadingOverlays.root.show();
 				try {
-					await api.tournament.joinTournament.mutate({ tournamentId: id });
+					const response = await api.tournament.joinTournament.mutate({ tournamentId: id });
 					toast.success(t("generic.join_tournament"), t("generic.join_tournament_success") ?? "");
-					window.location.reload(); // TODO: this is a hack, but it works. Find a better solution.
+					this.#renderParticipantsList(response);
+					joinBtn?.classList?.add("hidden");
+					leaveBtn?.classList?.remove("hidden");
 				} catch (err) {
 					if (err instanceof TRPCClientError) {
 						const msg = err.data?.zodError?.fieldErrors ? Object.values(err.data.zodError.fieldErrors).join(', ') : err.message;
@@ -238,14 +238,19 @@ export class OnlineTournamentDetailsController extends RouteController {
 						console.error(err);
 					}
 				}
+				this.#loadingOverlays.root.hide();
 			});
 		}
 		if (leaveBtn) {
 			leaveBtn.addEventListener("click", async () => {
+				this.#loadingOverlays.root.show();
 				try {
 					await api.tournament.leaveTournament.mutate({ tournamentId: id });
 					toast.info(t("generic.leave_tournament"), t("generic.leave_tournament_success") ?? "");
-					router.navigate(`/play/online/tournaments`);
+					joinBtn?.classList?.remove("hidden");
+					leaveBtn?.classList?.add("hidden");
+					const newList = this.#tournamentDto?.participants.filter(p => p.id !== authManager.user?.id) ?? [];
+					this.#renderParticipantsList(newList);
 				} catch (err) {
 					if (err instanceof TRPCClientError) {
 						const msg = err.data?.zodError?.fieldErrors ? Object.values(err.data.zodError.fieldErrors).join(', ') : err.message;
@@ -256,6 +261,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 						console.error(err);
 					}
 				}
+				this.#loadingOverlays.root.hide();
 			});
 		}
 
@@ -295,4 +301,32 @@ export class OnlineTournamentDetailsController extends RouteController {
 			)
 			.join("");
 	}
+
+
+	#renderParticipantsList(participants: RouterOutputs["tournament"]["getTournamentDetails"]["participants"]) {
+		const container = document.querySelector(`#${this.id}-participants-list`);
+		if (!container) {
+			console.warn('Participants list not found. Cannot render participants');
+			return;
+		}
+
+		container.innerHTML = '';
+
+		for (const p of participants) {
+			const item = document.createElement('div');
+
+			item.className = `flex items-center gap-2 bg-neutral-700/50 p-2 rounded-md`;
+			item.id=`tournament-participant-${p.id}`;
+			item.innerHTML = /*html*/`
+				<img src="${getProfilePictureUrlByUserId(p.id)}"
+					alt="${p.username}"
+					class="w-8 h-8 rounded-full ring-1 ring-white/10 object-cover">
+				<span class="truncate">${p.username}</span>
+			`;
+
+			container?.appendChild(item);
+			updateDOMTranslations(item);
+		}
+	}
+
 }
