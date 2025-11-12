@@ -76,7 +76,7 @@ export class BaseLayout extends LayoutController {
 												<span class="grow text-left font-semibold" data-i18n="${k("navbar.settings")}">Settings</span>
 													<i class="fa fa-cog"></i>
 											</a>
-											<a data-route="/api/auth/logout" href="/api/auth/logout" class="hover:text-amber-400 fake-route-link no-hover-bg py-1 !flex-row !justify-start !gap-0 w-full">
+											<a href="/api/auth/logout" onclick="this.preventDefault();window.authManager.logout()" class="hover:text-amber-400 fake-route-link no-hover-bg py-1 !flex-row !justify-start !gap-0 w-full">
 												<span class="grow text-left font-semibold" data-i18n="${k("navbar.logout")}">Logout</span>
 													<i class="fa fa-sign-out"></i>
 											</a>
