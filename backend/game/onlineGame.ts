@@ -330,7 +330,12 @@ export class OnlineGame extends Game {
 
 		if (this.onFinish) {
 			try {
-				console.log(`🎮 Game ${this.gameId} calling onFinish callback`);
+				console.log(`🎮 Game ${this.gameId} calling onFinish callback with state:`, {
+					scores: state.scores,
+					leftPlayer: this.leftPlayer?.username,
+					rightPlayer: this.rightPlayer?.username,
+					wasForfeited: this.wasForfeited
+				});
 				await this.onFinish(state);
 				console.log(`✅ Game ${this.gameId} onFinish callback completed`);
 			} catch (error) {
