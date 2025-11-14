@@ -8,6 +8,61 @@ import { BracketGenerator } from '../game/bracketGenerator';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
+import { updateGameStats } from './utils/statsUtils';
+
+/**
+ * Funzione centralizzata per gestire la fine di una partita VS
+ */
+async function handleVSGameFinish(gameId: string, state: any, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
+	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
+	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
+	
+	const isAborted = gameInstance.wasForfeited;
+
+	const updateData: any = {
+		endDate: new Date(),
+		leftPlayerScore: state.scores.left,
+		rightPlayerScore: state.scores.right,
+	};
+
+	if (isAborted) {
+		updateData.abortDate = new Date();
+		updateData.abortReason = 'Player disconnection timeout';
+	}
+
+	try {
+		await db.game.update({
+			where: { id: gameId },
+			data: updateData,
+		});
+		console.log(`✅ VS Game ${gameId} successfully updated in database`);
+
+		// Aggiorna sempre le statistiche dei giocatori (anche in caso di forfeit)
+		if (state.scores.left !== state.scores.right) {
+			let winnerId: string;
+			let loserId: string;
+			
+			if (state.scores.left > state.scores.right) {
+				winnerId = leftPlayerId;
+				loserId = rightPlayerId;
+			} else {
+				winnerId = rightPlayerId;
+				loserId = leftPlayerId;
+			}
+			
+			console.log(`📊 VS Game ${gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${isAborted}`);
+			await updateGameStats(db, winnerId, loserId);
+		} else {
+			console.log(`⚠️ VS Game ${gameId} ended in a tie, skipping stats update`);
+		}
+
+	} catch (error) {
+		console.error(`❌ VS Game ${gameId} failed to update database:`, error);
+	}
+	
+	cache.active_1v1_games.delete(gameId);
+	fastify.log.info("VS Game %s persisted and removed from cache.", gameId);
+}
 
 
 type SocketData = {
@@ -174,36 +229,7 @@ function setupMatchmakingNamespace(io: Server) {
 						onlineVersusGameNamespace,
 						{ debug: false },
 						async (state) => {
-							console.log(`🎮 Game ${gameId} onFinish callback called with scores: ${state.scores.left}-${state.scores.right}`);
-							
-							const isAborted = newGame.wasForfeited;
-
-							const updateData: any = {
-								endDate: new Date(),
-								leftPlayerScore: state.scores.left,
-								rightPlayerScore: state.scores.right,
-							};
-
-							if (isAborted) {
-								updateData.abortDate = new Date();
-								updateData.abortReason = 'Player disconnection timeout';
-							}
-
-							console.log(`💾 Game ${gameId} updating database with:`, updateData);
-							
-							try {
-								const result = await db.game.update({
-									where: { id: gameId },
-									data: updateData,
-								});
-								console.log(`✅ Game ${gameId} successfully updated in database:`, result);
-
-							} catch (error) {
-								console.error(`❌ Game ${gameId} failed to update database:`, error);
-							}
-							
-							cache.active_1v1_games.delete(gameId);
-							fastify.log.info("Game %s persisted and removed from cache.", gameId);
+							await handleVSGameFinish(gameId, state, newGame, player1Data.id, player2Data.id);
 						},
 						async (gameInstance) => {
 							try {

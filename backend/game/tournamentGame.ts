@@ -1,8 +1,7 @@
 import { OnlineGame } from "./onlineGame";
 import { GameUserInfo, GameStatus } from "./game";
 import { db } from "../src/trpc/db";
-import {  } from "../main";
-import { updateTournamentWinnerStats } from "../src/utils/statsUtils";
+import { updateTournamentWinnerStats, updateGameStats } from "../src/utils/statsUtils";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
@@ -63,12 +62,20 @@ export class TournamentGame extends OnlineGame {
     public async handleTournamentAdvancement() {
         try {
             const winnerId = this.scores.left > this.scores.right ? this.leftPlayer?.id : this.rightPlayer?.id;
-            if (!winnerId) {
-                console.error(`Tournament Game ${this.gameId}: No winner determined`);
+            const loserId = this.scores.left > this.scores.right ? this.rightPlayer?.id : this.leftPlayer?.id;
+            
+            if (!winnerId || !loserId) {
+                console.error(`Tournament Game ${this.gameId}: No winner/loser determined`);
                 return;
             }
 
-            // Statistics are now calculated dynamically from the database
+            // Aggiorna sempre le statistiche dei giocatori (anche in caso di forfeit)
+            if (this.scores.left !== this.scores.right) {
+                console.log(`📊 Tournament Game ${this.gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${this.wasForfeited}`);
+                await updateGameStats(db, winnerId, loserId);
+            } else {
+                console.log(`⚠️ Tournament Game ${this.gameId} ended in a tie, skipping stats update`);
+            }
 
             // Trova partita successiva
             const currentGame = await db.game.findUnique({

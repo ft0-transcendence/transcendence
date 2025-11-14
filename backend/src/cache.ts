@@ -5,6 +5,61 @@ import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
 import { db } from "./trpc/db";
 import { fastify } from "../main";
+import { updateGameStats } from "./utils/statsUtils";
+
+/**
+ * Funzione centralizzata per gestire la fine di una partita VS
+ */
+async function handleVSGameFinish(gameId: string, state: any, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
+	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
+	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
+	
+	const isAborted = gameInstance.wasForfeited;
+
+	const updateData: any = {
+		endDate: new Date(),
+		leftPlayerScore: state.scores.left,
+		rightPlayerScore: state.scores.right,
+	};
+
+	if (isAborted) {
+		updateData.abortDate = new Date();
+		updateData.abortReason = 'Player disconnection timeout';
+	}
+
+	try {
+		await db.game.update({
+			where: { id: gameId },
+			data: updateData,
+		});
+		console.log(`✅ VS Game ${gameId} successfully updated in database`);
+
+		// Aggiorna sempre le statistiche dei giocatori (anche in caso di forfeit)
+		if (state.scores.left !== state.scores.right) {
+			let winnerId: string;
+			let loserId: string;
+			
+			if (state.scores.left > state.scores.right) {
+				winnerId = leftPlayerId;
+				loserId = rightPlayerId;
+			} else {
+				winnerId = rightPlayerId;
+				loserId = leftPlayerId;
+			}
+			
+			console.log(`📊 VS Game ${gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${isAborted}`);
+			await updateGameStats(db, winnerId, loserId);
+		} else {
+			console.log(`⚠️ VS Game ${gameId} ended in a tie, skipping stats update`);
+		}
+
+	} catch (error) {
+		console.error(`❌ VS Game ${gameId} failed to update database:`, error);
+	}
+	
+	cache.active_1v1_games.delete(gameId);
+	fastify.log.info("VS Game %s persisted and removed from cache.", gameId);
+}
 
 
 export type Cache = {
@@ -86,29 +141,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				maxScore: game.scoreGoal,
 			},
 			async (state) => {
-				// Check if game was forfeited due to disconnection
-				const isAborted = gameInstance.wasForfeited;
-
-				const updateData: any = {
-					endDate: new Date(),
-					leftPlayerScore: state.scores.left,
-					rightPlayerScore: state.scores.right,
-				};
-
-				if (isAborted) {
-					updateData.abortDate = new Date();
-					updateData.abortReason = 'Player disconnection timeout';
-				}
-
-				await db.game.update({
-					where: { id: game.id },
-					data: updateData,
-				});
-
-				// Statistics are now calculated dynamically from the database
-
-				cache.active_1v1_games.delete(game.id);
-				fastify.log.info("VS Game %s persisted and removed from cache.", game.id);
+				await handleVSGameFinish(game.id, state, gameInstance, game.leftPlayerId, game.rightPlayerId);
 			},
 			async (gameInstance) => {
 				await db.game.update({
