@@ -110,6 +110,8 @@ if (fs.existsSync(pathToFrontend)) {
 
 fastify.ready().then(() => {
 	console.log('Fastify is ready');
+	// Make socket.io instance globally accessible for notifications
+	(global as any).io = fastify.io;
 	setupSocketHandlers(fastify.io);
 	loadActiveGamesIntoCache(fastify.prisma, fastify);
 });

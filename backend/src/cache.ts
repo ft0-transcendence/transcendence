@@ -62,6 +62,20 @@ async function handleVSGameFinish(gameId: string, state: any, gameInstance: Onli
 }
 
 
+export type TournamentCacheEntry = {
+	id: string;
+	name: string;
+	type: 'EIGHT';
+	status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+	participants: Set<User['id']>;
+	connectedUsers: Set<User['id']>;
+	creatorId: string;
+	bracketCreated: boolean;
+	aiPlayers: Set<string>;
+	lastBracketUpdate: Date;
+	participantSlots: Map<number, User['id'] | null>; // Track participant positions in bracket
+};
+
 export type Cache = {
 	matchmaking: {
 		connectedUsers: Set<User['id']>;
@@ -71,14 +85,7 @@ export type Cache = {
 	onlineUsers: Map<User['id'], TypedSocket>;
 	userSockets: Map<User['id'], Set<TypedSocket>>;
 	tournaments: {
-		active: Map<string, {
-			id: string;
-			name: string;
-			type: 'EIGHT';
-			status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-			participants: Set<User['id']>;
-			connectedUsers: Set<User['id']>;
-		}>;
+		active: Map<string, TournamentCacheEntry>;
 		activeTournamentGames: Map<string, OnlineGame>;
 		tournamentLobbies: Map<string, Set<User['id']>>;
 	};
@@ -161,11 +168,14 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		cache.active_1v1_games.set(game.id, gameInstance);
 	}
 
-	// Carica partite TOURNAMENT nel DB
+	// Carica partite TOURNAMENT e AI (per tornei) nel DB
 	const activeTournamentGames = await db.game.findMany({
 		where: {
 			endDate: null,
-			type: 'TOURNAMENT'
+			OR: [
+				{ type: 'TOURNAMENT' },
+				{ type: 'AI', tournamentId: { not: null } }
+			]
 		},
 		include: { leftPlayer: true, rightPlayer: true, tournament: true },
 	});
@@ -229,6 +239,11 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				});
 			}
 		);
+
+		// For AI games, we'll handle AI logic in the TournamentGame itself
+		// by checking player types when they join
+
+
 		gameInstance.setPlayers({ ...game.leftPlayer }, { ...game.rightPlayer });
 		gameInstance.scores.left = game.leftPlayerScore;
 		gameInstance.scores.right = game.rightPlayerScore;
@@ -269,15 +284,30 @@ export function isUserOnline(userId: User['id']): boolean {
 	return cache.onlineUsers.has(userId);
 }
 
-export function addTournamentToCache(tournamentId: string, tournamentInfo: {
-	id: string;
-	name: string;
-	type: 'EIGHT';
-	status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-	participants: Set<User['id']>;
-	connectedUsers: Set<User['id']>;
-}) {
+export function addTournamentToCache(tournamentId: string, tournamentInfo: TournamentCacheEntry) {
 	cache.tournaments.active.set(tournamentId, tournamentInfo);
+}
+
+export function updateTournamentBracket(tournamentId: string, participantSlots: Map<number, User['id'] | null>) {
+	const tournament = cache.tournaments.active.get(tournamentId);
+	if (tournament) {
+		tournament.participantSlots = participantSlots;
+		tournament.lastBracketUpdate = new Date();
+	}
+}
+
+export function addAIPlayerToTournament(tournamentId: string, aiPlayerId: string) {
+	const tournament = cache.tournaments.active.get(tournamentId);
+	if (tournament) {
+		tournament.aiPlayers.add(aiPlayerId);
+	}
+}
+
+export function removeAIPlayerFromTournament(tournamentId: string, aiPlayerId: string) {
+	const tournament = cache.tournaments.active.get(tournamentId);
+	if (tournament) {
+		tournament.aiPlayers.delete(aiPlayerId);
+	}
 }
 
 export function removeTournamentFromCache(tournamentId: string) {
