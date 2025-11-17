@@ -273,8 +273,8 @@ export class BracketGenerator {
     }
 
     /**
-     * Assegna un partecipante al primo slot disponibile nel bracket
-     * Cerca prima nei primi round e assegna al primo posto libero
+     * Assegna un partecipante a uno slot casuale disponibile nel bracket
+     * Raccoglie tutti gli slot disponibili e ne sceglie uno a caso
      */
     async assignParticipantToSlot(tournamentId: string, participantId: string): Promise<void> {
         const executeTransaction = async (tx: any) => {
@@ -299,7 +299,9 @@ export class BracketGenerator {
                 !nextGameIds.includes(game.id)
             );
 
-            // Trova il primo slot disponibile
+            // Raccoglie tutti gli slot disponibili
+            const availableSlots: { gameId: string, position: 'left' | 'right' }[] = [];
+            
             for (const game of actualFirstRoundGames) {
                 // Check if left slot is available (empty string, null, or placeholder user)
                 const isLeftSlotEmpty = !game.leftPlayerId || game.leftPlayerId === '' || 
@@ -310,20 +312,30 @@ export class BracketGenerator {
                     (game.rightPlayer && game.rightPlayer.email === 'tournament-empty-slot@system.local');
                 
                 if (isLeftSlotEmpty) {
-                    await tx.game.update({
-                        where: { id: game.id },
-                        data: { leftPlayerId: participantId }
-                    });
-                    return;
-                } else if (isRightSlotEmpty) {
-                    await tx.game.update({
-                        where: { id: game.id },
-                        data: { rightPlayerId: participantId }
-                    });
-                    return;
+                    availableSlots.push({ gameId: game.id, position: 'left' });
+                }
+                if (isRightSlotEmpty) {
+                    availableSlots.push({ gameId: game.id, position: 'right' });
                 }
             }
-            throw new Error('Nessun slot disponibile nel bracket');
+
+            if (availableSlots.length === 0) {
+                throw new Error('Nessun slot disponibile nel bracket');
+            }
+
+            // Sceglie uno slot casuale tra quelli disponibili
+            const randomIndex = Math.floor(Math.random() * availableSlots.length);
+            const selectedSlot = availableSlots[randomIndex];
+
+            // Assegna il partecipante allo slot selezionato
+            const updateData = selectedSlot.position === 'left' 
+                ? { leftPlayerId: participantId }
+                : { rightPlayerId: participantId };
+
+            await tx.game.update({
+                where: { id: selectedSlot.gameId },
+                data: updateData
+            });
         };
 
         if ('$transaction' in this.db) {

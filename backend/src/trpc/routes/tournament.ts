@@ -808,7 +808,12 @@ export const tournamentRouter = t.router({
 				const aiPlayerService = new AIPlayerService(tx);
 				await aiPlayerService.cleanupTournamentAIPlayers(t.id);
 
-				// 2. Update tournament status
+				// 2. Delete all games for this tournament (they're no longer needed)
+				await tx.game.deleteMany({
+					where: { tournamentId: t.id }
+				});
+
+				// 3. Update tournament status
 				await tx.tournament.update({
 					where: { id: t.id },
 					data: { status: 'CANCELLED' as TournamentStatus, endDate: new Date() }
