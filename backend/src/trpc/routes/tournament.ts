@@ -4,7 +4,7 @@ import { z } from "zod";
 import { TournamentType, GameType, TournamentStatus } from "@prisma/client";
 import sanitizeHtml from 'sanitize-html';
 import { BracketGenerator } from "../../../game/bracketGenerator";
-import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, addAIPlayerToTournament, TournamentCacheEntry } from "../../cache";
+import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, TournamentCacheEntry } from "../../cache";
 import { broadcastBracketUpdate, broadcastParticipantJoined, broadcastParticipantLeft, broadcastTournamentStatusChange, broadcastAIPlayersAdded, broadcastTournamentDeleted } from "../../socket-io";
 import { AIPlayerService } from "../../services/aiPlayerService";
 import { 
@@ -179,12 +179,10 @@ export const tournamentRouter = t.router({
 
 				TournamentValidator.validateTournamentExists(tournament, input.tournamentId);
 
-				// Simple cache consistency check for active tournaments
 				if (tournament!.status === 'WAITING_PLAYERS' || tournament!.status === 'IN_PROGRESS') {
 					validateCacheConsistency(input.tournamentId, ctx.db);
 				}
 
-				// Check if current user is registered to this tournament
 				const isRegisteredToTournament = ctx.user?.id
 					? tournament!.participants.some((p: any) => p.user.id === ctx.user!.id)
 					: false;
@@ -212,6 +210,8 @@ export const tournamentRouter = t.router({
 				handleTournamentError(error as Error, 'getTournamentDetails', input.tournamentId, ctx.user?.id);
 			}
 		}),
+
+
 
 
 	getTournamentParticipants: publicProcedure
@@ -244,7 +244,6 @@ export const tournamentRouter = t.router({
 				username: p.user.username
 			}));
 		}),
-
 
 	getBracket: publicProcedure
 		.input(z.object({
@@ -327,7 +326,6 @@ export const tournamentRouter = t.router({
 				const { gameId } = input;
 				const userId = ctx.user!.id;
 
-				// check se partita esiste ed è tipo TOURNAMENT
 				const game = await ctx.db.game.findUnique({
 					where: { id: gameId },
 					include: {
@@ -356,13 +354,11 @@ export const tournamentRouter = t.router({
 					throw new TRPCError({ code: "BAD_REQUEST", message: "Game has no associated tournament" });
 				}
 
-				// check se utente è partecipante del torneo
 				const isParticipant = game.tournament!.participants.some((p: any) => p.userId === userId);
 				if (!isParticipant) {
 					throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this tournament" });
 				}
 
-				// check se utente è nella partita
 				const isPlayerInGame = game.leftPlayerId === userId || game.rightPlayerId === userId;
 				if (!isPlayerInGame) {
 					throw new TRPCError({ code: "FORBIDDEN", message: "You are not a player in this game" });
@@ -578,31 +574,24 @@ export const tournamentRouter = t.router({
 				TournamentValidator.validateNotParticipant(!!participant);
 				TournamentValidator.validateBracketExists(tournament!.games.length);
 
-				// Use database transaction to ensure atomicity
 				const result = await ctx.db.$transaction(async (tx) => {
-					// 1. Remove participant from bracket
 					const bracketGenerator = new BracketGenerator(tx);
 					await bracketGenerator.removeParticipantFromSlot(input.tournamentId, ctx.user!.id);
 
-					// 2. Remove participant from tournament
 					await tx.tournamentParticipant.delete({ where: { id: participant!.id } });
 
-					// 3. Check if tournament is now empty
 					const remainingParticipants = await tx.tournamentParticipant.count({
 						where: { tournamentId: input.tournamentId }
 					});
 
 					if (remainingParticipants === 0) {
-						// Clean up AI players for this tournament
 						const aiPlayerService = new AIPlayerService(tx);
 						await aiPlayerService.cleanupTournamentAIPlayers(input.tournamentId);
 
-						// Delete all games first (referential integrity)
 						await tx.game.deleteMany({
 							where: { tournamentId: input.tournamentId }
 						});
 
-						// Then delete the tournament
 						await tx.tournament.delete({
 							where: { id: input.tournamentId }
 						});
@@ -620,42 +609,34 @@ export const tournamentRouter = t.router({
 					} as const;
 				});
 
-				// 4. Update tournament cache and broadcast updates
 				const cachedTournament = cache.tournaments.active.get(input.tournamentId);
 				if (cachedTournament && !result.tournamentDeleted) {
 					cachedTournament.participants.delete(ctx.user!.id);
 					
-					// Update participant slots in cache
 					const bracketGenerator = new BracketGenerator(ctx.db);
 					const occupiedSlots = await bracketGenerator.getOccupiedSlots(input.tournamentId);
 					const participantSlots = new Map<number, string | null>();
 					
-					// Initialize 8 slots
 					for (let i = 0; i < 8; i++) {
 						participantSlots.set(i, null);
 					}
 					
-					// Fill with remaining occupied slots
 					occupiedSlots.forEach((playerId, slotIndex) => {
 						participantSlots.set(slotIndex, playerId);
 					});
 					
 					updateTournamentBracket(input.tournamentId, participantSlots);
 					
-					// Broadcast participant left and bracket update
 					broadcastParticipantLeft(input.tournamentId, {
 						id: ctx.user!.id,
 						username: ctx.user!.username
-					}, -1); // Slot position not relevant when leaving
+					}, -1);
 					
 					broadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
 				}
 
-				// 5. Remove tournament from cache if deleted
 				if (result.tournamentDeleted) {
-					removeTournamentFromCache(input.tournamentId);
-					
-					// Broadcast tournament deletion
+					removeTournamentFromCache(input.tournamentId);					
 					broadcastTournamentDeleted(input.tournamentId, tournament!.name, ctx.user!.username);
 				}
 
@@ -683,9 +664,7 @@ export const tournamentRouter = t.router({
 				TournamentValidator.validateCreatorPermission(tournament!.createdById, ctx.user!.id, 'start tournament');
 				TournamentValidator.validateTournamentStatus(tournament!.status, ['WAITING_PLAYERS'], 'start');
 
-				// Use database transaction to ensure atomicity
 				const result = await ctx.db.$transaction(async (tx) => {
-					// 1. Fill empty slots with AI players if needed
 					const bracketGenerator = new BracketGenerator(tx);
 					const occupiedSlots = await bracketGenerator.getOccupiedSlotsCount(input.tournamentId);
 					
@@ -694,7 +673,6 @@ export const tournamentRouter = t.router({
 						createdAIPlayers = await bracketGenerator.fillEmptySlotsWithAI(input.tournamentId);
 					}
 
-					// 2. Update tournament status to IN_PROGRESS and set actual start date
 					await tx.tournament.update({
 						where: { id: input.tournamentId },
 						data: {
@@ -706,7 +684,6 @@ export const tournamentRouter = t.router({
 					return { createdAIPlayers };
 				});
 
-				// 3. Update tournament cache with AI players and broadcast updates
 				const cachedTournament = cache.tournaments.active.get(input.tournamentId);
 				if (cachedTournament) {
 					cachedTournament.status = 'IN_PROGRESS';
@@ -714,28 +691,23 @@ export const tournamentRouter = t.router({
 						cachedTournament.aiPlayers.add(aiPlayerId);
 					});
 					
-					// Update participant slots with AI players
 					const bracketGenerator = new BracketGenerator(ctx.db);
 					const occupiedSlots = await bracketGenerator.getOccupiedSlots(input.tournamentId);
 					const participantSlots = new Map<number, string | null>();
 					
-					// Initialize 8 slots
 					for (let i = 0; i < 8; i++) {
 						participantSlots.set(i, null);
 					}
 					
-					// Fill with all occupied slots (including AI)
 					occupiedSlots.forEach((playerId, slotIndex) => {
 						participantSlots.set(slotIndex, playerId);
 					});
 					
 					updateTournamentBracket(input.tournamentId, participantSlots);
 					
-					// Broadcast tournament status change
 					broadcastTournamentStatusChange(input.tournamentId, 'IN_PROGRESS', ctx.user!.username, 
 						`Tournament started with ${result.createdAIPlayers.length} AI players filling empty slots`);
 					
-					// Broadcast AI players added
 					if (result.createdAIPlayers.length > 0) {
 						const filledSlots = Array.from(participantSlots.entries())
 							.filter(([_, playerId]) => result.createdAIPlayers.includes(playerId || ''))
@@ -744,7 +716,6 @@ export const tournamentRouter = t.router({
 						broadcastAIPlayersAdded(input.tournamentId, result.createdAIPlayers, filledSlots);
 					}
 					
-					// Broadcast bracket update
 					broadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
 				}
 
@@ -802,31 +773,25 @@ export const tournamentRouter = t.router({
 				throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot cancel a completed tournament' });
 			}
 
-			// Use database transaction to ensure atomicity
 			await ctx.db.$transaction(async (tx) => {
-				// 1. Clean up AI players for this tournament
 				const aiPlayerService = new AIPlayerService(tx);
 				await aiPlayerService.cleanupTournamentAIPlayers(t.id);
 
-				// 2. Delete all games for this tournament (they're no longer needed)
 				await tx.game.deleteMany({
 					where: { tournamentId: t.id }
 				});
 
-				// 3. Update tournament status
 				await tx.tournament.update({
 					where: { id: t.id },
 					data: { status: 'CANCELLED' as TournamentStatus, endDate: new Date() }
 				});
 			});
 
-			// 3. Update cache and broadcast status change
 			const cachedTournament = cache.tournaments.active.get(t.id);
 			if (cachedTournament) {
 				cachedTournament.status = 'CANCELLED';
 				cachedTournament.aiPlayers.clear();
 				
-				// Broadcast tournament cancellation
 				broadcastTournamentStatusChange(t.id, 'CANCELLED', ctx.user!.username, 
 					`Tournament "${t.name}" has been cancelled by the creator`);
 			}
@@ -863,40 +828,31 @@ export const tournamentRouter = t.router({
 					});
 				}
 
-				// Get participant list for notifications before deletion
 				const participantsToNotify = tournament!.participants
-					.filter((p: any) => p.userId !== ctx.user!.id) // Exclude creator from notifications
+					.filter((p: any) => p.userId !== ctx.user!.id)
 					.map((p: any) => ({
 						id: p.user.id,
 						username: p.user.username
 					}));
 
-				// Use database transaction to ensure atomic deletion operations
 				await ctx.db.$transaction(async (tx) => {
-					// 1. Clean up AI players for this tournament first
 					const aiPlayerService = new AIPlayerService(tx);
 					await aiPlayerService.cleanupTournamentAIPlayers(input.tournamentId);
 
-					// 2. Delete all games first (referential integrity - Games depend on Tournament)
 					await tx.game.deleteMany({
 						where: { tournamentId: input.tournamentId }
 					});
 
-					// 3. Delete all tournament participants (referential integrity)
 					await tx.tournamentParticipant.deleteMany({
 						where: { tournamentId: input.tournamentId }
 					});
 
-					// 4. Finally delete the tournament
 					await tx.tournament.delete({
 						where: { id: input.tournamentId }
 					});
 				});
 
-				// 5. Cache cleanup and broadcast tournament deletion
-				removeTournamentFromCache(input.tournamentId);
-				
-				// Broadcast tournament deletion to all connected users
+				removeTournamentFromCache(input.tournamentId);				
 				broadcastTournamentDeleted(input.tournamentId, tournament!.name, ctx.user!.username);
 
 				return {
@@ -922,9 +878,7 @@ export const tournamentRouter = t.router({
 				const defaultStartDate = new Date();
 				defaultStartDate.setHours(defaultStartDate.getHours() + 1);
 
-				// Use database transaction to ensure atomicity
 				const result = await ctx.db.$transaction(async (tx) => {
-					// 1. Create the tournament
 					const tournament = await tx.tournament.create({
 						data: {
 							name: sanitizeHtml(input.name),
@@ -942,24 +896,19 @@ export const tournamentRouter = t.router({
 						}
 					});
 
-					// 2. Create empty bracket immediately
 					const bracketGenerator = new BracketGenerator(tx);
 					const bracket = await bracketGenerator.generateAndCreateBracket(tournament.id, []);
 
-					// 3. Add creator as first participant
 					await tx.tournamentParticipant.create({
 						data: { tournamentId: tournament.id, userId: ctx.user!.id }
 					});
 
-					// 4. Assign creator to first slot in bracket
 					await bracketGenerator.assignParticipantToSlot(tournament.id, ctx.user!.id);
 
 					return tournament;
 				});
 
-				// 5. Update tournament cache with bracket creation status
 				const participantSlots = new Map<number, string | null>();
-				// Initialize 8 slots with creator in first slot
 				for (let i = 0; i < 8; i++) {
 					participantSlots.set(i, i === 0 ? ctx.user!.id : null);
 				}

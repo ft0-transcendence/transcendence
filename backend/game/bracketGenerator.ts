@@ -20,9 +20,6 @@ export class BracketGenerator {
         this.db = db;
     }
 
-    /**
-     * Gets or creates a placeholder user for empty tournament slots
-     */
     private async getPlaceholderUserId(dbClient?: any): Promise<string> {
         const placeholderEmail = 'tournament-empty-slot@system.local';
         const client = dbClient || this.db;
@@ -68,13 +65,6 @@ export class BracketGenerator {
         }
     }
 
-
-
-    /**
-     * Genera il bracket per un torneo
-     * Se vengono forniti i partecipanti, li assegna immediatamente
-     * Altrimenti crea un bracket vuoto che può essere riempito dinamicamente
-     */
     async generateBracket(
         tournamentId: string,
         participants: string[] = []
@@ -91,7 +81,6 @@ export class BracketGenerator {
                 const gameId = crypto.randomUUID();
                 gameIdMap.set(`${round}-${position}`, gameId);
 
-                // Trova partita successiva
                 let nextGameId: string | undefined;
                 if (round < totalRounds) {
                     nextGameId = gameIdMap.get(`${round + 1}-${Math.floor(position / 2)}`);
@@ -100,7 +89,6 @@ export class BracketGenerator {
                 let leftPlayerId: string | null = null;
                 let rightPlayerId: string | null = null;
 
-                // Assegna i partecipanti solo se forniti e se siamo nel primo round
                 if (round === 1 && participants.length > 0) {
                     const leftIndex = position * 2;
                     const rightIndex = position * 2 + 1;
@@ -127,10 +115,7 @@ export class BracketGenerator {
         return bracket;
     }
 
-    /**
-     * Crea le partite nel database con supporto per transazioni
-     * Visto che nextGameId deve avere reference al prossimo game parto a creare dalla finale e vado a ritroso
-     */
+     // Crea le partite nel database con supporto per transazioni
     async createBracketGames(
         tournamentId: string,
         bracket: BracketNode[]
@@ -185,14 +170,11 @@ export class BracketGenerator {
         }
     }
 
-    /**
-     * Updates game type to AI if it has AI players
-     */
+    //AI game
     async updateGameTypeForAIPlayers(tournamentId: string): Promise<void> {
         const executeTransaction = async (tx: any) => {
             const aiPlayerService = new AIPlayerService(tx);
             
-            // Get all games for this tournament
             const games = await tx.game.findMany({
                 where: { tournamentId },
                 include: {
@@ -207,7 +189,6 @@ export class BracketGenerator {
                 const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayer.email);
                 const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayer.email);
 
-                // If at least one player is AI, change game type to AI
                 if (isLeftAI || isRightAI) {
                     await tx.game.update({
                         where: { id: game.id },
@@ -225,10 +206,6 @@ export class BracketGenerator {
         }
     }
 
-    /**
-     * Genera e crea il bracket completo nel database
-     * Può essere chiamato con o senza partecipanti
-     */
     async generateAndCreateBracket(
         tournamentId: string,
         participants: string[] = []
@@ -238,8 +215,10 @@ export class BracketGenerator {
         return bracket;
     }
 
+
+
     
-     // Debug: visualizza bracket
+     // Debug:
     printBracket(bracket: BracketNode[]): void {
         const rounds = new Map<number, BracketNode[]>();
 
@@ -272,10 +251,6 @@ export class BracketGenerator {
         return bracket.find(node => !node.nextGameId);
     }
 
-    /**
-     * Assegna un partecipante a uno slot casuale disponibile nel bracket
-     * Raccoglie tutti gli slot disponibili e ne sceglie uno a caso
-     */
     async assignParticipantToSlot(tournamentId: string, participantId: string): Promise<void> {
         const executeTransaction = async (tx: any) => {
             // Trova tutti i giochi del primo round per questo torneo
@@ -299,15 +274,12 @@ export class BracketGenerator {
                 !nextGameIds.includes(game.id)
             );
 
-            // Raccoglie tutti gli slot disponibili
             const availableSlots: { gameId: string, position: 'left' | 'right' }[] = [];
             
             for (const game of actualFirstRoundGames) {
-                // Check if left slot is available (empty string, null, or placeholder user)
                 const isLeftSlotEmpty = !game.leftPlayerId || game.leftPlayerId === '' || 
                     (game.leftPlayer && game.leftPlayer.email === 'tournament-empty-slot@system.local');
                 
-                // Check if right slot is available (empty string, null, or placeholder user)  
                 const isRightSlotEmpty = !game.rightPlayerId || game.rightPlayerId === '' ||
                     (game.rightPlayer && game.rightPlayer.email === 'tournament-empty-slot@system.local');
                 
@@ -323,11 +295,9 @@ export class BracketGenerator {
                 throw new Error('Nessun slot disponibile nel bracket');
             }
 
-            // Sceglie uno slot casuale tra quelli disponibili
             const randomIndex = Math.floor(Math.random() * availableSlots.length);
             const selectedSlot = availableSlots[randomIndex];
 
-            // Assegna il partecipante allo slot selezionato
             const updateData = selectedSlot.position === 'left' 
                 ? { leftPlayerId: participantId }
                 : { rightPlayerId: participantId };
@@ -345,13 +315,8 @@ export class BracketGenerator {
         }
     }
 
-    /**
-     * Rimuove un partecipante dal bracket
-     * Trova il gioco dove è assegnato e imposta il campo a stringa vuota
-     */
     async removeParticipantFromSlot(tournamentId: string, participantId: string): Promise<void> {
         const executeTransaction = async (tx: any) => {
-            // Trova il gioco dove il partecipante è assegnato
             const gameAsLeftPlayer = await tx.game.findFirst({
                 where: {
                     tournamentId,
@@ -394,9 +359,8 @@ export class BracketGenerator {
         }
     }
 
-    /**
-     * Ottiene lo stato attuale del bracket dal database
-     */
+
+
     async getBracketFromDatabase(tournamentId: string): Promise<BracketNode[]> {
         const games = await this.db.game.findMany({
             where: { tournamentId },
@@ -411,24 +375,20 @@ export class BracketGenerator {
         const bracket: BracketNode[] = [];
         const gameMap = new Map<string, any>();
         
-        // Mappa tutti i giochi
         games.forEach(game => {
             gameMap.set(game.id, game);
         });
 
-        // Determina i round basandosi sulla struttura
         games.forEach((game: any) => {
             let round = 1;
             let currentGame = game;
             
-            // Conta quanti livelli ci sono fino alla finale
             while (currentGame.nextGameId) {
                 round++;
                 currentGame = gameMap.get(currentGame.nextGameId);
                 if (!currentGame) break;
             }
 
-            // Calcola la posizione nel round
             const gamesInRound = games.filter((g: any) => {
                 let r = 1;
                 let curr = g;
@@ -455,9 +415,6 @@ export class BracketGenerator {
         return bracket.sort((a, b) => a.round - b.round || a.position - b.position);
     }
 
-    /**
-     * Conta i slot occupati nel bracket
-     */
     async getOccupiedSlotsCount(tournamentId: string): Promise<number> {
         const firstRoundGames = await this.db.game.findMany({
             where: {
@@ -466,7 +423,6 @@ export class BracketGenerator {
             }
         });
 
-        // Filtra per ottenere solo i giochi del primo round
         const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
         const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
             !nextGameIds.includes(game.id)
@@ -481,10 +437,6 @@ export class BracketGenerator {
         return occupiedSlots;
     }
 
-    /**
-     * Gets the occupied slots in the bracket with their positions
-     * Returns a Map where key is slot index (0-7) and value is player ID
-     */
     async getOccupiedSlots(tournamentId: string): Promise<Map<number, string>> {
         const firstRoundGames = await this.db.game.findMany({
             where: {
@@ -497,7 +449,6 @@ export class BracketGenerator {
             ]
         });
 
-        // Filter to get actual first round games
         const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
         const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
             !nextGameIds.includes(game.id)
@@ -520,16 +471,11 @@ export class BracketGenerator {
         return occupiedSlots;
     }
 
-    /**
-     * Fills empty slots in the tournament bracket with AI players
-     * This ensures the tournament has exactly 8 participants when started
-     */
     async fillEmptySlotsWithAI(tournamentId: string): Promise<string[]> {
         const executeTransaction = async (tx: any) => {
             const aiPlayerService = new AIPlayerService(tx);
             const createdAIPlayers: string[] = [];
 
-            // Get first round games
             const firstRoundGames = await tx.game.findMany({
                 where: {
                     tournamentId,
@@ -541,15 +487,12 @@ export class BracketGenerator {
                 ]
             });
 
-            // Filter to get actual first round games
             const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
             const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
                 !nextGameIds.includes(game.id)
             );
 
-            // Fill empty slots with AI players
             for (const game of actualFirstRoundGames) {
-                // Check left player slot
                 if (!game.leftPlayerId || game.leftPlayerId === '') {
                     const aiPlayerId = await aiPlayerService.createTournamentAIPlayer(tournamentId);
                     await tx.game.update({
@@ -559,7 +502,6 @@ export class BracketGenerator {
                     createdAIPlayers.push(aiPlayerId);
                 }
 
-                // Check right player slot
                 if (!game.rightPlayerId || game.rightPlayerId === '') {
                     const aiPlayerId = await aiPlayerService.createTournamentAIPlayer(tournamentId);
                     await tx.game.update({
@@ -570,11 +512,9 @@ export class BracketGenerator {
                 }
             }
 
-            // Update game types for games with AI players
             await this.updateGameTypeForAIPlayers(tournamentId);
 
             // Process only AI vs AI matches automatically
-            // AI vs Human matches should be playable normally using existing AI logic
             for (const game of actualFirstRoundGames) {
                 const updatedGame = await tx.game.findUnique({
                     where: { id: game.id },
@@ -589,8 +529,6 @@ export class BracketGenerator {
                 const isLeftAI = aiPlayerService.isAIPlayer(updatedGame.leftPlayer.email);
                 const isRightAI = aiPlayerService.isAIPlayer(updatedGame.rightPlayer.email);
 
-                // Only handle AI vs AI matches automatically
-                // AI vs Human matches will use the existing AI game logic
                 if (isLeftAI && isRightAI) {
                     await aiPlayerService.handleAIvsAIMatch(game.id);
                 }
