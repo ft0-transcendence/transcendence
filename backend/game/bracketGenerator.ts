@@ -161,26 +161,20 @@ export class BracketGenerator {
             const sorted = [...bracket].sort((a, b) => b.round - a.round);
 
             for (const node of sorted) {
-                try {
-                    await tx.game.create({
-                        data: {
-                            id: node.gameId,
-                            type: 'TOURNAMENT',
-                            startDate: new Date(),
-                            scoreGoal: 7,
-                            tournamentId,
-                            leftPlayerId: node.leftPlayerId || placeholderUserId,
-                            rightPlayerId: node.rightPlayerId || placeholderUserId,
-                            nextGameId: node.nextGameId,
-                            leftPlayerScore: 0,
-                            rightPlayerScore: 0
-                        }
-                    });
-                    console.log(`Created game ${node.gameId} for tournament ${tournamentId}`);
-                } catch (error) {
-                    console.error(`Failed to create game ${node.gameId}:`, error);
-                    throw error;
-                }
+                await tx.game.create({
+                    data: {
+                        id: node.gameId,
+                        type: 'TOURNAMENT',
+                        startDate: new Date(),
+                        scoreGoal: 7,
+                        tournamentId,
+                        leftPlayerId: node.leftPlayerId || placeholderUserId,
+                        rightPlayerId: node.rightPlayerId || placeholderUserId,
+                        nextGameId: node.nextGameId,
+                        leftPlayerScore: 0,
+                        rightPlayerScore: 0
+                    }
+                });
             }
         };
 
@@ -305,16 +299,8 @@ export class BracketGenerator {
                 !nextGameIds.includes(game.id)
             );
 
-            console.log(`DEBUG: Tournament ${tournamentId} - Found ${firstRoundGames.length} total games, ${actualFirstRoundGames.length} first round games`);
-            
             // Trova il primo slot disponibile
             for (const game of actualFirstRoundGames) {
-                console.log(`DEBUG: Game ${game.id}:`);
-                console.log(`  - leftPlayerId: "${game.leftPlayerId}"`);
-                console.log(`  - rightPlayerId: "${game.rightPlayerId}"`);
-                console.log(`  - leftPlayer email: "${game.leftPlayer?.email}"`);
-                console.log(`  - rightPlayer email: "${game.rightPlayer?.email}"`);
-                
                 // Check if left slot is available (empty string, null, or placeholder user)
                 const isLeftSlotEmpty = !game.leftPlayerId || game.leftPlayerId === '' || 
                     (game.leftPlayer && game.leftPlayer.email === 'tournament-empty-slot@system.local');
@@ -323,18 +309,13 @@ export class BracketGenerator {
                 const isRightSlotEmpty = !game.rightPlayerId || game.rightPlayerId === '' ||
                     (game.rightPlayer && game.rightPlayer.email === 'tournament-empty-slot@system.local');
                 
-                console.log(`  - isLeftSlotEmpty: ${isLeftSlotEmpty}`);
-                console.log(`  - isRightSlotEmpty: ${isRightSlotEmpty}`);
-                
                 if (isLeftSlotEmpty) {
-                    console.log(`DEBUG: Assigning participant ${participantId} to left slot of game ${game.id}`);
                     await tx.game.update({
                         where: { id: game.id },
                         data: { leftPlayerId: participantId }
                     });
                     return;
                 } else if (isRightSlotEmpty) {
-                    console.log(`DEBUG: Assigning participant ${participantId} to right slot of game ${game.id}`);
                     await tx.game.update({
                         where: { id: game.id },
                         data: { rightPlayerId: participantId }
@@ -342,8 +323,6 @@ export class BracketGenerator {
                     return;
                 }
             }
-
-            console.log(`DEBUG: No available slots found in ${actualFirstRoundGames.length} first round games`);
             throw new Error('Nessun slot disponibile nel bracket');
         };
 
