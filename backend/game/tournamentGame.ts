@@ -2,12 +2,15 @@ import { OnlineGame } from "./onlineGame";
 import { GameUserInfo, GameStatus } from "./game";
 import { db } from "../src/trpc/db";
 import { updateTournamentWinnerStats, updateGameStats } from "../src/utils/statsUtils";
+import { AIPlayerService } from "../src/services/aiPlayerService";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
 export class TournamentGame extends OnlineGame {
     public readonly tournamentId: string;
     private onTournamentFinish?: TournamentGameFinishCallback;
+    private aiPlayerService: AIPlayerService;
+    private aiIntervals: Map<string, NodeJS.Timeout> = new Map();
 
     constructor(
         gameId: string,
@@ -24,6 +27,7 @@ export class TournamentGame extends OnlineGame {
         }, updateGameActivity);
         this.tournamentId = tournamentId;
         this.onTournamentFinish = onTournamentFinish;
+        this.aiPlayerService = new AIPlayerService(db);
     }
 
     public async finish() {
@@ -31,6 +35,12 @@ export class TournamentGame extends OnlineGame {
         this.finished = true;
 
         console.log(`Tournament Game ${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
+
+        // Stop all AI intervals
+        for (const interval of this.aiIntervals.values()) {
+            clearInterval(interval);
+        }
+        this.aiIntervals.clear();
 
         for (const [playerId, interval] of this.warningIntervals) {
             clearInterval(interval);
@@ -115,16 +125,33 @@ export class TournamentGame extends OnlineGame {
             } else { // Torneo completato
                 console.log(`Tournament ${this.tournamentId} completed! Winner: ${winnerId}`);
 
-                await db.tournament.update({
-                    where: { id: this.tournamentId },
-                    data: { 
-                        endDate: new Date(),
-                        winnerId: winnerId,
-                        status: 'COMPLETED'
-                    }
+                // Use transaction to ensure atomicity
+                await db.$transaction(async (tx) => {
+                    // 1. Update tournament status and winner
+                    await tx.tournament.update({
+                        where: { id: this.tournamentId },
+                        data: { 
+                            endDate: new Date(),
+                            winnerId: winnerId,
+                            status: 'COMPLETED'
+                        }
+                    });
+
+                    // 2. Clean up AI players for this tournament
+                    const { AIPlayerService } = await import("../src/services/aiPlayerService.js");
+                    const aiPlayerService = new AIPlayerService(tx);
+                    await aiPlayerService.cleanupTournamentAIPlayers(this.tournamentId);
                 });
 
                 await updateTournamentWinnerStats(db, winnerId);
+
+                // 3. Update cache
+                const { cache } = await import("../src/cache.js");
+                const cachedTournament = cache.tournaments.active.get(this.tournamentId);
+                if (cachedTournament) {
+                    cachedTournament.status = 'COMPLETED';
+                    cachedTournament.aiPlayers.clear();
+                }
 
                 if (this.socketNamespace) {
                     this.socketNamespace.to(this.tournamentId).emit('tournament-completed', {
@@ -137,5 +164,90 @@ export class TournamentGame extends OnlineGame {
         } catch (error) {
             console.error(`Tournament Game ${this.gameId} advancement failed:`, error);
         }
+    }
+
+    public override playerReady(player: GameUserInfo) {
+        // Call parent method first
+        super.playerReady(player);
+
+        // Check if we need to start AI after both players are ready
+        if (this.leftPlayer && this.rightPlayer) {
+            this.initializeAI();
+        }
+    }
+
+    private async initializeAI() {
+        try {
+            if (!this.leftPlayer || !this.rightPlayer) return;
+
+            // Check if left player is AI
+            const leftPlayerData = await db.user.findUnique({
+                where: { id: this.leftPlayer.id },
+                select: { email: true }
+            });
+
+            if (leftPlayerData && this.aiPlayerService.isAIPlayer(leftPlayerData.email)) {
+                this.startAI(this.leftPlayer.id, 'left');
+            }
+
+            // Check if right player is AI
+            const rightPlayerData = await db.user.findUnique({
+                where: { id: this.rightPlayer.id },
+                select: { email: true }
+            });
+
+            if (rightPlayerData && this.aiPlayerService.isAIPlayer(rightPlayerData.email)) {
+                this.startAI(this.rightPlayer.id, 'right');
+            }
+
+        } catch (error) {
+            console.error(`Failed to initialize AI for game ${this.gameId}:`, error);
+        }
+    }
+
+    private startAI(playerId: string, side: 'left' | 'right') {
+        console.log(`Starting AI for player ${playerId} on ${side} side in game ${this.gameId}`);
+
+        const aiLogic = () => {
+            try {
+                const state = this.getState();
+                
+                // Only move if game is running
+                if (state.state !== 'RUNNING') return;
+
+                // AI movement logic - same as local AI games
+                const aiPaddlePos = side === 'left' ? state.paddles.left : state.paddles.right;
+                let target = 50; // Default center position
+
+                // Only move when ball is coming towards AI
+                if (side === 'right' && state.ball.dirX >= 0) {
+                    target = state.ball.y;
+                } else if (side === 'left' && state.ball.dirX <= 0) {
+                    target = state.ball.y;
+                }
+
+                const diff = target - aiPaddlePos;
+                const deadZone = 5; // Dead zone to prevent micro-adjustments
+
+                // Release all movements first
+                this.release(side, 'up');
+                this.release(side, 'down');
+
+                // Apply movement only if outside dead zone
+                if (Math.abs(diff) > deadZone) {
+                    if (diff > 0) {
+                        this.press(side, 'down');
+                    } else {
+                        this.press(side, 'up');
+                    }
+                }
+            } catch (error) {
+                console.error(`AI error for player ${playerId}:`, error);
+            }
+        };
+
+        // Run AI logic at 60 FPS (same as game loop)
+        const interval = setInterval(aiLogic, 1000 / 60);
+        this.aiIntervals.set(playerId, interval);
     }
 }

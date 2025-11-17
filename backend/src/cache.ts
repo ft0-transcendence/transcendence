@@ -7,9 +7,7 @@ import { db } from "./trpc/db";
 import { fastify } from "../main";
 import { updateGameStats } from "./utils/statsUtils";
 
-/**
- * Funzione centralizzata per gestire la fine di una partita VS
- */
+
 async function handleVSGameFinish(gameId: string, state: any, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
 	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
 	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
@@ -34,7 +32,7 @@ async function handleVSGameFinish(gameId: string, state: any, gameInstance: Onli
 		});
 		console.log(`✅ VS Game ${gameId} successfully updated in database`);
 
-		// Aggiorna sempre le statistiche dei giocatori (anche in caso di forfeit)
+		// Aggiorna sempre le statistiche dei giocatori 
 		if (state.scores.left !== state.scores.right) {
 			let winnerId: string;
 			let loserId: string;
@@ -62,6 +60,20 @@ async function handleVSGameFinish(gameId: string, state: any, gameInstance: Onli
 }
 
 
+export type TournamentCacheEntry = {
+	id: string;
+	name: string;
+	type: 'EIGHT';
+	status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+	participants: Set<User['id']>;
+	connectedUsers: Set<User['id']>;
+	creatorId: string;
+	bracketCreated: boolean;
+	aiPlayers: Set<string>;
+	lastBracketUpdate: Date;
+	participantSlots: Map<number, User['id'] | null>; // Track participant positions in bracket
+};
+
 export type Cache = {
 	matchmaking: {
 		connectedUsers: Set<User['id']>;
@@ -71,24 +83,12 @@ export type Cache = {
 	onlineUsers: Map<User['id'], TypedSocket>;
 	userSockets: Map<User['id'], Set<TypedSocket>>;
 	tournaments: {
-		active: Map<string, {
-			id: string;
-			name: string;
-			type: 'EIGHT';
-			status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-			participants: Set<User['id']>;
-			connectedUsers: Set<User['id']>;
-		}>;
+		active: Map<string, TournamentCacheEntry>;
 		activeTournamentGames: Map<string, OnlineGame>;
 		tournamentLobbies: Map<string, Set<User['id']>>;
 	};
 }
 
-/**
- * This file contains global cache data that is used by the application.
- * It is not persisted and is reset when the application is restarted.
- * It most likely will be used for keeping in memory data that should not be persisted on database, like matchmaking queues.
- */
 export const cache: Cache = {
 	matchmaking: {
 		connectedUsers: new Set(),
@@ -161,11 +161,14 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		cache.active_1v1_games.set(game.id, gameInstance);
 	}
 
-	// Carica partite TOURNAMENT nel DB
+	// Carica partite TOURNAMENT e AI (per tornei) nel DB
 	const activeTournamentGames = await db.game.findMany({
 		where: {
 			endDate: null,
-			type: 'TOURNAMENT'
+			OR: [
+				{ type: 'TOURNAMENT' },
+				{ type: 'AI', tournamentId: { not: null } }
+			]
 		},
 		include: { leftPlayer: true, rightPlayer: true, tournament: true },
 	});
@@ -229,6 +232,11 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				});
 			}
 		);
+
+		// For AI games, we'll handle AI logic in the TournamentGame itself
+		// by checking player types when they join
+
+
 		gameInstance.setPlayers({ ...game.leftPlayer }, { ...game.rightPlayer });
 		gameInstance.scores.left = game.leftPlayerScore;
 		gameInstance.scores.right = game.rightPlayerScore;
@@ -269,16 +277,19 @@ export function isUserOnline(userId: User['id']): boolean {
 	return cache.onlineUsers.has(userId);
 }
 
-export function addTournamentToCache(tournamentId: string, tournamentInfo: {
-	id: string;
-	name: string;
-	type: 'EIGHT';
-	status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-	participants: Set<User['id']>;
-	connectedUsers: Set<User['id']>;
-}) {
+export function addTournamentToCache(tournamentId: string, tournamentInfo: TournamentCacheEntry) {
 	cache.tournaments.active.set(tournamentId, tournamentInfo);
 }
+
+export function updateTournamentBracket(tournamentId: string, participantSlots: Map<number, User['id'] | null>) {
+	const tournament = cache.tournaments.active.get(tournamentId);
+	if (tournament) {
+		tournament.participantSlots = participantSlots;
+		tournament.lastBracketUpdate = new Date();
+	}
+}
+
+
 
 export function removeTournamentFromCache(tournamentId: string) {
 	cache.tournaments.active.delete(tournamentId);

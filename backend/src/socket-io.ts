@@ -547,11 +547,19 @@ function setupTournamentNamespace(io: Server) {
 
 		const { user } = socket.data;
 
-		socket.on("join-tournament", async (tournamentId: string) => {
+		socket.on("join-tournament-lobby", async (tournamentId: string) => {
 			try {
 				const tournament = await db.tournament.findUnique({
 					where: { id: tournamentId },
-					include: { participants: { include: { user: true } } }
+					include: { 
+						participants: { include: { user: true } },
+						games: {
+							include: {
+								leftPlayer: { select: { id: true, username: true } },
+								rightPlayer: { select: { id: true, username: true } }
+							}
+						}
+					}
 				});
 
 				if (!tournament) {
@@ -559,21 +567,50 @@ function setupTournamentNamespace(io: Server) {
 					return;
 				}
 
-				// add utente lobby del torneo
+				// Add user to tournament lobby
 				if (!cache.tournaments.tournamentLobbies.has(tournamentId)) {
 					cache.tournaments.tournamentLobbies.set(tournamentId, new Set());
 				}
 				cache.tournaments.tournamentLobbies.get(tournamentId)!.add(user.id);
 
-				// add torneo cache
+				// Initialize or update tournament cache with bracket-first approach
 				if (!cache.tournaments.active.has(tournamentId)) {
+					// Build participant slots from bracket games
+					const participantSlots = new Map<number, User['id'] | null>();
+					
+					// Initialize 8 slots
+					for (let i = 0; i < 8; i++) {
+						participantSlots.set(i, null);
+					}
+
+					// Find first round games (games that are not referenced by nextGameId)
+					const nextGameIds = tournament.games.map(g => g.nextGameId).filter(Boolean);
+					const firstRoundGames = tournament.games
+						.filter(g => !nextGameIds.includes(g.id))
+						.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+
+					// Fill slots from first round games
+					firstRoundGames.forEach((game, index) => {
+						if (game.leftPlayerId) {
+							participantSlots.set(index * 2, game.leftPlayerId);
+						}
+						if (game.rightPlayerId) {
+							participantSlots.set(index * 2 + 1, game.rightPlayerId);
+						}
+					});
+
 					cache.tournaments.active.set(tournamentId, {
 						id: tournament.id,
 						name: tournament.name,
 						type: 'EIGHT',
-						status: 'WAITING_PLAYERS',
+						status: tournament.status as 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED',
 						participants: new Set(tournament.participants.map(p => p.userId)),
-						connectedUsers: new Set()
+						connectedUsers: new Set(),
+						creatorId: tournament.createdById,
+						bracketCreated: tournament.games.length > 0,
+						aiPlayers: new Set(),
+						lastBracketUpdate: new Date(),
+						participantSlots
 					});
 				}
 
@@ -582,34 +619,43 @@ function setupTournamentNamespace(io: Server) {
 
 				await socket.join(tournamentId);
 
-				socket.emit('tournament-joined', {
+				// Send comprehensive tournament state including bracket info
+				socket.emit('tournament-lobby-joined', {
 					tournamentId: tournament.id,
 					name: tournament.name,
 					type: tournament.type || 'EIGHT',
+					status: tournament.status,
+					creatorId: tournament.createdById,
+					isCreator: tournament.createdById === user.id,
 					participants: tournament.participants.map(p => ({
 						id: p.userId,
 						username: p.user.username
 					})),
-					connectedUsers: Array.from(tournamentInfo.connectedUsers)
+					connectedUsers: Array.from(tournamentInfo.connectedUsers),
+					bracketCreated: tournamentInfo.bracketCreated,
+					participantSlots: Array.from(tournamentInfo.participantSlots.entries()),
+					aiPlayers: Array.from(tournamentInfo.aiPlayers),
+					lastBracketUpdate: tournamentInfo.lastBracketUpdate
 				});
 
-				// Notifica partecipanti
-				socket.to(tournamentId).emit('user-joined-tournament', {
+				// Notify other participants about user joining lobby
+				socket.to(tournamentId).emit('user-joined-tournament-lobby', {
 					userId: user.id,
-					username: user.username
+					username: user.username,
+					connectedUsersCount: tournamentInfo.connectedUsers.size
 				});
 
-				fastify.log.info('User %s joined tournament %s', user.username, tournament.name);
+				fastify.log.info('User %s joined tournament lobby %s', user.username, tournament.name);
 
 			} catch (error) {
-				fastify.log.error('Error joining tournament:', error);
-				socket.emit('error', 'Failed to join tournament');
+				fastify.log.error('Error joining tournament lobby:', error);
+				socket.emit('error', 'Failed to join tournament lobby');
 			}
 		});
 
-		socket.on("leave-tournament", async (tournamentId: string) => {
+		socket.on("leave-tournament-lobby", async (tournamentId: string) => {
 			try {
-				// Rm utente dalla lobby
+				// Remove user from tournament lobby
 				const lobby = cache.tournaments.tournamentLobbies.get(tournamentId);
 				if (lobby) {
 					lobby.delete(user.id);
@@ -618,7 +664,7 @@ function setupTournamentNamespace(io: Server) {
 					}
 				}
 
-				// Rm utente dalla cache del torneo
+				// Remove user from tournament cache
 				const tournamentInfo = cache.tournaments.active.get(tournamentId);
 				if (tournamentInfo) {
 					tournamentInfo.connectedUsers.delete(user.id);
@@ -626,106 +672,74 @@ function setupTournamentNamespace(io: Server) {
 
 				await socket.leave(tournamentId);
 
-				// Notifica partecipanti
-				socket.to(tournamentId).emit('user-left-tournament', {
+				// Notify other participants about user leaving lobby
+				socket.to(tournamentId).emit('user-left-tournament-lobby', {
 					userId: user.id,
-					username: user.username
+					username: user.username,
+					connectedUsersCount: tournamentInfo?.connectedUsers.size || 0
 				});
 
-				fastify.log.info('User %s left tournament %s', user.username, tournamentId);
+				fastify.log.info('User %s left tournament lobby %s', user.username, tournamentId);
 
 			} catch (error) {
-				fastify.log.error('Error leaving tournament:', error);
+				fastify.log.error('Error leaving tournament lobby:', error);
 			}
 		});
 
-		socket.on("start-tournament", async (tournamentId: string) => {
+		// New event for real-time bracket updates
+		socket.on("request-bracket-update", async (tournamentId: string) => {
 			try {
-				const tournament = await db.tournament.findUnique({
-					where: { id: tournamentId },
-					include: { participants: { include: { user: true } } }
-				});
-
-				if (!tournament) {
-					socket.emit('error', 'Tournament not found');
-					return;
-				}
-
-				// check se l'utente è il creatore
-				if (tournament.createdById !== user.id) {
-					socket.emit('error', 'Only creator can start tournament');
-					return;
-				}
-
-				// check numero partecipanti
-				const expectedPlayers = 8; // Solo tornei da 8 per ora
-				if (tournament.participants.length !== expectedPlayers) {
-					socket.emit('error', `Need exactly ${expectedPlayers} players to start`);
-					return;
-				}
-
-				// Genera bracket
-				const bracketGen = new BracketGenerator(db);
-				const participantIds = tournament.participants.map(p => p.userId);
-
-				fastify.log.info('Generating bracket for tournament %s with participants: %o', tournamentId, participantIds);
-
-				const bracket = await bracketGen.generateAndCreateBracket(
-					tournamentId,
-					participantIds,
-					'EIGHT'
-				);
-
-				// Debug: stampa bracket
-				bracketGen.printBracket(bracket);
-
-				// Aggiorna DB
-				await db.tournament.update({
-					where: { id: tournamentId },
-					data: { startDate: new Date() }
-				});
-
-				// Aggiorna cache
 				const tournamentInfo = cache.tournaments.active.get(tournamentId);
-				if (tournamentInfo) {
-					tournamentInfo.status = 'IN_PROGRESS';
+				if (!tournamentInfo) {
+					socket.emit('error', 'Tournament not found in cache');
+					return;
 				}
 
-				const firstRoundGames = bracketGen.getFirstRoundGames(bracket);
-
-				tournamentNamespace.to(tournamentId).emit('tournament-started', {
+				// Send current bracket state
+				socket.emit('bracket-updated', {
 					tournamentId,
-					name: tournament.name,
-					startDate: new Date(),
-					bracket: bracket.map(g => ({
-						gameId: g.gameId,
-						round: g.round,
-						position: g.position,
-						leftPlayerId: g.leftPlayerId,
-						rightPlayerId: g.rightPlayerId,
-						nextGameId: g.nextGameId
-					})),
-					firstRoundGames: firstRoundGames.map(g => ({
-						gameId: g.gameId,
-						leftPlayerId: g.leftPlayerId,
-						rightPlayerId: g.rightPlayerId,
-						round: g.round,
-						position: g.position
-					}))
+					participantSlots: Array.from(tournamentInfo.participantSlots.entries()),
+					aiPlayers: Array.from(tournamentInfo.aiPlayers),
+					lastUpdate: tournamentInfo.lastBracketUpdate
 				});
-
-				fastify.log.info('Tournament %s started with %d players', tournamentId, participantIds.length);
 
 			} catch (error) {
-				fastify.log.error('Error starting tournament:', error);
-				socket.emit('error', 'Failed to start tournament');
+				fastify.log.error('Error sending bracket update:', error);
+				socket.emit('error', 'Failed to get bracket update');
+			}
+		});
+
+		// Tournament start is now handled via tRPC with creator control
+		// This socket event is kept for real-time notifications only
+		socket.on("tournament-start-notification", async (data: { tournamentId: string, startedBy: string }) => {
+			try {
+				const tournamentInfo = cache.tournaments.active.get(data.tournamentId);
+				if (!tournamentInfo) {
+					return;
+				}
+
+				// Update cache status
+				tournamentInfo.status = 'IN_PROGRESS';
+
+				// Broadcast tournament started notification to all lobby participants
+				tournamentNamespace.to(data.tournamentId).emit('tournament-started-notification', {
+					tournamentId: data.tournamentId,
+					startedBy: data.startedBy,
+					startDate: new Date(),
+					message: `Tournament "${tournamentInfo.name}" has been started by ${data.startedBy}`
+				});
+
+				fastify.log.info('Tournament %s start notification broadcasted', data.tournamentId);
+
+			} catch (error) {
+				fastify.log.error('Error broadcasting tournament start notification:', error);
 			}
 		});
 
 		socket.on("disconnect", async (reason) => {
 			fastify.log.info("Tournament socket disconnected %s, reason: %s", socket.id, reason);
 
-			// Rm utente da tutte le lobby dei tornei
+			// Remove user from all tournament lobbies
 			for (const [tournamentId, lobby] of cache.tournaments.tournamentLobbies) {
 				if (lobby.has(user.id)) {
 					lobby.delete(user.id);
@@ -733,14 +747,16 @@ function setupTournamentNamespace(io: Server) {
 						cache.tournaments.tournamentLobbies.delete(tournamentId);
 					}
 
-					socket.to(tournamentId).emit('user-left-tournament', {
+					// Notify remaining users in lobby
+					socket.to(tournamentId).emit('user-left-tournament-lobby', {
 						userId: user.id,
-						username: user.username
+						username: user.username,
+						connectedUsersCount: lobby.size
 					});
 				}
 			}
 
-			// Rm utente da tutti i tornei attivi
+			// Remove user from all active tournaments
 			for (const [tournamentId, tournamentInfo] of cache.tournaments.active) {
 				if (tournamentInfo.connectedUsers.has(user.id)) {
 					tournamentInfo.connectedUsers.delete(user.id);
@@ -808,3 +824,84 @@ function setupTournamentNamespace(io: Server) {
 }
 
 
+// Helper functions for tournament notifications
+export function broadcastBracketUpdate(tournamentId: string, participantSlots: Map<number, User['id'] | null>, aiPlayers: Set<string>) {
+	const io = (global as any).io;
+	if (io) {
+		const tournamentNamespace = io.of("/tournament");
+		tournamentNamespace.to(tournamentId).emit('bracket-updated', {
+			tournamentId,
+			participantSlots: Array.from(participantSlots.entries()),
+			aiPlayers: Array.from(aiPlayers),
+			lastUpdate: new Date()
+		});
+	}
+}
+
+export function broadcastParticipantJoined(tournamentId: string, participant: { id: string, username: string }, slotPosition: number) {
+	const io = (global as any).io;
+	if (io) {
+		const tournamentNamespace = io.of("/tournament");
+		tournamentNamespace.to(tournamentId).emit('participant-joined-tournament', {
+			tournamentId,
+			participant,
+			slotPosition,
+			timestamp: new Date()
+		});
+	}
+}
+
+export function broadcastParticipantLeft(tournamentId: string, participant: { id: string, username: string }, slotPosition: number) {
+	const io = (global as any).io;
+	if (io) {
+		const tournamentNamespace = io.of("/tournament");
+		tournamentNamespace.to(tournamentId).emit('participant-left-tournament', {
+			tournamentId,
+			participant,
+			slotPosition,
+			timestamp: new Date()
+		});
+	}
+}
+
+export function broadcastTournamentStatusChange(tournamentId: string, newStatus: string, changedBy: string, message?: string) {
+	const io = (global as any).io;
+	if (io) {
+		const tournamentNamespace = io.of("/tournament");
+		tournamentNamespace.to(tournamentId).emit('tournament-status-changed', {
+			tournamentId,
+			newStatus,
+			changedBy,
+			message: message || `Tournament status changed to ${newStatus}`,
+			timestamp: new Date()
+		});
+	}
+}
+
+export function broadcastAIPlayersAdded(tournamentId: string, aiPlayerIds: string[], filledSlots: number[]) {
+	const io = (global as any).io;
+	if (io) {
+		const tournamentNamespace = io.of("/tournament");
+		tournamentNamespace.to(tournamentId).emit('ai-players-added', {
+			tournamentId,
+			aiPlayerIds,
+			filledSlots,
+			message: `${aiPlayerIds.length} AI players added to fill empty slots`,
+			timestamp: new Date()
+		});
+	}
+}
+
+export function broadcastTournamentDeleted(tournamentId: string, tournamentName: string, deletedBy: string) {
+	const io = (global as any).io;
+	if (io) {
+		const tournamentNamespace = io.of("/tournament");
+		tournamentNamespace.to(tournamentId).emit('tournament-deleted', {
+			tournamentId,
+			tournamentName,
+			deletedBy,
+			message: `Tournament "${tournamentName}" has been deleted by the creator.`,
+			timestamp: new Date()
+		});
+	}
+}

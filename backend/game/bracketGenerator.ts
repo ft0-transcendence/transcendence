@@ -1,39 +1,76 @@
 import { PrismaClient } from "@prisma/client";
+import { AIPlayerService } from "../src/services/aiPlayerService";
 
 export type BracketNode = {
     gameId: string;
     round: number;
     position: number;
-    leftPlayerId?: string;
-    rightPlayerId?: string;
+    leftPlayerId?: string | null;
+    rightPlayerId?: string | null;
     nextGameId?: string;
 };
 
-export class BracketGenerator {
-    private db: PrismaClient;
+type DatabaseClient = PrismaClient | Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
 
-    constructor(db: PrismaClient) {
+export class BracketGenerator {
+    private db: DatabaseClient;
+    private static PLACEHOLDER_USER_ID = 'placeholder-tournament-user';
+
+    constructor(db: DatabaseClient) {
         this.db = db;
     }
 
-    /**
-     * Genera il bracket completo per un torneo
-     * Ordine: P1 vs P2, P3 vs P4, P5 vs P6, P7 vs P8
-     */
-    async generateBracket(
-        tournamentId: string,
-        participants: string[],
-        tournamentType: 'EIGHT'
-    ): Promise<BracketNode[]> {
-        const expectedPlayers = 8;
+    private async getPlaceholderUserId(dbClient?: any): Promise<string> {
+        const placeholderEmail = 'tournament-empty-slot@system.local';
+        const client = dbClient || this.db;
+        
+        let user = await client.user.findUnique({
+            where: { email: placeholderEmail }
+        });
 
-        if (participants.length !== expectedPlayers) {
-            throw new Error(`Torneo richiede ${expectedPlayers} giocatori`);
+        if (!user) {
+            user = await client.user.create({
+                data: {
+                    email: placeholderEmail,
+                    username: 'Empty Slot',
+                    preferredLanguage: 'en'
+                }
+            });
         }
 
+        return user.id;
+    }
+
+    private async ensurePlaceholderUser(tx: any): Promise<string> {
+        try {
+            let user = await tx.user.findUnique({
+                where: { id: BracketGenerator.PLACEHOLDER_USER_ID }
+            });
+            
+            if (!user) {
+                user = await tx.user.create({
+                    data: {
+                        id: BracketGenerator.PLACEHOLDER_USER_ID,
+                        email: 'placeholder@tournament.system',
+                        username: 'Tournament Placeholder',
+                        preferredLanguage: 'en'
+                    }
+                });
+            }
+            
+            return user.id;
+        } catch (error) {
+            // If user already exists, just return the ID
+            return BracketGenerator.PLACEHOLDER_USER_ID;
+        }
+    }
+
+    async generateBracket(
+        tournamentId: string,
+        participants: string[] = []
+    ): Promise<BracketNode[]> {
         const bracket: BracketNode[] = [];
         const totalRounds = 3;
-
         const gameIdMap = new Map<string, string>();
 
         // Genera partite da finale a primo round
@@ -44,18 +81,24 @@ export class BracketGenerator {
                 const gameId = crypto.randomUUID();
                 gameIdMap.set(`${round}-${position}`, gameId);
 
-                // Trova partita successiva
                 let nextGameId: string | undefined;
                 if (round < totalRounds) {
                     nextGameId = gameIdMap.get(`${round + 1}-${Math.floor(position / 2)}`);
                 }
 
-                let leftPlayerId: string | undefined;
-                let rightPlayerId: string | undefined;
+                let leftPlayerId: string | null = null;
+                let rightPlayerId: string | null = null;
 
-                if (round === 1) {
-                    leftPlayerId = participants[position * 2];      // P1, P3, P5, P7
-                    rightPlayerId = participants[position * 2 + 1]; // P2, P4, P6, P8
+                if (round === 1 && participants.length > 0) {
+                    const leftIndex = position * 2;
+                    const rightIndex = position * 2 + 1;
+                    
+                    if (leftIndex < participants.length) {
+                        leftPlayerId = participants[leftIndex];
+                    }
+                    if (rightIndex < participants.length) {
+                        rightPlayerId = participants[rightIndex];
+                    }
                 }
 
                 bracket.push({
@@ -72,50 +115,110 @@ export class BracketGenerator {
         return bracket;
     }
 
-    /**
-     * Crea le partite nel database
-     */
-    //visto che nextgameid deve avere reference al prossimo game parto a creare dalla finale e vado a ritroso
+     // Crea le partite nel database con supporto per transazioni
     async createBracketGames(
         tournamentId: string,
         bracket: BracketNode[]
     ): Promise<void> {
-        const sorted = [...bracket].sort((a, b) => b.round - a.round);
-
-        for (const node of sorted) {
-            await this.db.game.create({
-                data: {
-                    id: node.gameId,
-                    type: 'TOURNAMENT',
-                    startDate: new Date(),
-                    scoreGoal: 7,
-                    tournamentId,
-                    leftPlayerId: node.leftPlayerId || '',
-                    rightPlayerId: node.rightPlayerId || '',
-                    nextGameId: node.nextGameId,
-                    leftPlayerScore: 0,
-                    rightPlayerScore: 0
+        const executeTransaction = async (tx: any) => {
+            // Create placeholder user only once per transaction
+            let placeholderUserId: string;
+            try {
+                const placeholderEmail = 'tournament-empty-slot@system.local';
+                let user = await tx.user.findUnique({
+                    where: { email: placeholderEmail }
+                });
+                if (!user) {
+                    user = await tx.user.create({
+                        data: {
+                            email: placeholderEmail,
+                            username: 'Empty Slot',
+                            preferredLanguage: 'en'
+                        }
+                    });
                 }
-            });
+                placeholderUserId = user.id;
+            } catch (error) {
+                console.error('Failed to create placeholder user:', error);
+                throw error;
+            }
+
+            const sorted = [...bracket].sort((a, b) => b.round - a.round);
+
+            for (const node of sorted) {
+                await tx.game.create({
+                    data: {
+                        id: node.gameId,
+                        type: 'TOURNAMENT',
+                        startDate: new Date(),
+                        scoreGoal: 7,
+                        tournamentId,
+                        leftPlayerId: node.leftPlayerId || placeholderUserId,
+                        rightPlayerId: node.rightPlayerId || placeholderUserId,
+                        nextGameId: node.nextGameId,
+                        leftPlayerScore: 0,
+                        rightPlayerScore: 0
+                    }
+                });
+            }
+        };
+
+        if ('$transaction' in this.db) {
+            await this.db.$transaction(executeTransaction);
+        } else {
+            await executeTransaction(this.db);
         }
     }
 
-    /**
-     * Genera e crea tutto
-     */
+    //AI game
+    async updateGameTypeForAIPlayers(tournamentId: string): Promise<void> {
+        const executeTransaction = async (tx: any) => {
+            const aiPlayerService = new AIPlayerService(tx);
+            
+            const games = await tx.game.findMany({
+                where: { tournamentId },
+                include: {
+                    leftPlayer: true,
+                    rightPlayer: true
+                }
+            });
+
+            for (const game of games) {
+                if (!game.leftPlayer || !game.rightPlayer) continue;
+
+                const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayer.email);
+                const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayer.email);
+
+                if (isLeftAI || isRightAI) {
+                    await tx.game.update({
+                        where: { id: game.id },
+                        data: { type: 'AI' }
+                    });
+                    console.log(`Game ${game.id} updated to AI type (left: ${isLeftAI}, right: ${isRightAI})`);
+                }
+            }
+        };
+
+        if ('$transaction' in this.db) {
+            await this.db.$transaction(executeTransaction);
+        } else {
+            await executeTransaction(this.db);
+        }
+    }
+
     async generateAndCreateBracket(
         tournamentId: string,
-        participants: string[],
-        tournamentType: 'EIGHT'
+        participants: string[] = []
     ): Promise<BracketNode[]> {
-        const bracket = await this.generateBracket(tournamentId, participants, tournamentType);
+        const bracket = await this.generateBracket(tournamentId, participants);
         await this.createBracketGames(tournamentId, bracket);
         return bracket;
     }
 
-    /**
-     * Debug: visualizza bracket
-     */
+
+
+    
+     // Debug:
     printBracket(bracket: BracketNode[]): void {
         const rounds = new Map<number, BracketNode[]>();
 
@@ -146,5 +249,298 @@ export class BracketGenerator {
 
     getFinalGame(bracket: BracketNode[]): BracketNode | undefined {
         return bracket.find(node => !node.nextGameId);
+    }
+
+    async assignParticipantToSlot(tournamentId: string, participantId: string): Promise<void> {
+        const executeTransaction = async (tx: any) => {
+            // Trova tutti i giochi del primo round per questo torneo
+            const firstRoundGames = await tx.game.findMany({
+                where: {
+                    tournamentId,
+                    nextGameId: { not: null } // Non è la finale
+                },
+                include: {
+                    leftPlayer: { select: { email: true } },
+                    rightPlayer: { select: { email: true } }
+                },
+                orderBy: [
+                    { startDate: 'asc' },
+                    { id: 'asc' }
+                ]
+            });
+
+            const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
+            const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
+                !nextGameIds.includes(game.id)
+            );
+
+            const availableSlots: { gameId: string, position: 'left' | 'right' }[] = [];
+            
+            for (const game of actualFirstRoundGames) {
+                const isLeftSlotEmpty = !game.leftPlayerId || game.leftPlayerId === '' || 
+                    (game.leftPlayer && game.leftPlayer.email === 'tournament-empty-slot@system.local');
+                
+                const isRightSlotEmpty = !game.rightPlayerId || game.rightPlayerId === '' ||
+                    (game.rightPlayer && game.rightPlayer.email === 'tournament-empty-slot@system.local');
+                
+                if (isLeftSlotEmpty) {
+                    availableSlots.push({ gameId: game.id, position: 'left' });
+                }
+                if (isRightSlotEmpty) {
+                    availableSlots.push({ gameId: game.id, position: 'right' });
+                }
+            }
+
+            if (availableSlots.length === 0) {
+                throw new Error('Nessun slot disponibile nel bracket');
+            }
+
+            const randomIndex = Math.floor(Math.random() * availableSlots.length);
+            const selectedSlot = availableSlots[randomIndex];
+
+            const updateData = selectedSlot.position === 'left' 
+                ? { leftPlayerId: participantId }
+                : { rightPlayerId: participantId };
+
+            await tx.game.update({
+                where: { id: selectedSlot.gameId },
+                data: updateData
+            });
+        };
+
+        if ('$transaction' in this.db) {
+            await this.db.$transaction(executeTransaction);
+        } else {
+            await executeTransaction(this.db);
+        }
+    }
+
+    async removeParticipantFromSlot(tournamentId: string, participantId: string): Promise<void> {
+        const executeTransaction = async (tx: any) => {
+            const gameAsLeftPlayer = await tx.game.findFirst({
+                where: {
+                    tournamentId,
+                    leftPlayerId: participantId
+                }
+            });
+
+            const gameAsRightPlayer = await tx.game.findFirst({
+                where: {
+                    tournamentId,
+                    rightPlayerId: participantId
+                }
+            });
+
+            const placeholderUserId = await this.ensurePlaceholderUser(tx);
+            
+            if (gameAsLeftPlayer) {
+                await tx.game.update({
+                    where: { id: gameAsLeftPlayer.id },
+                    data: { leftPlayerId: placeholderUserId }
+                });
+            }
+
+            if (gameAsRightPlayer) {
+                await tx.game.update({
+                    where: { id: gameAsRightPlayer.id },
+                    data: { rightPlayerId: placeholderUserId }
+                });
+            }
+
+            if (!gameAsLeftPlayer && !gameAsRightPlayer) {
+                throw new Error('Partecipante non trovato nel bracket');
+            }
+        };
+
+        if ('$transaction' in this.db) {
+            await this.db.$transaction(executeTransaction);
+        } else {
+            await executeTransaction(this.db);
+        }
+    }
+
+
+
+    async getBracketFromDatabase(tournamentId: string): Promise<BracketNode[]> {
+        const games = await this.db.game.findMany({
+            where: { tournamentId },
+            orderBy: [
+                { startDate: 'asc' },
+                { id: 'asc' }
+            ]
+        });
+
+        // Converti i giochi del database in BracketNode
+        // Determina il round basandosi sulla struttura del bracket
+        const bracket: BracketNode[] = [];
+        const gameMap = new Map<string, any>();
+        
+        games.forEach(game => {
+            gameMap.set(game.id, game);
+        });
+
+        games.forEach((game: any) => {
+            let round = 1;
+            let currentGame = game;
+            
+            while (currentGame.nextGameId) {
+                round++;
+                currentGame = gameMap.get(currentGame.nextGameId);
+                if (!currentGame) break;
+            }
+
+            const gamesInRound = games.filter((g: any) => {
+                let r = 1;
+                let curr = g;
+                while (curr.nextGameId) {
+                    r++;
+                    curr = gameMap.get(curr.nextGameId);
+                    if (!curr) break;
+                }
+                return r === round;
+            });
+
+            const position = gamesInRound.findIndex((g: any) => g.id === game.id);
+
+            bracket.push({
+                gameId: game.id,
+                round,
+                position,
+                leftPlayerId: game.leftPlayerId || null,
+                rightPlayerId: game.rightPlayerId || null,
+                nextGameId: game.nextGameId || undefined
+            });
+        });
+
+        return bracket.sort((a, b) => a.round - b.round || a.position - b.position);
+    }
+
+    async getOccupiedSlotsCount(tournamentId: string): Promise<number> {
+        const firstRoundGames = await this.db.game.findMany({
+            where: {
+                tournamentId,
+                nextGameId: { not: null }
+            }
+        });
+
+        const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
+        const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
+            !nextGameIds.includes(game.id)
+        );
+
+        let occupiedSlots = 0;
+        for (const game of actualFirstRoundGames) {
+            if (game.leftPlayerId && game.leftPlayerId !== '') occupiedSlots++;
+            if (game.rightPlayerId && game.rightPlayerId !== '') occupiedSlots++;
+        }
+
+        return occupiedSlots;
+    }
+
+    async getOccupiedSlots(tournamentId: string): Promise<Map<number, string>> {
+        const firstRoundGames = await this.db.game.findMany({
+            where: {
+                tournamentId,
+                nextGameId: { not: null }
+            },
+            orderBy: [
+                { startDate: 'asc' },
+                { id: 'asc' }
+            ]
+        });
+
+        const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
+        const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
+            !nextGameIds.includes(game.id)
+        ).sort((a: any, b: any) => a.startDate.getTime() - b.startDate.getTime());
+
+        const occupiedSlots = new Map<number, string>();
+
+        actualFirstRoundGames.forEach((game: any, gameIndex: number) => {
+            const leftSlotIndex = gameIndex * 2;
+            const rightSlotIndex = gameIndex * 2 + 1;
+
+            if (game.leftPlayerId && game.leftPlayerId !== '') {
+                occupiedSlots.set(leftSlotIndex, game.leftPlayerId);
+            }
+            if (game.rightPlayerId && game.rightPlayerId !== '') {
+                occupiedSlots.set(rightSlotIndex, game.rightPlayerId);
+            }
+        });
+
+        return occupiedSlots;
+    }
+
+    async fillEmptySlotsWithAI(tournamentId: string): Promise<string[]> {
+        const executeTransaction = async (tx: any) => {
+            const aiPlayerService = new AIPlayerService(tx);
+            const createdAIPlayers: string[] = [];
+
+            const firstRoundGames = await tx.game.findMany({
+                where: {
+                    tournamentId,
+                    nextGameId: { not: null }
+                },
+                orderBy: [
+                    { startDate: 'asc' },
+                    { id: 'asc' }
+                ]
+            });
+
+            const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
+            const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
+                !nextGameIds.includes(game.id)
+            );
+
+            for (const game of actualFirstRoundGames) {
+                if (!game.leftPlayerId || game.leftPlayerId === '') {
+                    const aiPlayerId = await aiPlayerService.createTournamentAIPlayer(tournamentId);
+                    await tx.game.update({
+                        where: { id: game.id },
+                        data: { leftPlayerId: aiPlayerId }
+                    });
+                    createdAIPlayers.push(aiPlayerId);
+                }
+
+                if (!game.rightPlayerId || game.rightPlayerId === '') {
+                    const aiPlayerId = await aiPlayerService.createTournamentAIPlayer(tournamentId);
+                    await tx.game.update({
+                        where: { id: game.id },
+                        data: { rightPlayerId: aiPlayerId }
+                    });
+                    createdAIPlayers.push(aiPlayerId);
+                }
+            }
+
+            await this.updateGameTypeForAIPlayers(tournamentId);
+
+            // Process only AI vs AI matches automatically
+            for (const game of actualFirstRoundGames) {
+                const updatedGame = await tx.game.findUnique({
+                    where: { id: game.id },
+                    include: {
+                        leftPlayer: true,
+                        rightPlayer: true
+                    }
+                });
+
+                if (!updatedGame) continue;
+
+                const isLeftAI = aiPlayerService.isAIPlayer(updatedGame.leftPlayer.email);
+                const isRightAI = aiPlayerService.isAIPlayer(updatedGame.rightPlayer.email);
+
+                if (isLeftAI && isRightAI) {
+                    await aiPlayerService.handleAIvsAIMatch(game.id);
+                }
+            }
+
+            return createdAIPlayers;
+        };
+
+        if ('$transaction' in this.db) {
+            return await this.db.$transaction(executeTransaction);
+        } else {
+            return await executeTransaction(this.db);
+        }
     }
 }
