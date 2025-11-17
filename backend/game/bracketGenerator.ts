@@ -23,15 +23,16 @@ export class BracketGenerator {
     /**
      * Gets or creates a placeholder user for empty tournament slots
      */
-    private async getPlaceholderUserId(tx: any): Promise<string> {
+    private async getPlaceholderUserId(dbClient?: any): Promise<string> {
         const placeholderEmail = 'tournament-empty-slot@system.local';
+        const client = dbClient || this.db;
         
-        let user = await tx.user.findUnique({
+        let user = await client.user.findUnique({
             where: { email: placeholderEmail }
         });
 
         if (!user) {
-            user = await tx.user.create({
+            user = await client.user.create({
                 data: {
                     email: placeholderEmail,
                     username: 'Empty Slot',
@@ -135,24 +136,51 @@ export class BracketGenerator {
         bracket: BracketNode[]
     ): Promise<void> {
         const executeTransaction = async (tx: any) => {
-            const placeholderUserId = await this.getPlaceholderUserId(tx);
+            // Create placeholder user only once per transaction
+            let placeholderUserId: string;
+            try {
+                const placeholderEmail = 'tournament-empty-slot@system.local';
+                let user = await tx.user.findUnique({
+                    where: { email: placeholderEmail }
+                });
+                if (!user) {
+                    user = await tx.user.create({
+                        data: {
+                            email: placeholderEmail,
+                            username: 'Empty Slot',
+                            preferredLanguage: 'en'
+                        }
+                    });
+                }
+                placeholderUserId = user.id;
+            } catch (error) {
+                console.error('Failed to create placeholder user:', error);
+                throw error;
+            }
+
             const sorted = [...bracket].sort((a, b) => b.round - a.round);
 
             for (const node of sorted) {
-                await tx.game.create({
-                    data: {
-                        id: node.gameId,
-                        type: 'TOURNAMENT',
-                        startDate: new Date(),
-                        scoreGoal: 7,
-                        tournamentId,
-                        leftPlayerId: node.leftPlayerId || placeholderUserId,
-                        rightPlayerId: node.rightPlayerId || placeholderUserId,
-                        nextGameId: node.nextGameId,
-                        leftPlayerScore: 0,
-                        rightPlayerScore: 0
-                    }
-                });
+                try {
+                    await tx.game.create({
+                        data: {
+                            id: node.gameId,
+                            type: 'TOURNAMENT',
+                            startDate: new Date(),
+                            scoreGoal: 7,
+                            tournamentId,
+                            leftPlayerId: node.leftPlayerId || placeholderUserId,
+                            rightPlayerId: node.rightPlayerId || placeholderUserId,
+                            nextGameId: node.nextGameId,
+                            leftPlayerScore: 0,
+                            rightPlayerScore: 0
+                        }
+                    });
+                    console.log(`Created game ${node.gameId} for tournament ${tournamentId}`);
+                } catch (error) {
+                    console.error(`Failed to create game ${node.gameId}:`, error);
+                    throw error;
+                }
             }
         };
 
@@ -262,6 +290,10 @@ export class BracketGenerator {
                     tournamentId,
                     nextGameId: { not: null } // Non è la finale
                 },
+                include: {
+                    leftPlayer: { select: { email: true } },
+                    rightPlayer: { select: { email: true } }
+                },
                 orderBy: [
                     { startDate: 'asc' },
                     { id: 'asc' }
@@ -273,21 +305,35 @@ export class BracketGenerator {
                 !nextGameIds.includes(game.id)
             );
 
-            const placeholderUserId = await this.getPlaceholderUserId(tx);
             console.log(`DEBUG: Tournament ${tournamentId} - Found ${firstRoundGames.length} total games, ${actualFirstRoundGames.length} first round games`);
             
             // Trova il primo slot disponibile
             for (const game of actualFirstRoundGames) {
-                console.log(`DEBUG: Game ${game.id} - leftPlayerId: "${game.leftPlayerId}", rightPlayerId: "${game.rightPlayerId}"`);
+                console.log(`DEBUG: Game ${game.id}:`);
+                console.log(`  - leftPlayerId: "${game.leftPlayerId}"`);
+                console.log(`  - rightPlayerId: "${game.rightPlayerId}"`);
+                console.log(`  - leftPlayer email: "${game.leftPlayer?.email}"`);
+                console.log(`  - rightPlayer email: "${game.rightPlayer?.email}"`);
                 
-                if (!game.leftPlayerId || game.leftPlayerId === '' || game.leftPlayerId === placeholderUserId) {
+                // Check if left slot is available (empty string, null, or placeholder user)
+                const isLeftSlotEmpty = !game.leftPlayerId || game.leftPlayerId === '' || 
+                    (game.leftPlayer && game.leftPlayer.email === 'tournament-empty-slot@system.local');
+                
+                // Check if right slot is available (empty string, null, or placeholder user)  
+                const isRightSlotEmpty = !game.rightPlayerId || game.rightPlayerId === '' ||
+                    (game.rightPlayer && game.rightPlayer.email === 'tournament-empty-slot@system.local');
+                
+                console.log(`  - isLeftSlotEmpty: ${isLeftSlotEmpty}`);
+                console.log(`  - isRightSlotEmpty: ${isRightSlotEmpty}`);
+                
+                if (isLeftSlotEmpty) {
                     console.log(`DEBUG: Assigning participant ${participantId} to left slot of game ${game.id}`);
                     await tx.game.update({
                         where: { id: game.id },
                         data: { leftPlayerId: participantId }
                     });
                     return;
-                } else if (!game.rightPlayerId || game.rightPlayerId === '' || game.rightPlayerId === placeholderUserId) {
+                } else if (isRightSlotEmpty) {
                     console.log(`DEBUG: Assigning participant ${participantId} to right slot of game ${game.id}`);
                     await tx.game.update({
                         where: { id: game.id },
@@ -437,8 +483,8 @@ export class BracketGenerator {
 
         let occupiedSlots = 0;
         for (const game of actualFirstRoundGames) {
-            if (game.leftPlayerId && game.leftPlayerId !== '' && game.leftPlayerId !== BracketGenerator.PLACEHOLDER_USER_ID) occupiedSlots++;
-            if (game.rightPlayerId && game.rightPlayerId !== '' && game.rightPlayerId !== BracketGenerator.PLACEHOLDER_USER_ID) occupiedSlots++;
+            if (game.leftPlayerId && game.leftPlayerId !== '') occupiedSlots++;
+            if (game.rightPlayerId && game.rightPlayerId !== '') occupiedSlots++;
         }
 
         return occupiedSlots;
@@ -472,10 +518,10 @@ export class BracketGenerator {
             const leftSlotIndex = gameIndex * 2;
             const rightSlotIndex = gameIndex * 2 + 1;
 
-            if (game.leftPlayerId && game.leftPlayerId !== '' && game.leftPlayerId !== BracketGenerator.PLACEHOLDER_USER_ID) {
+            if (game.leftPlayerId && game.leftPlayerId !== '') {
                 occupiedSlots.set(leftSlotIndex, game.leftPlayerId);
             }
-            if (game.rightPlayerId && game.rightPlayerId !== '' && game.rightPlayerId !== BracketGenerator.PLACEHOLDER_USER_ID) {
+            if (game.rightPlayerId && game.rightPlayerId !== '') {
                 occupiedSlots.set(rightSlotIndex, game.rightPlayerId);
             }
         });
