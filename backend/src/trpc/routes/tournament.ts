@@ -901,7 +901,7 @@ export const tournamentRouter = t.router({
 					await tx.tournamentParticipant.create({
 						data: { tournamentId: tournament.id, userId: ctx.user!.id }
 					});
-
+					
 					await bracketGenerator.assignParticipantToSlot(tournament.id, ctx.user!.id);
 
 					return tournament;
