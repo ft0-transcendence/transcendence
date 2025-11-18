@@ -91,24 +91,31 @@ enum GameType {
     TOURNAMENT
 }
 
+enum TournamentRound {
+    Q  // Quarti di finale
+    S  // Semifinali
+    F  // Finale
+}
+
 model Game {
-    id               String      @id @default(cuid())
+    id               String           @id @default(cuid())
     type             GameType
+    tournamentRound  TournamentRound?
     startDate        DateTime
-    updatedAt        DateTime    @default(now()) @updatedAt
+    updatedAt        DateTime         @default(now()) @updatedAt
     endDate          DateTime?
     abortDate        DateTime?
     abortReason      String?
-    scoreGoal        Int         @default(7)
-    leftPlayerScore  Int         @default(0)
+    scoreGoal        Int              @default(7)
+    leftPlayerScore  Int              @default(0)
     leftPlayerId     String
-    leftPlayer       User        @relation("gamesAsLeftPlayer", fields: [leftPlayerId], references: [id])
-    rightPlayerScore Int         @default(0)
+    leftPlayer       User             @relation("gamesAsLeftPlayer", fields: [leftPlayerId], references: [id])
+    rightPlayerScore Int              @default(0)
     rightPlayerId    String
-    rightPlayer      User        @relation("gamesAsRightPlayer", fields: [rightPlayerId], references: [id])
+    rightPlayer      User             @relation("gamesAsRightPlayer", fields: [rightPlayerId], references: [id])
     nextGameId       String?
-    nextGame         Game?       @relation("previousGames", fields: [nextGameId], references: [id])
+    nextGame         Game?            @relation("previousGames", fields: [nextGameId], references: [id])
     tournamentId     String?
-    tournament       Tournament? @relation("games", fields: [tournamentId], references: [id])
-    previousGames    Game[]      @relation("previousGames")
+    tournament       Tournament?      @relation("games", fields: [tournamentId], references: [id])
+    previousGames    Game[]           @relation("previousGames")
 }
