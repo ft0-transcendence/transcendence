@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, TournamentRound } from "@prisma/client";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 
 export type BracketNode = {
@@ -8,6 +8,7 @@ export type BracketNode = {
     leftPlayerId?: string | null;
     rightPlayerId?: string | null;
     nextGameId?: string;
+    tournamentRound?: 'Q' | 'S' | 'F';
 };
 
 type DatabaseClient = PrismaClient | Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
@@ -101,13 +102,24 @@ export class BracketGenerator {
                     }
                 }
 
+                // Determina il round del torneo basandosi sul round del bracket
+                let tournamentRound: 'Q' | 'S' | 'F';
+                if (round === 3) {
+                    tournamentRound = 'F'; // Finale
+                } else if (round === 2) {
+                    tournamentRound = 'S'; // Semifinale
+                } else {
+                    tournamentRound = 'Q'; // Quarti di finale
+                }
+
                 bracket.push({
                     gameId,
                     round,
                     position,
                     leftPlayerId,
                     rightPlayerId,
-                    nextGameId
+                    nextGameId,
+                    tournamentRound
                 });
             }
         }
@@ -146,10 +158,21 @@ export class BracketGenerator {
             const sorted = [...bracket].sort((a, b) => b.round - a.round);
 
             for (const node of sorted) {
+                // Determina il round del torneo basandosi sul round del bracket
+                let tournamentRound: 'Q' | 'S' | 'F';
+                if (node.round === 3) {
+                    tournamentRound = 'F'; // Finale
+                } else if (node.round === 2) {
+                    tournamentRound = 'S'; // Semifinale
+                } else {
+                    tournamentRound = 'Q'; // Quarti di finale
+                }
+
                 await tx.game.create({
                     data: {
                         id: node.gameId,
                         type: 'TOURNAMENT',
+                        tournamentRound: tournamentRound,
                         startDate: new Date(),
                         scoreGoal: 7,
                         tournamentId,
@@ -236,8 +259,9 @@ export class BracketGenerator {
             for (const game of games) {
                 const left = game.leftPlayerId ? `P${game.leftPlayerId.slice(-4)}` : 'TBD';
                 const right = game.rightPlayerId ? `P${game.rightPlayerId.slice(-4)}` : 'TBD';
+                const roundType = game.tournamentRound ? `[${game.tournamentRound}]` : '';
                 const next = game.nextGameId ? ` → Next` : ' [FINALE]';
-                console.log(`  Game ${game.position + 1}: ${left} vs ${right}${next}`);
+                console.log(`  Game ${game.position + 1} ${roundType}: ${left} vs ${right}${next}`);
             }
             console.log('');
         }
@@ -253,11 +277,10 @@ export class BracketGenerator {
 
     async assignParticipantToSlot(tournamentId: string, participantId: string): Promise<void> {
         const executeTransaction = async (tx: any) => {
-            // Trova tutti i giochi del primo round per questo torneo
-            const firstRoundGames = await tx.game.findMany({
+            const quarterFinalGames = await tx.game.findMany({
                 where: {
                     tournamentId,
-                    nextGameId: { not: null } // Non è la finale
+                    tournamentRound: 'Q'
                 },
                 include: {
                     leftPlayer: { select: { email: true } },
@@ -269,14 +292,9 @@ export class BracketGenerator {
                 ]
             });
 
-            const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
-            const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
-                !nextGameIds.includes(game.id)
-            );
-
             const availableSlots: { gameId: string, position: 'left' | 'right' }[] = [];
             
-            for (const game of actualFirstRoundGames) {
+            for (const game of quarterFinalGames) {
                 const isLeftSlotEmpty = !game.leftPlayerId || game.leftPlayerId === '' || 
                     (game.leftPlayer && game.leftPlayer.email === 'tournament-empty-slot@system.local');
                 
@@ -292,9 +310,10 @@ export class BracketGenerator {
             }
 
             if (availableSlots.length === 0) {
-                throw new Error('Nessun slot disponibile nel bracket');
+                throw new Error('Nessun slot disponibile nei quarti di finale');
             }
 
+            // Assegna casualmente uno slot disponibile tra i quarti di finale
             const randomIndex = Math.floor(Math.random() * availableSlots.length);
             const selectedSlot = availableSlots[randomIndex];
 
@@ -408,7 +427,8 @@ export class BracketGenerator {
                 position,
                 leftPlayerId: game.leftPlayerId || null,
                 rightPlayerId: game.rightPlayerId || null,
-                nextGameId: game.nextGameId || undefined
+                nextGameId: game.nextGameId || undefined,
+                tournamentRound: game.tournamentRound as 'Q' | 'S' | 'F' | undefined
             });
         });
 
@@ -416,20 +436,15 @@ export class BracketGenerator {
     }
 
     async getOccupiedSlotsCount(tournamentId: string): Promise<number> {
-        const firstRoundGames = await this.db.game.findMany({
+        const quarterFinalGames = await this.db.game.findMany({
             where: {
                 tournamentId,
-                nextGameId: { not: null }
+                tournamentRound: 'Q'
             }
         });
 
-        const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
-        const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
-            !nextGameIds.includes(game.id)
-        );
-
         let occupiedSlots = 0;
-        for (const game of actualFirstRoundGames) {
+        for (const game of quarterFinalGames) {
             if (game.leftPlayerId && game.leftPlayerId !== '') occupiedSlots++;
             if (game.rightPlayerId && game.rightPlayerId !== '') occupiedSlots++;
         }
@@ -438,10 +453,10 @@ export class BracketGenerator {
     }
 
     async getOccupiedSlots(tournamentId: string): Promise<Map<number, string>> {
-        const firstRoundGames = await this.db.game.findMany({
+        const quarterFinalGames = await this.db.game.findMany({
             where: {
                 tournamentId,
-                nextGameId: { not: null }
+                tournamentRound: 'Q' // Filtra solo per partite dei quarti di finale
             },
             orderBy: [
                 { startDate: 'asc' },
@@ -449,14 +464,9 @@ export class BracketGenerator {
             ]
         });
 
-        const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
-        const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
-            !nextGameIds.includes(game.id)
-        ).sort((a: any, b: any) => a.startDate.getTime() - b.startDate.getTime());
-
         const occupiedSlots = new Map<number, string>();
 
-        actualFirstRoundGames.forEach((game: any, gameIndex: number) => {
+        quarterFinalGames.forEach((game: any, gameIndex: number) => {
             const leftSlotIndex = gameIndex * 2;
             const rightSlotIndex = gameIndex * 2 + 1;
 
@@ -476,10 +486,10 @@ export class BracketGenerator {
             const aiPlayerService = new AIPlayerService(tx);
             const createdAIPlayers: string[] = [];
 
-            const firstRoundGames = await tx.game.findMany({
+            const quarterFinalGames = await tx.game.findMany({
                 where: {
                     tournamentId,
-                    nextGameId: { not: null }
+                    tournamentRound: 'Q' // Filtra solo per partite dei quarti di finale
                 },
                 orderBy: [
                     { startDate: 'asc' },
@@ -487,12 +497,7 @@ export class BracketGenerator {
                 ]
             });
 
-            const nextGameIds = firstRoundGames.map((g: any) => g.nextGameId).filter(Boolean);
-            const actualFirstRoundGames = firstRoundGames.filter((game: any) => 
-                !nextGameIds.includes(game.id)
-            );
-
-            for (const game of actualFirstRoundGames) {
+            for (const game of quarterFinalGames) {
                 if (!game.leftPlayerId || game.leftPlayerId === '') {
                     const aiPlayerId = await aiPlayerService.createTournamentAIPlayer(tournamentId);
                     await tx.game.update({
@@ -515,7 +520,7 @@ export class BracketGenerator {
             await this.updateGameTypeForAIPlayers(tournamentId);
 
             // Process only AI vs AI matches automatically
-            for (const game of actualFirstRoundGames) {
+            for (const game of quarterFinalGames) {
                 const updatedGame = await tx.game.findUnique({
                     where: { id: game.id },
                     include: {

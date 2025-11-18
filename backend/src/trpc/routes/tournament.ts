@@ -201,7 +201,8 @@ export const tournamentRouter = t.router({
 					maxParticipants: 8,
 					games: tournament!.games.map((g: any) => ({
 						...g,
-						scoreGoal: g.scoreGoal || 7
+						scoreGoal: g.scoreGoal || 7,
+						tournamentRound: (g as any).tournamentRound
 					})),
 					isRegisteredToTournament
 				};
@@ -301,7 +302,8 @@ export const tournamentRouter = t.router({
 				rightPlayerScore: g.rightPlayerScore,
 				nextGameId: g.nextGameId,
 				endDate: g.endDate,
-				scoreGoal: g.scoreGoal || 7
+				scoreGoal: g.scoreGoal || 7,
+				tournamentRound: (g as any).tournamentRound
 			});
 
 			return {
@@ -376,7 +378,8 @@ export const tournamentRouter = t.router({
 						leftPlayerScore: game.leftPlayerScore,
 						rightPlayerScore: game.rightPlayerScore,
 						startDate: game.startDate,
-						scoreGoal: game.scoreGoal || 7
+						scoreGoal: game.scoreGoal || 7,
+						tournamentRound: game.tournamentRound
 					},
 					tournament: {
 						id: game.tournament!.id,
@@ -499,17 +502,12 @@ export const tournamentRouter = t.router({
 				throw new TRPCError({ code: 'BAD_REQUEST', message: 'Tournament is full' });
 			}
 
-			// Bracket validation removed - let the system handle empty brackets
-
-				// Use database transaction to ensure atomicity
 				const result = await ctx.db.$transaction(async (tx) => {
-					// 1. Add participant to tournament
 					const participant = await tx.tournamentParticipant.create({
 						data: { tournamentId: input.tournamentId, userId: ctx.user!.id },
 						include: { tournament: { include: { participants: { include: { user: { select: { id: true, username: true } } } } } } }
 					});
 
-					// 2. Assign participant to first available slot in bracket
 					const bracketGenerator = new BracketGenerator(tx);
 					await bracketGenerator.assignParticipantToSlot(input.tournamentId, ctx.user!.id);
 
@@ -740,7 +738,8 @@ export const tournamentRouter = t.router({
 								leftPlayerScore: true,
 								rightPlayerScore: true,
 								startDate: true,
-								endDate: true
+								endDate: true,
+								tournamentRound: true
 							}, 
 							orderBy: { startDate: 'asc' } 
 						}
