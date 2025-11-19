@@ -88,7 +88,6 @@ export class AIPlayerService {
                 throw new Error(`Game ${gameId} not found`);
             }
 
-            // Verify both players are AI
             const isLeftPlayerAI = this.isAIPlayer(game.leftPlayer.email);
             const isRightPlayerAI = this.isAIPlayer(game.rightPlayer.email);
 
@@ -100,7 +99,6 @@ export class AIPlayerService {
             const leftScore = 7;
             const rightScore = 0;
 
-            // Update game with final scores
             await tx.game.update({
                 where: { id: gameId },
                 data: {
@@ -112,7 +110,7 @@ export class AIPlayerService {
 
             // If there's a next game, advance the winner
             if (game.nextGameId) {
-                const winnerId = game.leftPlayerId; // Left player wins
+                const winnerId = game.leftPlayerId;
                 await this.advanceWinnerToNextGame(tx, game.nextGameId, winnerId);
             }
         };
@@ -124,9 +122,6 @@ export class AIPlayerService {
         }
     }
 
-    /**
-     * Advances the winner of a game to the next round
-     */
     private async advanceWinnerToNextGame(tx: any, nextGameId: string, winnerId: string): Promise<void> {
         const nextGame = await tx.game.findUnique({
             where: { id: nextGameId }
@@ -136,7 +131,6 @@ export class AIPlayerService {
             throw new Error(`Next game ${nextGameId} not found`);
         }
 
-        // Assign winner to first available slot in next game
         if (!nextGame.leftPlayerId || nextGame.leftPlayerId === '') {
             await tx.game.update({
                 where: { id: nextGameId },
@@ -152,10 +146,6 @@ export class AIPlayerService {
         }
     }
 
-    /**
-     * Cleans up AI players created for a specific tournament
-     * This should be called when a tournament is completed or cancelled
-     */
     async cleanupTournamentAIPlayers(tournamentId: string): Promise<void> {
         const executeTransaction = async (tx: any) => {
             // Find all AI players for this tournament
@@ -184,16 +174,10 @@ export class AIPlayerService {
         }
     }
 
-    /**
-     * Checks if a user is an AI player based on email pattern
-     */
     isAIPlayer(email: string): boolean {
         return email.includes('@tournament.ai');
     }
 
-    /**
-     * Gets all AI players for a specific tournament
-     */
     async getTournamentAIPlayers(tournamentId: string): Promise<string[]> {
         const aiPlayers = await this.db.user.findMany({
             where: {
@@ -207,9 +191,6 @@ export class AIPlayerService {
         return aiPlayers.map((player: any) => player.id);
     }
 
-    /**
-     * Checks if a game has both players as AI
-     */
     async isAIvsAIGame(gameId: string): Promise<boolean> {
         const game = await this.db.game.findUnique({
             where: { id: gameId },
@@ -226,9 +207,6 @@ export class AIPlayerService {
         return this.isAIPlayer(game.leftPlayer.email) && this.isAIPlayer(game.rightPlayer.email);
     }
 
-    /**
-     * Checks if a game has at least one AI player
-     */
     async hasAIPlayer(gameId: string): Promise<boolean> {
         const game = await this.db.game.findUnique({
             where: { id: gameId },

@@ -516,22 +516,30 @@ export class BracketGenerator {
 
             await this.updateGameTypeForAIPlayers(tournamentId);
 
-            // Process only AI vs AI matches automatically
-            for (const game of quarterFinalGames) {
-                const updatedGame = await tx.game.findUnique({
-                    where: { id: game.id },
-                    include: {
-                        leftPlayer: true,
-                        rightPlayer: true
-                    }
-                });
+            // Process all AI vs AI matches automatically (not just quarters)
+            const allTournamentGames = await tx.game.findMany({
+                where: {
+                    tournamentId,
+                    endDate: null // Only unfinished games
+                },
+                include: {
+                    leftPlayer: true,
+                    rightPlayer: true
+                },
+                orderBy: [
+                    { startDate: 'asc' },
+                    { id: 'asc' }
+                ]
+            });
 
-                if (!updatedGame) continue;
+            for (const game of allTournamentGames) {
+                if (!game.leftPlayer || !game.rightPlayer) continue;
 
-                const isLeftAI = aiPlayerService.isAIPlayer(updatedGame.leftPlayer.email);
-                const isRightAI = aiPlayerService.isAIPlayer(updatedGame.rightPlayer.email);
+                const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayer.email);
+                const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayer.email);
 
                 if (isLeftAI && isRightAI) {
+                    console.log(`🤖 Processing AI vs AI match: ${game.id} (${game.tournamentRound})`);
                     await aiPlayerService.handleAIvsAIMatch(game.id);
                 }
             }

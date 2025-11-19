@@ -23,7 +23,6 @@ export class TournamentGame extends OnlineGame {
     ) {
         super(gameId, socketNamespace, config, async (state) => {
             // Handle tournament advancement when game finishes (quello che faceva getMatchresults)
-            // Always advance tournament, but handle statistics differently for forfeited games
             await this.handleTournamentAdvancement();
         }, updateGameActivity);
         this.tournamentId = tournamentId;
@@ -37,7 +36,6 @@ export class TournamentGame extends OnlineGame {
 
         console.log(`Tournament Game ${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
 
-        // Stop all AI intervals
         for (const interval of this.aiIntervals.values()) {
             clearInterval(interval);
         }
@@ -58,7 +56,6 @@ export class TournamentGame extends OnlineGame {
             this.socketNamespace.to(this.gameId).emit("game-finished", state);
         }
 
-        // Gestione avanzamento torneo
         if (this.onTournamentFinish) {
             try {
                 console.log(`Tournament Game ${this.gameId} calling onTournamentFinish callback`);
@@ -80,7 +77,6 @@ export class TournamentGame extends OnlineGame {
                 return;
             }
 
-            // Aggiorna sempre le statistiche dei giocatori (anche in caso di forfeit)
             if (this.scores.left !== this.scores.right) {
                 console.log(`📊 Tournament Game ${this.gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${this.wasForfeited}`);
                 await updateGameStats(db, winnerId, loserId);
@@ -88,14 +84,12 @@ export class TournamentGame extends OnlineGame {
                 console.log(`⚠️ Tournament Game ${this.gameId} ended in a tie, skipping stats update`);
             }
 
-            // Trova partita successiva
             const currentGame = await db.game.findUnique({
                 where: { id: this.gameId },
                 include: { previousGames: { select: { id: true } } }
             });
 
             if (currentGame?.nextGameId) {
-                // Determina lo slot nella partita successiva
                 const nextGame = await db.game.findUnique({
                     where: { id: currentGame.nextGameId },
                     include: { previousGames: { select: { id: true } } }
@@ -126,7 +120,6 @@ export class TournamentGame extends OnlineGame {
             } else { // Torneo completato
                 console.log(`Tournament ${this.tournamentId} completed! Winner: ${winnerId}`);
 
-                // Use transaction to ensure atomicity
                 await db.$transaction(async (tx) => {
                     await tx.tournament.update({
                         where: { id: this.tournamentId },
@@ -166,7 +159,6 @@ export class TournamentGame extends OnlineGame {
     public override playerReady(player: GameUserInfo) {
         super.playerReady(player);
 
-        // Check if we need to start AI after both players are ready
         if (this.leftPlayer && this.rightPlayer) {
             this.initializeAI();
         }
@@ -176,7 +168,6 @@ export class TournamentGame extends OnlineGame {
         try {
             if (!this.leftPlayer || !this.rightPlayer) return;
 
-            // Check if left player is AI
             const leftPlayerData = await db.user.findUnique({
                 where: { id: this.leftPlayer.id },
                 select: { email: true }
@@ -186,7 +177,6 @@ export class TournamentGame extends OnlineGame {
                 this.startAI(this.leftPlayer.id, 'left');
             }
 
-            // Check if right player is AI
             const rightPlayerData = await db.user.findUnique({
                 where: { id: this.rightPlayer.id },
                 select: { email: true }
@@ -208,14 +198,12 @@ export class TournamentGame extends OnlineGame {
             try {
                 const state = this.getState();
                 
-                // Only move if game is running
                 if (state.state !== 'RUNNING') return;
 
-                // AI movement logic - same as local AI games
+                // AI movement - same as local AI games
                 const aiPaddlePos = side === 'left' ? state.paddles.left : state.paddles.right;
-                let target = 50; // Default center position
+                let target = 50;
 
-                // Only move when ball is coming towards AI
                 if (side === 'right' && state.ball.dirX >= 0) {
                     target = state.ball.y;
                 } else if (side === 'left' && state.ball.dirX <= 0) {
@@ -223,7 +211,7 @@ export class TournamentGame extends OnlineGame {
                 }
 
                 const diff = target - aiPaddlePos;
-                const deadZone = 5; // Dead zone to prevent micro-adjustments
+                const deadZone = 5;
 
                 this.release(side, 'up');
                 this.release(side, 'down');
