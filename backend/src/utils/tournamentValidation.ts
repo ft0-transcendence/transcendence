@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { TournamentStatus, TournamentType } from "@prisma/client";
 import { z } from "zod";
 import { fastify } from "../../main";
+import { cache } from "../cache";
 
 /**
  * Simple validation utilities for tournament operations
@@ -143,7 +144,7 @@ export function validateCacheConsistency(tournamentId: string, db: any): void {
   // Simple async check without blocking the main operation
   setTimeout(async () => {
     try {
-      const { cache } = await import('../cache.js');
+
       const cachedTournament = cache.tournaments.active.get(tournamentId);
       
       if (cachedTournament) {

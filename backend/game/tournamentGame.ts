@@ -3,6 +3,7 @@ import { GameUserInfo, GameStatus } from "./game";
 import { db } from "../src/trpc/db";
 import { updateTournamentWinnerStats, updateGameStats } from "../src/utils/statsUtils";
 import { AIPlayerService } from "../src/services/aiPlayerService";
+import { cache } from "../src/cache";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
@@ -127,7 +128,6 @@ export class TournamentGame extends OnlineGame {
 
                 // Use transaction to ensure atomicity
                 await db.$transaction(async (tx) => {
-                    // 1. Update tournament status and winner
                     await tx.tournament.update({
                         where: { id: this.tournamentId },
                         data: { 
@@ -137,16 +137,13 @@ export class TournamentGame extends OnlineGame {
                         }
                     });
 
-                    // 2. Clean up AI players for this tournament
-                    const { AIPlayerService } = await import("../src/services/aiPlayerService.js");
                     const aiPlayerService = new AIPlayerService(tx);
                     await aiPlayerService.cleanupTournamentAIPlayers(this.tournamentId);
                 });
 
                 await updateTournamentWinnerStats(db, winnerId);
 
-                // 3. Update cache
-                const { cache } = await import("../src/cache.js");
+
                 const cachedTournament = cache.tournaments.active.get(this.tournamentId);
                 if (cachedTournament) {
                     cachedTournament.status = 'COMPLETED';
@@ -167,7 +164,6 @@ export class TournamentGame extends OnlineGame {
     }
 
     public override playerReady(player: GameUserInfo) {
-        // Call parent method first
         super.playerReady(player);
 
         // Check if we need to start AI after both players are ready
@@ -229,11 +225,9 @@ export class TournamentGame extends OnlineGame {
                 const diff = target - aiPaddlePos;
                 const deadZone = 5; // Dead zone to prevent micro-adjustments
 
-                // Release all movements first
                 this.release(side, 'up');
                 this.release(side, 'down');
 
-                // Apply movement only if outside dead zone
                 if (Math.abs(diff) > deadZone) {
                     if (diff > 0) {
                         this.press(side, 'down');
@@ -246,7 +240,6 @@ export class TournamentGame extends OnlineGame {
             }
         };
 
-        // Run AI logic at 60 FPS (same as game loop)
         const interval = setInterval(aiLogic, 1000 / 60);
         this.aiIntervals.set(playerId, interval);
     }
