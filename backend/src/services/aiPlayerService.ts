@@ -1,11 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 
-type DatabaseClient = PrismaClient | Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
-
 export class AIPlayerService {
-    private db: DatabaseClient;
+    private db: PrismaClient | any;
 
-    constructor(db: DatabaseClient) {
+    constructor(db: PrismaClient | any) {
         this.db = db;
     }
 
@@ -206,7 +204,7 @@ export class AIPlayerService {
             select: { id: true }
         });
 
-        return aiPlayers.map(player => player.id);
+        return aiPlayers.map((player: any) => player.id);
     }
 
     /**
