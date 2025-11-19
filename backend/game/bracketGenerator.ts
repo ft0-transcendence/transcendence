@@ -11,13 +11,11 @@ export type BracketNode = {
     tournamentRound?: 'QUARTI' | 'SEMIFINALE' | 'FINALE';
 };
 
-type DatabaseClient = PrismaClient | Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
-
 export class BracketGenerator {
-    private db: DatabaseClient;
+    private db: PrismaClient | any;
     private static PLACEHOLDER_USER_ID = 'placeholder-tournament-user';
 
-    constructor(db: DatabaseClient) {
+    constructor(db: PrismaClient | any) {
         this.db = db;
     }
 
@@ -393,7 +391,7 @@ export class BracketGenerator {
         const bracket: BracketNode[] = [];
         const gameMap = new Map<string, any>();
         
-        games.forEach(game => {
+        games.forEach((game: any) => {
             gameMap.set(game.id, game);
         });
 
