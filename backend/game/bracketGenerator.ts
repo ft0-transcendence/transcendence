@@ -8,7 +8,7 @@ export type BracketNode = {
     leftPlayerId?: string | null;
     rightPlayerId?: string | null;
     nextGameId?: string;
-    tournamentRound?: 'Q' | 'S' | 'F';
+    tournamentRound?: 'QUARTI' | 'SEMIFINALE' | 'FINALE';
 };
 
 type DatabaseClient = PrismaClient | Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
@@ -103,13 +103,13 @@ export class BracketGenerator {
                 }
 
                 // Determina il round del torneo basandosi sul round del bracket
-                let tournamentRound: 'Q' | 'S' | 'F';
+                let tournamentRound: 'QUARTI' | 'SEMIFINALE' | 'FINALE';
                 if (round === 3) {
-                    tournamentRound = 'F'; // Finale
+                    tournamentRound = 'FINALE';
                 } else if (round === 2) {
-                    tournamentRound = 'S'; // Semifinale
+                    tournamentRound = 'SEMIFINALE';
                 } else {
-                    tournamentRound = 'Q'; // Quarti di finale
+                    tournamentRound = 'QUARTI';
                 }
 
                 bracket.push({
@@ -158,14 +158,13 @@ export class BracketGenerator {
             const sorted = [...bracket].sort((a, b) => b.round - a.round);
 
             for (const node of sorted) {
-                // Determina il round del torneo basandosi sul round del bracket
-                let tournamentRound: 'Q' | 'S' | 'F';
+                let tournamentRound: 'QUARTI' | 'SEMIFINALE' | 'FINALE';
                 if (node.round === 3) {
-                    tournamentRound = 'F'; // Finale
+                    tournamentRound = 'FINALE';
                 } else if (node.round === 2) {
-                    tournamentRound = 'S'; // Semifinale
+                    tournamentRound = 'SEMIFINALE';
                 } else {
-                    tournamentRound = 'Q'; // Quarti di finale
+                    tournamentRound = 'QUARTI';
                 }
 
                 await tx.game.create({
@@ -280,7 +279,7 @@ export class BracketGenerator {
             const quarterFinalGames = await tx.game.findMany({
                 where: {
                     tournamentId,
-                    tournamentRound: 'Q'
+                    tournamentRound: 'QUARTI'
                 },
                 include: {
                     leftPlayer: { select: { email: true } },
@@ -428,7 +427,7 @@ export class BracketGenerator {
                 leftPlayerId: game.leftPlayerId || null,
                 rightPlayerId: game.rightPlayerId || null,
                 nextGameId: game.nextGameId || undefined,
-                tournamentRound: game.tournamentRound as 'Q' | 'S' | 'F' | undefined
+                tournamentRound: game.tournamentRound as 'QUARTI' | 'SEMIFINALE' | 'FINALE' | undefined
             });
         });
 
@@ -439,7 +438,7 @@ export class BracketGenerator {
         const quarterFinalGames = await this.db.game.findMany({
             where: {
                 tournamentId,
-                tournamentRound: 'Q'
+                tournamentRound: 'QUARTI' as any
             }
         });
 
@@ -456,7 +455,7 @@ export class BracketGenerator {
         const quarterFinalGames = await this.db.game.findMany({
             where: {
                 tournamentId,
-                tournamentRound: 'Q' // Filtra solo per partite dei quarti di finale
+                tournamentRound: 'QUARTI' as any // Filtra solo per partite dei quarti di finale
             },
             orderBy: [
                 { startDate: 'asc' },
@@ -489,7 +488,7 @@ export class BracketGenerator {
             const quarterFinalGames = await tx.game.findMany({
                 where: {
                     tournamentId,
-                    tournamentRound: 'Q' // Filtra solo per partite dei quarti di finale
+                    tournamentRound: 'QUARTI' // Filtra solo per partite dei quarti di finale
                 },
                 orderBy: [
                     { startDate: 'asc' },
