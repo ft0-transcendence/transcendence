@@ -92,9 +92,9 @@ enum GameType {
 }
 
 enum TournamentRound {
-    Q  // Quarti di finale
-    S  // Semifinali
-    F  // Finale
+    QUARTI
+    SEMIFINALE
+    FINALE
 }
 
 model Game {
