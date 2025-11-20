@@ -98,7 +98,16 @@ export class TournamentGame extends OnlineGame {
                 if (nextGame && nextGame.previousGames.length === 2) {
                     const childIds = nextGame.previousGames.map(g => g.id).sort();
                     const isLeft = this.gameId === childIds[0];
-                    const data: any = isLeft ? { leftPlayerId: winnerId } : { rightPlayerId: winnerId };
+                    
+                    // Get winner's username
+                    const winnerUser = await db.user.findUnique({
+                        where: { id: winnerId },
+                        select: { username: true }
+                    });
+                    
+                    const data: any = isLeft 
+                        ? { leftPlayerId: winnerId, leftPlayerUsername: winnerUser?.username || null }
+                        : { rightPlayerId: winnerId, rightPlayerUsername: winnerUser?.username || null };
 
                     await db.game.update({
                         where: { id: currentGame.nextGameId },
@@ -129,9 +138,6 @@ export class TournamentGame extends OnlineGame {
                             status: 'COMPLETED'
                         }
                     });
-
-                    const aiPlayerService = new AIPlayerService(tx);
-                    await aiPlayerService.cleanupTournamentAIPlayers(this.tournamentId);
                 });
 
                 await updateTournamentWinnerStats(db, winnerId);
@@ -168,21 +174,24 @@ export class TournamentGame extends OnlineGame {
         try {
             if (!this.leftPlayer || !this.rightPlayer) return;
 
-            const leftPlayerData = await db.user.findUnique({
-                where: { id: this.leftPlayer.id },
-                select: { email: true }
+            // Get game data to check username fields for AI detection
+            const gameData = await db.game.findUnique({
+                where: { id: this.gameId },
+                select: {
+                    leftPlayerUsername: true,
+                    rightPlayerUsername: true
+                }
             });
 
-            if (leftPlayerData && this.aiPlayerService.isAIPlayer(leftPlayerData.email)) {
+            if (!gameData) return;
+
+            // Check if left player is AI using username-based detection
+            if (this.aiPlayerService.isAIPlayer(gameData.leftPlayerUsername)) {
                 this.startAI(this.leftPlayer.id, 'left');
             }
 
-            const rightPlayerData = await db.user.findUnique({
-                where: { id: this.rightPlayer.id },
-                select: { email: true }
-            });
-
-            if (rightPlayerData && this.aiPlayerService.isAIPlayer(rightPlayerData.email)) {
+            // Check if right player is AI using username-based detection
+            if (this.aiPlayerService.isAIPlayer(gameData.rightPlayerUsername)) {
                 this.startAI(this.rightPlayer.id, 'right');
             }
 

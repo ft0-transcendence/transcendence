@@ -583,9 +583,6 @@ export const tournamentRouter = t.router({
 					});
 
 					if (remainingParticipants === 0) {
-						const aiPlayerService = new AIPlayerService(tx);
-						await aiPlayerService.cleanupTournamentAIPlayers(input.tournamentId);
-
 						await tx.game.deleteMany({
 							where: { tournamentId: input.tournamentId }
 						});
@@ -773,9 +770,6 @@ export const tournamentRouter = t.router({
 			}
 
 			await ctx.db.$transaction(async (tx) => {
-				const aiPlayerService = new AIPlayerService(tx);
-				await aiPlayerService.cleanupTournamentAIPlayers(t.id);
-
 				await tx.game.deleteMany({
 					where: { tournamentId: t.id }
 				});
@@ -835,9 +829,6 @@ export const tournamentRouter = t.router({
 					}));
 
 				await ctx.db.$transaction(async (tx) => {
-					const aiPlayerService = new AIPlayerService(tx);
-					await aiPlayerService.cleanupTournamentAIPlayers(input.tournamentId);
-
 					await tx.game.deleteMany({
 						where: { tournamentId: input.tournamentId }
 					});

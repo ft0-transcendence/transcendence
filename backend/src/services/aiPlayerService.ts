@@ -149,4 +149,6 @@ export class AIPlayerService {
 
         return this.isAIPlayer(game.leftPlayerUsername) || this.isAIPlayer(game.rightPlayerUsername);
     }
+
+
 }

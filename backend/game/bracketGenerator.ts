@@ -165,6 +165,26 @@ export class BracketGenerator {
                     tournamentRound = 'QUARTI';
                 }
 
+                // Get usernames for players if they exist
+                let leftPlayerUsername: string | null = null;
+                let rightPlayerUsername: string | null = null;
+
+                if (node.leftPlayerId && node.leftPlayerId !== placeholderUserId) {
+                    const leftUser = await tx.user.findUnique({
+                        where: { id: node.leftPlayerId },
+                        select: { username: true }
+                    });
+                    leftPlayerUsername = leftUser?.username || null;
+                }
+
+                if (node.rightPlayerId && node.rightPlayerId !== placeholderUserId) {
+                    const rightUser = await tx.user.findUnique({
+                        where: { id: node.rightPlayerId },
+                        select: { username: true }
+                    });
+                    rightPlayerUsername = rightUser?.username || null;
+                }
+
                 await tx.game.create({
                     data: {
                         id: node.gameId,
@@ -175,6 +195,8 @@ export class BracketGenerator {
                         tournamentId,
                         leftPlayerId: node.leftPlayerId || placeholderUserId,
                         rightPlayerId: node.rightPlayerId || placeholderUserId,
+                        leftPlayerUsername: leftPlayerUsername,
+                        rightPlayerUsername: rightPlayerUsername,
                         nextGameId: node.nextGameId,
                         leftPlayerScore: 0,
                         rightPlayerScore: 0
@@ -197,17 +219,16 @@ export class BracketGenerator {
             
             const games = await tx.game.findMany({
                 where: { tournamentId },
-                include: {
-                    leftPlayer: true,
-                    rightPlayer: true
+                select: {
+                    id: true,
+                    leftPlayerUsername: true,
+                    rightPlayerUsername: true
                 }
             });
 
             for (const game of games) {
-                if (!game.leftPlayer || !game.rightPlayer) continue;
-
-                const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayer.email);
-                const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayer.email);
+                const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
+                const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
 
                 if (isLeftAI || isRightAI) {
                     await tx.game.update({
@@ -274,14 +295,27 @@ export class BracketGenerator {
 
     async assignParticipantToSlot(tournamentId: string, participantId: string): Promise<void> {
         const executeTransaction = async (tx: any) => {
+            // Get participant username
+            const participant = await tx.user.findUnique({
+                where: { id: participantId },
+                select: { username: true }
+            });
+
+            if (!participant) {
+                throw new Error(`Participant ${participantId} not found`);
+            }
+
             const quarterFinalGames = await tx.game.findMany({
                 where: {
                     tournamentId,
                     tournamentRound: 'QUARTI'
                 },
-                include: {
-                    leftPlayer: { select: { email: true } },
-                    rightPlayer: { select: { email: true } }
+                select: {
+                    id: true,
+                    leftPlayerId: true,
+                    rightPlayerId: true,
+                    leftPlayerUsername: true,
+                    rightPlayerUsername: true
                 },
                 orderBy: [
                     { startDate: 'asc' },
@@ -289,14 +323,17 @@ export class BracketGenerator {
                 ]
             });
 
+            const placeholderUserId = await this.ensurePlaceholderUser(tx);
             const availableSlots: { gameId: string, position: 'left' | 'right' }[] = [];
             
             for (const game of quarterFinalGames) {
                 const isLeftSlotEmpty = !game.leftPlayerId || game.leftPlayerId === '' || 
-                    (game.leftPlayer && game.leftPlayer.email === 'tournament-empty-slot@system.local');
+                    game.leftPlayerId === placeholderUserId || 
+                    game.leftPlayerUsername === undefined;
                 
                 const isRightSlotEmpty = !game.rightPlayerId || game.rightPlayerId === '' ||
-                    (game.rightPlayer && game.rightPlayer.email === 'tournament-empty-slot@system.local');
+                    game.rightPlayerId === placeholderUserId || 
+                    game.rightPlayerUsername === undefined;
                 
                 if (isLeftSlotEmpty) {
                     availableSlots.push({ gameId: game.id, position: 'left' });
@@ -315,8 +352,8 @@ export class BracketGenerator {
             const selectedSlot = availableSlots[randomIndex];
 
             const updateData = selectedSlot.position === 'left' 
-                ? { leftPlayerId: participantId }
-                : { rightPlayerId: participantId };
+                ? { leftPlayerId: participantId, leftPlayerUsername: participant.username }
+                : { rightPlayerId: participantId, rightPlayerUsername: participant.username };
 
             await tx.game.update({
                 where: { id: selectedSlot.gameId },
@@ -352,14 +389,20 @@ export class BracketGenerator {
             if (gameAsLeftPlayer) {
                 await tx.game.update({
                     where: { id: gameAsLeftPlayer.id },
-                    data: { leftPlayerId: placeholderUserId }
+                    data: { 
+                        leftPlayerId: placeholderUserId,
+                        leftPlayerUsername: null // Clear username when removing participant
+                    }
                 });
             }
 
             if (gameAsRightPlayer) {
                 await tx.game.update({
                     where: { id: gameAsRightPlayer.id },
-                    data: { rightPlayerId: placeholderUserId }
+                    data: { 
+                        rightPlayerId: placeholderUserId,
+                        rightPlayerUsername: null // Clear username when removing participant
+                    }
                 });
             }
 
@@ -437,13 +480,24 @@ export class BracketGenerator {
             where: {
                 tournamentId,
                 tournamentRound: 'QUARTI' as any
+            },
+            select: {
+                leftPlayerUsername: true,
+                rightPlayerUsername: true
             }
         });
 
         let occupiedSlots = 0;
+        const placeholderUserId = BracketGenerator.PLACEHOLDER_USER_ID;
+        
         for (const game of quarterFinalGames) {
-            if (game.leftPlayerId && game.leftPlayerId !== '') occupiedSlots++;
-            if (game.rightPlayerId && game.rightPlayerId !== '') occupiedSlots++;
+            // Count slots that have actual usernames (not null for AI, not undefined for empty)
+            if (game.leftPlayerUsername !== undefined && game.leftPlayerUsername !== null) {
+                occupiedSlots++;
+            }
+            if (game.rightPlayerUsername !== undefined && game.rightPlayerUsername !== null) {
+                occupiedSlots++;
+            }
         }
 
         return occupiedSlots;
@@ -455,6 +509,12 @@ export class BracketGenerator {
                 tournamentId,
                 tournamentRound: 'QUARTI' as any // Filtra solo per partite dei quarti di finale
             },
+            select: {
+                leftPlayerId: true,
+                rightPlayerId: true,
+                leftPlayerUsername: true,
+                rightPlayerUsername: true
+            },
             orderBy: [
                 { startDate: 'asc' },
                 { id: 'asc' }
@@ -462,15 +522,25 @@ export class BracketGenerator {
         });
 
         const occupiedSlots = new Map<number, string>();
+        const placeholderUserId = BracketGenerator.PLACEHOLDER_USER_ID;
 
         quarterFinalGames.forEach((game: any, gameIndex: number) => {
             const leftSlotIndex = gameIndex * 2;
             const rightSlotIndex = gameIndex * 2 + 1;
 
-            if (game.leftPlayerId && game.leftPlayerId !== '') {
+            // Check if left slot is occupied by a real player (has username and not placeholder)
+            if (game.leftPlayerId && 
+                game.leftPlayerId !== '' && 
+                game.leftPlayerId !== placeholderUserId &&
+                game.leftPlayerUsername !== undefined) {
                 occupiedSlots.set(leftSlotIndex, game.leftPlayerId);
             }
-            if (game.rightPlayerId && game.rightPlayerId !== '') {
+            
+            // Check if right slot is occupied by a real player (has username and not placeholder)
+            if (game.rightPlayerId && 
+                game.rightPlayerId !== '' && 
+                game.rightPlayerId !== placeholderUserId &&
+                game.rightPlayerUsername !== undefined) {
                 occupiedSlots.set(rightSlotIndex, game.rightPlayerId);
             }
         });
@@ -481,7 +551,8 @@ export class BracketGenerator {
     async fillEmptySlotsWithAI(tournamentId: string): Promise<string[]> {
         const executeTransaction = async (tx: any) => {
             const aiPlayerService = new AIPlayerService(tx);
-            const createdAIPlayers: string[] = [];
+            const placeholderUserId = await this.ensurePlaceholderUser(tx);
+            const aiSlotsFilled: string[] = [];
 
             const quarterFinalGames = await tx.game.findMany({
                 where: {
@@ -495,36 +566,43 @@ export class BracketGenerator {
             });
 
             for (const game of quarterFinalGames) {
-                if (!game.leftPlayerId || game.leftPlayerId === '') {
-                    const aiPlayerId = await aiPlayerService.createTournamentAIPlayer(tournamentId);
-                    await tx.game.update({
-                        where: { id: game.id },
-                        data: { leftPlayerId: aiPlayerId }
-                    });
-                    createdAIPlayers.push(aiPlayerId);
+                let updateData: any = {};
+
+                if (!game.leftPlayerId || game.leftPlayerId === '' || 
+                    game.leftPlayerId === placeholderUserId || 
+                    game.leftPlayerUsername === undefined) {
+                    updateData.leftPlayerUsername = null; // Set to null for AI
+                    aiSlotsFilled.push(`${game.id}-left`);
                 }
 
-                if (!game.rightPlayerId || game.rightPlayerId === '') {
-                    const aiPlayerId = await aiPlayerService.createTournamentAIPlayer(tournamentId);
+                if (!game.rightPlayerId || game.rightPlayerId === '' || 
+                    game.rightPlayerId === placeholderUserId || 
+                    game.rightPlayerUsername === undefined) {
+                    updateData.rightPlayerUsername = null; // Set to null for AI
+                    aiSlotsFilled.push(`${game.id}-right`);
+                }
+
+                if (Object.keys(updateData).length > 0) {
                     await tx.game.update({
                         where: { id: game.id },
-                        data: { rightPlayerId: aiPlayerId }
+                        data: updateData
                     });
-                    createdAIPlayers.push(aiPlayerId);
                 }
             }
 
             await this.updateGameTypeForAIPlayers(tournamentId);
 
-            // Process all AI vs AI matches automatically (not just quarters)
+            // Process all AI vs AI matches automatically using new username system
             const allTournamentGames = await tx.game.findMany({
                 where: {
                     tournamentId,
                     endDate: null // Only unfinished games
                 },
-                include: {
-                    leftPlayer: true,
-                    rightPlayer: true
+                select: {
+                    id: true,
+                    tournamentRound: true,
+                    leftPlayerUsername: true,
+                    rightPlayerUsername: true
                 },
                 orderBy: [
                     { startDate: 'asc' },
@@ -533,10 +611,8 @@ export class BracketGenerator {
             });
 
             for (const game of allTournamentGames) {
-                if (!game.leftPlayer || !game.rightPlayer) continue;
-
-                const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayer.email);
-                const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayer.email);
+                const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
+                const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
 
                 if (isLeftAI && isRightAI) {
                     console.log(`🤖 Processing AI vs AI match: ${game.id} (${game.tournamentRound})`);
@@ -544,7 +620,7 @@ export class BracketGenerator {
                 }
             }
 
-            return createdAIPlayers;
+            return aiSlotsFilled;
         };
 
         if ('$transaction' in this.db) {
