@@ -86,7 +86,7 @@ model TournamentParticipant {
 }
 
 enum GameType {
-	AI
+    AI
     VS
     TOURNAMENT
 }
@@ -110,11 +110,11 @@ model Game {
     leftPlayerScore     Int              @default(0)
     leftPlayerId        String
     leftPlayer          User             @relation("gamesAsLeftPlayer", fields: [leftPlayerId], references: [id])
-    leftPlayerUsername  String?          // null = AI player, string = human player
+    leftPlayerUsername  String?
     rightPlayerScore    Int              @default(0)
     rightPlayerId       String
     rightPlayer         User             @relation("gamesAsRightPlayer", fields: [rightPlayerId], references: [id])
-    rightPlayerUsername String?          // null = AI player, string = human player
+    rightPlayerUsername String?
     nextGameId          String?
     nextGame            Game?            @relation("previousGames", fields: [nextGameId], references: [id])
     tournamentId        String?
