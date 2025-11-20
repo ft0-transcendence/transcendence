@@ -199,11 +199,17 @@ export const tournamentRouter = t.router({
 					participants: tournament!.participants.map((p: any) => p.user),
 					participantsCount: tournament!._count.participants,
 					maxParticipants: 8,
-					games: tournament!.games.map((g: any) => ({
-						...g,
-						scoreGoal: g.scoreGoal || 7,
-						tournamentRound: (g as any).tournamentRound
-					})),
+					games: tournament!.games.map((g: any) => {
+						const aiPlayerService = new AIPlayerService(ctx.db);
+						return {
+							...g,
+							scoreGoal: g.scoreGoal || 7,
+							tournamentRound: (g as any).tournamentRound,
+							isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+							leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
+							rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername)
+						};
+					}),
 					isRegisteredToTournament
 				};
 
@@ -259,6 +265,21 @@ export const tournamentRouter = t.router({
 							leftPlayer: true,
 							rightPlayer: true,
 							previousGames: { select: { id: true, nextGameId: true } }
+						},
+						select: {
+							id: true,
+							leftPlayer: true,
+							rightPlayer: true,
+							leftPlayerScore: true,
+							rightPlayerScore: true,
+							nextGameId: true,
+							endDate: true,
+							scoreGoal: true,
+							tournamentRound: true,
+							startDate: true,
+							leftPlayerUsername: true,
+							rightPlayerUsername: true,
+							previousGames: { select: { id: true, nextGameId: true } }
 						}
 					},
 					participants: { include: { user: true } }
@@ -294,6 +315,7 @@ export const tournamentRouter = t.router({
 				}
 			}
 
+			const aiPlayerService = new AIPlayerService(ctx.db);
 			const simplify = (g: typeof t.games[number]) => ({
 				id: g.id,
 				leftPlayer: g.leftPlayer ? { id: g.leftPlayer.id, username: g.leftPlayer.username } : null,
@@ -303,7 +325,12 @@ export const tournamentRouter = t.router({
 				nextGameId: g.nextGameId,
 				endDate: g.endDate,
 				scoreGoal: g.scoreGoal || 7,
-				tournamentRound: (g as any).tournamentRound
+				tournamentRound: (g as any).tournamentRound,
+				leftPlayerUsername: (g as any).leftPlayerUsername,
+				rightPlayerUsername: (g as any).rightPlayerUsername,
+				leftPlayerIsAI: aiPlayerService.isAIPlayer((g as any).leftPlayerUsername),
+				rightPlayerIsAI: aiPlayerService.isAIPlayer((g as any).rightPlayerUsername),
+				isAIGame: aiPlayerService.isAIPlayer((g as any).leftPlayerUsername) || aiPlayerService.isAIPlayer((g as any).rightPlayerUsername)
 			});
 
 			return {
@@ -370,6 +397,8 @@ export const tournamentRouter = t.router({
 					throw new TRPCError({ code: "BAD_REQUEST", message: "Game already finished" });
 				}
 
+				const aiPlayerService = new AIPlayerService(ctx.db);
+				
 				return {
 					game: {
 						id: game.id,
@@ -379,7 +408,12 @@ export const tournamentRouter = t.router({
 						rightPlayerScore: game.rightPlayerScore,
 						startDate: game.startDate,
 						scoreGoal: game.scoreGoal || 7,
-						tournamentRound: game.tournamentRound
+						tournamentRound: game.tournamentRound,
+						leftPlayerUsername: game.leftPlayerUsername,
+						rightPlayerUsername: game.rightPlayerUsername,
+						leftPlayerIsAI: aiPlayerService.isAIPlayer(game.leftPlayerUsername),
+						rightPlayerIsAI: aiPlayerService.isAIPlayer(game.rightPlayerUsername),
+						isAIGame: aiPlayerService.isAIPlayer(game.leftPlayerUsername) || aiPlayerService.isAIPlayer(game.rightPlayerUsername)
 					},
 					tournament: {
 						id: game.tournament!.id,
@@ -714,7 +748,7 @@ export const tournamentRouter = t.router({
 					broadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
 				}
 
-				return await ctx.db.tournament.findUnique({
+				const tournamentResult = await ctx.db.tournament.findUnique({
 					where: { id: input.tournamentId },
 					select: {
 						id: true,
@@ -736,12 +770,29 @@ export const tournamentRouter = t.router({
 								rightPlayerScore: true,
 								startDate: true,
 								endDate: true,
-								tournamentRound: true
+								tournamentRound: true,
+								leftPlayerUsername: true,
+								rightPlayerUsername: true
 							}, 
 							orderBy: { startDate: 'asc' } 
 						}
 					}
 				});
+
+				if (tournamentResult) {
+					const aiPlayerService = new AIPlayerService(ctx.db);
+					return {
+						...tournamentResult,
+						games: tournamentResult.games.map(game => ({
+							...game,
+							leftPlayerIsAI: aiPlayerService.isAIPlayer(game.leftPlayerUsername),
+							rightPlayerIsAI: aiPlayerService.isAIPlayer(game.rightPlayerUsername),
+							isAIGame: aiPlayerService.isAIPlayer(game.leftPlayerUsername) || aiPlayerService.isAIPlayer(game.rightPlayerUsername)
+						}))
+					};
+				}
+
+				return tournamentResult;
 
 			} catch (error) {
 				handleTournamentError(error as Error, 'startTournament', input.tournamentId, ctx.user!.id);

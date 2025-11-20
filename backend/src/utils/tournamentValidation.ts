@@ -3,12 +3,9 @@ import { TournamentStatus, TournamentType } from "@prisma/client";
 import { z } from "zod";
 import { fastify } from "../../main";
 import { cache } from "../cache";
+import { AIPlayerService } from "../services/aiPlayerService";
 
-/**
- * Simple validation utilities for tournament operations
- */
 
-// Input validation schemas - using simple string validation for IDs
 export const tournamentValidationSchemas = {
   tournamentId: z.string().min(1, "Tournament ID is required"),
   
@@ -21,10 +18,28 @@ export const tournamentValidationSchemas = {
   }),
 
   gameId: z.string().min(1, "Game ID is required"),
-  userId: z.string().min(1, "User ID is required")
+  userId: z.string().min(1, "User ID is required"),
+
+  // New schemas for username-based AI detection
+  gameWithUsernames: z.object({
+    leftPlayerUsername: z.string().nullable(),
+    rightPlayerUsername: z.string().nullable(),
+    leftPlayerId: z.string(),
+    rightPlayerId: z.string()
+  }),
+
+  aiPlayerValidation: z.object({
+    username: z.string().nullable(),
+    isAI: z.boolean()
+  }),
+
+  tournamentBracketValidation: z.object({
+    tournamentId: z.string().min(1),
+    validateAIConfiguration: z.boolean().default(true),
+    validateUsernameConsistency: z.boolean().default(true)
+  })
 };
 
-// Simple validation functions
 export class TournamentValidator {
   
   static validateTournamentExists(tournament: any, tournamentId: string): void {
@@ -82,16 +97,100 @@ export class TournamentValidator {
   }
 
   static validateBracketExists(gamesCount: number): void {
-    // Simplified validation - just check if tournament exists
-    // The bracket creation might be in progress or use a different approach
     if (gamesCount < 0) {
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Invalid tournament state'
       });
     }
-    // Don't enforce exact game count - be more flexible
   }
+
+  static validateAIPlayerByUsername(username: string | null, db: any): boolean {
+    const aiPlayerService = new AIPlayerService(db);
+    return aiPlayerService.isAIPlayer(username);
+  }
+
+  static validateGameAIConfiguration(
+    leftPlayerUsername: string | null, 
+    rightPlayerUsername: string | null, 
+    db: any
+  ): { leftIsAI: boolean; rightIsAI: boolean; isAIGame: boolean } {
+    const aiPlayerService = new AIPlayerService(db);
+    const leftIsAI = aiPlayerService.isAIPlayer(leftPlayerUsername);
+    const rightIsAI = aiPlayerService.isAIPlayer(rightPlayerUsername);
+    const isAIGame = leftIsAI || rightIsAI;
+
+    return { leftIsAI, rightIsAI, isAIGame };
+  }
+
+  static async validateTournamentBracketConsistency(tournamentId: string, db: any): Promise<void> {
+    try {
+      const tournament = await db.tournament.findUnique({
+        where: { id: tournamentId },
+        include: {
+          games: {
+            select: {
+              id: true,
+              leftPlayerUsername: true,
+              rightPlayerUsername: true,
+              leftPlayerId: true,
+              rightPlayerId: true,
+              type: true
+            }
+          }
+        }
+      });
+
+      if (!tournament) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Tournament not found for bracket validation'
+        });
+      }
+
+      const aiPlayerService = new AIPlayerService(db);
+      const inconsistencies: string[] = [];
+
+      for (const game of tournament.games) {
+        const leftIsAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
+        const rightIsAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
+        const hasAI = leftIsAI || rightIsAI;
+
+        // Validate that AI games have the correct type
+        if (hasAI && game.type !== 'AI') {
+          inconsistencies.push(`Game ${game.id} has AI players but type is not 'AI'`);
+        }
+
+        if (game.leftPlayerUsername === undefined || game.rightPlayerUsername === undefined) {
+          inconsistencies.push(`Game ${game.id} has undefined username fields`);
+        }
+      }
+
+      if (inconsistencies.length > 0) {
+        fastify.log.warn({
+          tournament_id: tournamentId,
+          inconsistencies
+        }, 'Tournament bracket inconsistencies detected');
+      }
+
+    } catch (error) {
+      fastify.log.error({
+        tournament_id: tournamentId,
+        error: (error as Error).message
+      }, 'Failed to validate tournament bracket consistency');
+    }
+  }
+
+  static validateAIvsAIGameConfiguration(
+    leftPlayerUsername: string | null,
+    rightPlayerUsername: string | null,
+    db: any
+  ): boolean {
+    const aiPlayerService = new AIPlayerService(db);
+    return aiPlayerService.isAIPlayer(leftPlayerUsername) && aiPlayerService.isAIPlayer(rightPlayerUsername);
+  }
+
+
 }
 
 // Simple error handling with logging
@@ -139,27 +238,57 @@ export function handleTournamentError(error: Error, operation: string, tournamen
   });
 }
 
-// Simple cache consistency check
+// Enhanced cache consistency check with AI player validation
 export function validateCacheConsistency(tournamentId: string, db: any): void {
   // Simple async check without blocking the main operation
   setTimeout(async () => {
     try {
-
       const cachedTournament = cache.tournaments.active.get(tournamentId);
       
       if (cachedTournament) {
         // Simple check - if cache exists, verify basic data
         const dbTournament = await db.tournament.findUnique({
           where: { id: tournamentId },
-          include: { participants: true }
+          include: { 
+            participants: true,
+            games: {
+              select: {
+                id: true,
+                leftPlayerUsername: true,
+                rightPlayerUsername: true,
+                type: true
+              }
+            }
+          }
         });
         
         if (!dbTournament) {
           fastify.log.warn(`Tournament ${tournamentId} exists in cache but not in database`);
           cache.tournaments.active.delete(tournamentId);
-        } else if (cachedTournament.participants.size !== dbTournament.participants.length) {
-          fastify.log.warn(`Participant count mismatch for tournament ${tournamentId}`);
-          // Could trigger cache refresh here if needed
+        } else {
+          // Check participant count consistency
+          if (cachedTournament.participants.size !== dbTournament.participants.length) {
+            fastify.log.warn(`Participant count mismatch for tournament ${tournamentId}`);
+          }
+
+          // Validate AI player cache consistency
+          const aiPlayerService = new AIPlayerService(db);
+          const dbAIPlayerCount = dbTournament.games.filter((game: any) => 
+            aiPlayerService.isAIPlayer(game.leftPlayerUsername) || 
+            aiPlayerService.isAIPlayer(game.rightPlayerUsername)
+          ).length;
+
+          // Check if cached AI players match database AI games
+          if (cachedTournament.aiPlayers.size > 0) {
+            fastify.log.info({
+              tournament_id: tournamentId,
+              cached_ai_players: cachedTournament.aiPlayers.size,
+              db_ai_games: dbAIPlayerCount
+            }, 'AI player cache validation');
+          }
+
+          // Validate bracket consistency with username system
+          await TournamentValidator.validateTournamentBracketConsistency(tournamentId, db);
         }
       }
     } catch (error) {
