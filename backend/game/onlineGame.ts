@@ -98,6 +98,26 @@ export class OnlineGame extends Game {
 			console.log(`🎮 Both players ready for game ${this.gameId}, creating in database now`);
 			
 			try {
+				// Get usernames for both players
+				let leftPlayerUsername: string | null = null;
+				let rightPlayerUsername: string | null = null;
+
+				if (this._playerLeft) {
+					const leftUser = await db.user.findUnique({
+						where: { id: this.pendingDbCreation.leftPlayerId },
+						select: { username: true }
+					});
+					leftPlayerUsername = leftUser?.username || null;
+				}
+
+				if (this._playerRight) {
+					const rightUser = await db.user.findUnique({
+						where: { id: this.pendingDbCreation.rightPlayerId },
+						select: { username: true }
+					});
+					rightPlayerUsername = rightUser?.username || null;
+				}
+
 				await db.game.create({
 					data: {
 						id: this.gameId,
@@ -105,6 +125,8 @@ export class OnlineGame extends Game {
 						type: GameType.VS,
 						leftPlayerId: this.pendingDbCreation.leftPlayerId,
 						rightPlayerId: this.pendingDbCreation.rightPlayerId,
+						leftPlayerUsername: leftPlayerUsername,
+						rightPlayerUsername: rightPlayerUsername,
 						scoreGoal: this.pendingDbCreation.scoreGoal,
 					},
 				});
