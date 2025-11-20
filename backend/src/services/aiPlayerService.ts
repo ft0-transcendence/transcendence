@@ -7,10 +7,6 @@ export class AIPlayerService {
         this.db = db;
     }
 
-    /**
-     * Marks a game position as AI player by setting username to null
-     * No need to create fake users anymore - just mark the position as AI
-     */
     async assignAIPlayerToGame(gameId: string, position: 'left' | 'right'): Promise<void> {
         const updateData = position === 'left' 
             ? { leftPlayerUsername: null }
@@ -22,10 +18,6 @@ export class AIPlayerService {
         });
     }
 
-    /**
-     * Handles AI vs AI matches automatically (simulates the match)
-     * AI vs Human matches should be played normally, not simulated
-     */
     async handleAIvsAIMatch(gameId: string): Promise<void> {
         const executeTransaction = async (tx: any) => {
             const game = await tx.game.findUnique({
@@ -104,18 +96,11 @@ export class AIPlayerService {
         }
     }
 
-    /**
-     * No cleanup needed anymore since we don't create fake AI users
-     * AI players are just marked with null username in games
-     */
 
     isAIPlayer(username: string | null): boolean {
         return username === null;
     }
 
-    /**
-     * Gets all games in a tournament that have AI players (null username)
-     */
     async getTournamentAIGames(tournamentId: string): Promise<string[]> {
         const aiGames = await this.db.game.findMany({
             where: {
