@@ -65,7 +65,7 @@ export class TournamentsListController extends RouteController {
 								placeholder="My Tournament" required data-placeholder-i18n="${k('generic.tournament_name_placeholder')}" />
 
 						<label for="${this.id}-tournament-start" class="text-sm text-gray-300" data-i18n="${k('generic.start_date_and_time')}">Start date & time</label>
-						<input id="${this.id}-tournament-start" type="datetime-local" step="30"
+						<input id="${this.id}-tournament-start" type="datetime-local"
 								class="w-full bg-neutral-600/20 text-white p-2 rounded-md border border-white/5 focus-within:ring-1 focus-within:ring-amber-400"
 								required />
 
@@ -284,6 +284,8 @@ export class TournamentsListController extends RouteController {
 		const backdrop = modal?.querySelector('[data-modal-backdrop]');
 		const cancelBtn = document.querySelector(`#${this.id}-create-modal-cancel`);
 		const form = document.querySelector(`#${this.id}-create-tournament-form`) as HTMLFormElement | null;
+		let startInput = document.querySelector(`#${this.id}-tournament-start`) as HTMLInputElement | null;
+
 
 		const openModal = () => {
 			modal?.classList.remove('hidden');
@@ -301,7 +303,6 @@ export class TournamentsListController extends RouteController {
 		form?.addEventListener('submit', async (ev) => {
 			ev.preventDefault();
 			const nameInput = document.querySelector(`#${this.id}-tournament-name`) as HTMLInputElement | null;
-			const startInput = document.querySelector(`#${this.id}-tournament-start`) as HTMLInputElement | null;
 			if (!nameInput || !startInput) return;
 
 			const dto = { name: nameInput.value, startDate: new Date(startInput.value).toISOString(), maxParticipants: 8 };

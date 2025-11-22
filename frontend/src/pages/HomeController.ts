@@ -461,9 +461,9 @@ export class HomeController extends RouteController {
 				<div class="grid grid-cols-3 gap-1 items-center col-span-9">
 					<div class="flex flex-col justify-center items-center gap-1 text-sm">
 						<img src="${getProfilePictureUrlByUserId(match.leftPlayer.id)}"
-						 alt="${match.leftPlayer.username}'s avatar"
+						 alt="${match?.leftPlayerUsername ?? match.leftPlayer.username}'s avatar"
 						 class="w-10 h-10 rounded-full object-cover match-image ring-1 ring-white/10">
-						<span>${match.leftPlayer.username}</span>
+						<span>${match?.leftPlayerUsername ?? match.leftPlayer.username}</span>
 					</div>
 					<div class="text-lg font-bold">
 						<span class="${mySideIsLeft ? myResultClass : ''}">${match.leftPlayerScore}</span>
@@ -472,9 +472,9 @@ export class HomeController extends RouteController {
 					</div>
 					<div class="flex flex-col justify-center items-center gap-1 text-sm">
 						<img src="${getProfilePictureUrlByUserId(match.rightPlayer.id)}"
-						 alt="${match.rightPlayer.username}'s avatar"
+						 alt="${match?.rightPlayerUsername ?? match.rightPlayer.username}"
 						 class="w-10 h-10 rounded-full object-cover match-image ring-1 ring-white/10">
-						 <span>${match.rightPlayer.username}</span>
+						 <span>${match?.rightPlayerUsername ?? match.rightPlayer.username}</span>
 					</div>
 				</div>
 			</div>

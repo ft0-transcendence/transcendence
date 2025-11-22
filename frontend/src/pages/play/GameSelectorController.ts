@@ -97,7 +97,6 @@ export class GameSelectorController extends RouteController {
 				<div class="flex flex-col sm:justify-center sm:items-center gap-2 text-center grow">
 					${this.renderGameMode(GameTypeObj.AI, 'local', '/ai')}
 					${this.renderGameMode(GameTypeObj.VS, 'local', '/1v1')}
-					${this.renderGameMode(GameTypeObj.TOURNAMENT, 'local', '/tournaments', null, 'fa-users')}
 				</div>
 
 				<div class="sm:h-20"></div>
