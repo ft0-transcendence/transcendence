@@ -222,6 +222,7 @@ export class GameComponent extends ComponentController {
 			this.#unsubscribeFromSocketEvents(this.#props.socketConnection);
 			this.#gameFinished = true;
 			document.querySelector(`${this.id}-exit-container`)?.classList.remove('!hidden');
+			document.querySelector(`${this.id}-exit-container`)?.classList.add('flex');
 		}
 	}
 
@@ -240,11 +241,13 @@ export class GameComponent extends ComponentController {
 		const errorContainer = document.getElementById(`${this.id}-exit-container`)!;
 		const errorMessage = document.getElementById(`${this.id}-error-message`)!;
 		errorContainer.classList.remove('!hidden');
+		errorContainer.classList.add('flex');
 		errorMessage.innerHTML = error;
 	}
 	public hideError() {
 		const errorContainer = document.getElementById(`${this.id}-exit-container`)!;
 		errorContainer.classList.add('!hidden');
+		errorContainer.classList.remove('flex');
 	}
 
 	/**
@@ -454,7 +457,7 @@ export class GameComponent extends ComponentController {
 					<div id="${this.id}-game-overlay-message-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
 					</div>
 				</div>
-				<div id="${this.id}-exit-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex flex-col justify-center items-center !hidden">
+				<div id="${this.id}-exit-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex-col justify-center items-center !hidden">
 					<h4 id="${this.id}-error-message" class="text-red-500"></h4>
 
 					<a data-route="/play" href="/play" class="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-400 transition-colors">
