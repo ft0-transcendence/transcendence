@@ -293,9 +293,9 @@ export class BracketGenerator {
         return bracket.find(node => !node.nextGameId);
     }
 
+
     async assignParticipantToSlot(tournamentId: string, participantId: string): Promise<void> {
         const executeTransaction = async (tx: any) => {
-            // Get participant username
             const participant = await tx.user.findUnique({
                 where: { id: participantId },
                 select: { username: true }
@@ -325,21 +325,21 @@ export class BracketGenerator {
 
             const placeholderUserId = await this.ensurePlaceholderUser(tx);
             const availableSlots: { gameId: string, position: 'left' | 'right' }[] = [];
+
+            console.log('Quarter final games found:', quarterFinalGames.length);
             
+            const isSlotEmpty = (playerId: string | null, username: string | undefined, placeholderId: string): boolean => 
+                !playerId || 
+                playerId === '' || 
+                playerId === placeholderId ||
+                username === undefined;
+
             for (const game of quarterFinalGames) {
-                const isLeftSlotEmpty = !game.leftPlayerId || game.leftPlayerId === '' || 
-                    game.leftPlayerId === placeholderUserId || 
-                    game.leftPlayerUsername === undefined;
-                
-                const isRightSlotEmpty = !game.rightPlayerId || game.rightPlayerId === '' ||
-                    game.rightPlayerId === placeholderUserId || 
-                    game.rightPlayerUsername === undefined;
-                
-                if (isLeftSlotEmpty) {
-                    availableSlots.push({ gameId: game.id, position: 'left' });
+                if (isSlotEmpty(game.leftPlayerId, game.leftPlayerUsername, placeholderUserId)) {
+                    availableSlots.push({ gameId: game.id, position: 'left' as const });
                 }
-                if (isRightSlotEmpty) {
-                    availableSlots.push({ gameId: game.id, position: 'right' });
+                if (isSlotEmpty(game.rightPlayerId, game.rightPlayerUsername, placeholderUserId)) {
+                    availableSlots.push({ gameId: game.id, position: 'right' as const });
                 }
             }
 
@@ -347,7 +347,6 @@ export class BracketGenerator {
                 throw new Error('Nessun slot disponibile nei quarti di finale');
             }
 
-            // Assegna casualmente uno slot disponibile tra i quarti di finale
             const randomIndex = Math.floor(Math.random() * availableSlots.length);
             const selectedSlot = availableSlots[randomIndex];
 
