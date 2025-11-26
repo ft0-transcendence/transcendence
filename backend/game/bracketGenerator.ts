@@ -328,11 +328,15 @@ export class BracketGenerator {
 
             console.log('Quarter final games found:', quarterFinalGames.length);
             
-            const isSlotEmpty = (playerId: string | null, username: string | undefined, placeholderId: string): boolean => 
-                !playerId || 
-                playerId === '' || 
-                playerId === placeholderId ||
-                username === undefined;
+            const isSlotEmpty = (playerId: string | null, username: string | null | undefined, placeholderId: string): boolean => {
+                if (!playerId) return true;
+                
+                if (playerId === placeholderId) return true;
+                
+                if (playerId && username === null) return true;
+                
+                return false;
+            };
 
             for (const game of quarterFinalGames) {
                 if (isSlotEmpty(game.leftPlayerId, game.leftPlayerUsername, placeholderUserId)) {
@@ -502,49 +506,50 @@ export class BracketGenerator {
         return occupiedSlots;
     }
 
+    private isPlaceholderUser(userId: string | null): boolean {
+        if (!userId) return false;
+        return userId === BracketGenerator.PLACEHOLDER_USER_ID || 
+               userId === 'placeholder-tournament-user' ||
+               userId.includes('placeholder');
+    }
+
     async getOccupiedSlots(tournamentId: string): Promise<Map<number, string>> {
-        const quarterFinalGames = await this.db.game.findMany({
-            where: {
+        const games = await this.db.game.findMany({
+            where: { 
                 tournamentId,
-                tournamentRound: 'QUARTI' as any // Filtra solo per partite dei quarti di finale
+                OR: [
+                    { leftPlayerId: { not: null } },
+                    { rightPlayerId: { not: null } }
+                ]
             },
             select: {
+                id: true,
                 leftPlayerId: true,
                 rightPlayerId: true,
-                leftPlayerUsername: true,
-                rightPlayerUsername: true
+                tournamentRound: true
             },
             orderBy: [
-                { startDate: 'asc' },
+                { tournamentRound: 'asc' },
                 { id: 'asc' }
             ]
         });
 
-        const occupiedSlots = new Map<number, string>();
-        const placeholderUserId = BracketGenerator.PLACEHOLDER_USER_ID;
+        const slotMap = new Map<number, string>();
+        let slotIndex = 0;
 
-        quarterFinalGames.forEach((game: any, gameIndex: number) => {
-            const leftSlotIndex = gameIndex * 2;
-            const rightSlotIndex = gameIndex * 2 + 1;
-
-            // Check if left slot is occupied by a real player (has username and not placeholder)
-            if (game.leftPlayerId && 
-                game.leftPlayerId !== '' && 
-                game.leftPlayerId !== placeholderUserId &&
-                game.leftPlayerUsername !== undefined) {
-                occupiedSlots.set(leftSlotIndex, game.leftPlayerId);
+        for (const game of games) {
+            if (game.leftPlayerId && !this.isPlaceholderUser(game.leftPlayerId)) {
+                slotMap.set(slotIndex, game.leftPlayerId);
             }
+            slotIndex++;
             
-            // Check if right slot is occupied by a real player (has username and not placeholder)
-            if (game.rightPlayerId && 
-                game.rightPlayerId !== '' && 
-                game.rightPlayerId !== placeholderUserId &&
-                game.rightPlayerUsername !== undefined) {
-                occupiedSlots.set(rightSlotIndex, game.rightPlayerId);
+            if (game.rightPlayerId && !this.isPlaceholderUser(game.rightPlayerId)) {
+                slotMap.set(slotIndex, game.rightPlayerId);
             }
-        });
+            slotIndex++;
+        }
 
-        return occupiedSlots;
+        return slotMap;
     }
 
     async fillEmptySlotsWithAI(tournamentId: string): Promise<string[]> {
