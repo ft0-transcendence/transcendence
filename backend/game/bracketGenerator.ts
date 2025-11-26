@@ -494,7 +494,6 @@ export class BracketGenerator {
         const placeholderUserId = BracketGenerator.PLACEHOLDER_USER_ID;
         
         for (const game of quarterFinalGames) {
-            // Count slots that have actual usernames (not null for AI, not undefined for empty)
             if (game.leftPlayerUsername !== undefined && game.leftPlayerUsername !== null) {
                 occupiedSlots++;
             }
@@ -550,6 +549,22 @@ export class BracketGenerator {
         }
 
         return slotMap;
+    }
+
+    async removeParticipantFromSlots(tournamentId: string, userId: string): Promise<void> {
+        await this.db.game.updateMany({
+            where: {
+                tournamentId,
+                OR: [
+                    { leftPlayerId: userId },
+                    { rightPlayerId: userId }
+                ]
+            },
+            data: {
+                leftPlayerId: this.db.game.fields.leftPlayerId === userId ? null : undefined,
+                rightPlayerId: this.db.game.fields.rightPlayerId === userId ? null : undefined
+            }
+        });
     }
 
     async fillEmptySlotsWithAI(tournamentId: string): Promise<string[]> {
