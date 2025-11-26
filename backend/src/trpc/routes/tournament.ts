@@ -536,54 +536,67 @@ export const tournamentRouter = t.router({
 				throw new TRPCError({ code: 'BAD_REQUEST', message: 'Tournament is full' });
 			}
 
-				const result = await ctx.db.$transaction(async (tx) => {
-					const participant = await tx.tournamentParticipant.create({
-						data: { tournamentId: input.tournamentId, userId: ctx.user!.id },
-						include: { tournament: { include: { participants: { include: { user: { select: { id: true, username: true } } } } } } }
-					});
-
-					const bracketGenerator = new BracketGenerator(tx);
-					await bracketGenerator.assignParticipantToSlot(input.tournamentId, ctx.user!.id);
-
-					return participant;
+			const result = await ctx.db.$transaction(async (tx) => {
+				const participant = await tx.tournamentParticipant.create({
+					data: { tournamentId: input.tournamentId, userId: ctx.user!.id },
+					include: { user: { select: { id: true, username: true } } }
 				});
 
-				// 3. Update tournament cache and broadcast bracket update
-				const cachedTournament = cache.tournaments.active.get(input.tournamentId);
-				if (cachedTournament) {
-					cachedTournament.participants.add(ctx.user!.id);
-					
-					// Update participant slots in cache
-					const bracketGenerator = new BracketGenerator(ctx.db);
-					const occupiedSlots = await bracketGenerator.getOccupiedSlots(input.tournamentId);
-					const participantSlots = new Map<number, string | null>();
-					
-					// Initialize 8 slots
-					for (let i = 0; i < 8; i++) {
-						participantSlots.set(i, null);
-					}
-					
-					// Fill with occupied slots
-					occupiedSlots.forEach((playerId, slotIndex) => {
-						participantSlots.set(slotIndex, playerId);
-					});
-					
-					updateTournamentBracket(input.tournamentId, participantSlots);
-					
-					// Find the slot position for the new participant
-					const slotPosition = Array.from(participantSlots.entries())
-						.find(([_, playerId]) => playerId === ctx.user!.id)?.[0] || -1;
-					
-					// Broadcast participant joined and bracket update
-					broadcastParticipantJoined(input.tournamentId, {
-						id: ctx.user!.id,
-						username: ctx.user!.username
-					}, slotPosition);
-					
-					broadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
-				}
+				const bracketGenerator = new BracketGenerator(tx);
+				await bracketGenerator.assignParticipantToSlot(input.tournamentId, ctx.user!.id);
 
-				return result.tournament.participants.map(p=>({id: p.user.id, username: p.user.username}));
+				const updatedTournament = await tx.tournament.findUnique({
+					where: { id: input.tournamentId },
+					include: { 
+						participants: {
+							include: { user: { select: { id: true, username: true } } }
+						}
+					}
+				});
+
+				return { participant, updatedTournament };
+			});
+
+			const cachedTournament = cache.tournaments.active.get(input.tournamentId);
+			if (cachedTournament) {
+				cachedTournament.participants.add(ctx.user!.id);
+				
+				const bracketGenerator = new BracketGenerator(ctx.db);
+				const occupiedSlots = await bracketGenerator.getOccupiedSlots(input.tournamentId);
+				const participantSlots = new Map<number, string | null>();
+				
+				for (let i = 0; i < 8; i++) {
+					participantSlots.set(i, null);
+				}
+				
+				occupiedSlots.forEach((playerId, slotIndex) => {
+					participantSlots.set(slotIndex, playerId);
+				});
+				
+				updateTournamentBracket(input.tournamentId, participantSlots);
+				
+				const slotPosition = Array.from(participantSlots.entries())
+					.find(([_, playerId]) => playerId === ctx.user!.id)?.[0] ?? -1;
+				
+				broadcastParticipantJoined(input.tournamentId, {
+					id: ctx.user!.id,
+					username: ctx.user!.username
+				}, slotPosition);
+				
+				broadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
+			}
+
+			if (!result.updatedTournament) {
+				throw new TRPCError({
+					code: 'INTERNAL_SERVER_ERROR',
+					message: 'Failed to update tournament'
+				});
+			}
+
+			return result.updatedTournament.participants.map(p => ({
+				id: p.user.id, 
+				username: p.user.username
+			}));
 		}),
 
 	leaveTournament: protectedProcedure
@@ -595,53 +608,38 @@ export const tournamentRouter = t.router({
 					include: { participants: true, games: true }
 				});
 
-				// Validations
 				TournamentValidator.validateTournamentExists(tournament, input.tournamentId);
 				TournamentValidator.validateTournamentStatus(tournament!.status, ['WAITING_PLAYERS'], 'leave');
 
-				const participant = await ctx.db.tournamentParticipant.findFirst({
-					where: { tournamentId: input.tournamentId, userId: ctx.user!.id }
-				});
-
+				const participant = tournament!.participants.find(p => p.userId === ctx.user!.id);
 				TournamentValidator.validateNotParticipant(!!participant);
-				TournamentValidator.validateBracketExists(tournament!.games.length);
 
 				const result = await ctx.db.$transaction(async (tx) => {
-					const bracketGenerator = new BracketGenerator(tx);
-					await bracketGenerator.removeParticipantFromSlot(input.tournamentId, ctx.user!.id);
-
-					await tx.tournamentParticipant.delete({ where: { id: participant!.id } });
-
-					const remainingParticipants = await tx.tournamentParticipant.count({
-						where: { tournamentId: input.tournamentId }
+					await tx.tournamentParticipant.delete({
+						where: {
+							id: participant?.id
+						}
 					});
 
-					if (remainingParticipants === 0) {
-						await tx.game.deleteMany({
-							where: { tournamentId: input.tournamentId }
-						});
+					const bracketGenerator = new BracketGenerator(tx);
+					await bracketGenerator.removeParticipantFromSlots(input.tournamentId, ctx.user!.id);
 
-						await tx.tournament.delete({
-							where: { id: input.tournamentId }
-						});
+					const updatedTournament = await tx.tournament.findUnique({
+						where: { id: input.tournamentId },
+						include: { 
+							participants: {
+								include: { user: { select: { id: true, username: true } } }
+							}
+						}
+					});
 
-						return {
-							success: true,
-							tournamentDeleted: true,
-							message: 'Tournament deleted as no participants remain'
-						} as const;
-					}
-
-					return {
-						success: true,
-						tournamentDeleted: false
-					} as const;
+					return { updatedTournament };
 				});
 
 				const cachedTournament = cache.tournaments.active.get(input.tournamentId);
-				if (cachedTournament && !result.tournamentDeleted) {
+				if (cachedTournament) {
 					cachedTournament.participants.delete(ctx.user!.id);
-					
+
 					const bracketGenerator = new BracketGenerator(ctx.db);
 					const occupiedSlots = await bracketGenerator.getOccupiedSlots(input.tournamentId);
 					const participantSlots = new Map<number, string | null>();
@@ -655,24 +653,22 @@ export const tournamentRouter = t.router({
 					});
 					
 					updateTournamentBracket(input.tournamentId, participantSlots);
-					
+
 					broadcastParticipantLeft(input.tournamentId, {
 						id: ctx.user!.id,
 						username: ctx.user!.username
 					}, -1);
-					
 					broadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
 				}
 
-				if (result.tournamentDeleted) {
-					removeTournamentFromCache(input.tournamentId);					
-					broadcastTournamentDeleted(input.tournamentId, tournament!.name, ctx.user!.username);
-				}
-
-				return result;
-
+				return { success: true };
 			} catch (error) {
-				handleTournamentError(error as Error, 'leaveTournament', input.tournamentId, ctx.user!.id);
+				console.error('Error leaving tournament:', error);
+				throw new TRPCError({
+					code: 'INTERNAL_SERVER_ERROR',
+					message: 'Failed to leave tournament',
+					cause: error
+				});
 			}
 		}),
 
