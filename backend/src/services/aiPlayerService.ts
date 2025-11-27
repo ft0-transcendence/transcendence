@@ -41,8 +41,8 @@ export class AIPlayerService {
                 throw new Error(`Game ${gameId} is not an AI vs AI match`);
             }
 
-            // AI vs AI: left player wins (arbitrary choice for simulation)
-            const leftScore = 7;
+            //TODO:logica simulazione AI vs AI
+            const leftScore = 5;
             const rightScore = 0;
 
             await tx.game.update({

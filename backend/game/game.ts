@@ -74,7 +74,7 @@ export const STANDARD_GAME_CONFIG: GameConfig = {
 	debug: false,
 	shouldUseRequestAnimationFrame: false,
 	gameStartCountdown: 3000,
-	maxScore: 7,
+	maxScore: 5,
 	initialVelocity: 0.05,
 	velocityIncrease: 0.000005,
 	maxVelocity: 0.16,
