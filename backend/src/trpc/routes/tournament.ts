@@ -605,22 +605,30 @@ export const tournamentRouter = t.router({
 			try {
 				const tournament = await ctx.db.tournament.findUnique({
 					where: { id: input.tournamentId },
-					include: { participants: true, games: true }
+					include: { 
+						participants: {
+							include: { user: { select: { id: true, username: true } } }
+						},
+						games: true 
+					}
 				});
 
 				TournamentValidator.validateTournamentExists(tournament, input.tournamentId);
 				TournamentValidator.validateTournamentStatus(tournament!.status, ['WAITING_PLAYERS'], 'leave');
 
 				const participant = tournament!.participants.find(p => p.userId === ctx.user!.id);
-				TournamentValidator.validateNotParticipant(!!participant);
+				if (!participant) {
+					throw new TRPCError({
+						code: 'BAD_REQUEST',
+						message: 'You are not a participant of this tournament'
+					});
+				}
 
 				const isLastParticipant = tournament!.participants.length === 1;
 
 				const result = await ctx.db.$transaction(async (tx) => {
 					await tx.tournamentParticipant.delete({
-						where: {
-							id: participant?.id
-						}
+						where: { id: participant.id }
 					});
 
 					const bracketGenerator = new BracketGenerator(tx);

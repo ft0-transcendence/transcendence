@@ -27,7 +27,6 @@ async function handleVSGameFinish(gameId: string, state: any, gameInstance: Onli
 
 	if (isAborted) {
 		updateData.abortDate = new Date();
-		updateData.abortReason = 'Player disconnection timeout';
 	}
 
 	try {
