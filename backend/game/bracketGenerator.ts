@@ -1,6 +1,9 @@
 import { PrismaClient, TournamentRound } from "@prisma/client";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 
+const EMPTY_SLOT_USERNAME = 'Empty slot';
+const PLACEHOLDER_EMAIL = 'tournament-empty-slot@system.local';
+
 export type BracketNode = {
     gameId: string;
     round: number;
@@ -19,27 +22,6 @@ export class BracketGenerator {
         this.db = db;
     }
 
-    private async getPlaceholderUserId(dbClient?: any): Promise<string> {
-        const placeholderEmail = 'tournament-empty-slot@system.local';
-        const client = dbClient || this.db;
-        
-        let user = await client.user.findUnique({
-            where: { email: placeholderEmail }
-        });
-
-        if (!user) {
-            user = await client.user.create({
-                data: {
-                    email: placeholderEmail,
-                    username: 'Empty Slot',
-                    preferredLanguage: 'en'
-                }
-            });
-        }
-
-        return user.id;
-    }
-
     private async ensurePlaceholderUser(tx: any): Promise<string> {
         try {
             let user = await tx.user.findUnique({
@@ -50,8 +32,8 @@ export class BracketGenerator {
                 user = await tx.user.create({
                     data: {
                         id: BracketGenerator.PLACEHOLDER_USER_ID,
-                        email: 'placeholder@tournament.system',
-                        username: 'Tournament Placeholder',
+                        email: PLACEHOLDER_EMAIL,
+                        username: EMPTY_SLOT_USERNAME,
                         preferredLanguage: 'en'
                     }
                 });
@@ -131,27 +113,7 @@ export class BracketGenerator {
         bracket: BracketNode[]
     ): Promise<void> {
         const executeTransaction = async (tx: any) => {
-            // Create placeholder user only once per transaction
-            let placeholderUserId: string;
-            try {
-                const placeholderEmail = 'tournament-empty-slot@system.local';
-                let user = await tx.user.findUnique({
-                    where: { email: placeholderEmail }
-                });
-                if (!user) {
-                    user = await tx.user.create({
-                        data: {
-                            email: placeholderEmail,
-                            username: 'Empty Slot',
-                            preferredLanguage: 'en'
-                        }
-                    });
-                }
-                placeholderUserId = user.id;
-            } catch (error) {
-                console.error('Failed to create placeholder user:', error);
-                throw error;
-            }
+            const placeholderUserId = await this.ensurePlaceholderUser(tx);
 
             const sorted = [...bracket].sort((a, b) => b.round - a.round);
 
@@ -165,7 +127,6 @@ export class BracketGenerator {
                     tournamentRound = 'QUARTI';
                 }
 
-                // Get usernames for players if they exist
                 let leftPlayerUsername: string | null = null;
                 let rightPlayerUsername: string | null = null;
 
@@ -371,58 +332,6 @@ export class BracketGenerator {
         }
     }
 
-    async removeParticipantFromSlot(tournamentId: string, participantId: string): Promise<void> {
-        const executeTransaction = async (tx: any) => {
-            const gameAsLeftPlayer = await tx.game.findFirst({
-                where: {
-                    tournamentId,
-                    leftPlayerId: participantId
-                }
-            });
-
-            const gameAsRightPlayer = await tx.game.findFirst({
-                where: {
-                    tournamentId,
-                    rightPlayerId: participantId
-                }
-            });
-
-            const placeholderUserId = await this.ensurePlaceholderUser(tx);
-            
-            if (gameAsLeftPlayer) {
-                await tx.game.update({
-                    where: { id: gameAsLeftPlayer.id },
-                    data: { 
-                        leftPlayerId: placeholderUserId,
-                        leftPlayerUsername: null // Clear username when removing participant
-                    }
-                });
-            }
-
-            if (gameAsRightPlayer) {
-                await tx.game.update({
-                    where: { id: gameAsRightPlayer.id },
-                    data: { 
-                        rightPlayerId: placeholderUserId,
-                        rightPlayerUsername: null // Clear username when removing participant
-                    }
-                });
-            }
-
-            if (!gameAsLeftPlayer && !gameAsRightPlayer) {
-                throw new Error('Partecipante non trovato nel bracket');
-            }
-        };
-
-        if ('$transaction' in this.db) {
-            await this.db.$transaction(executeTransaction);
-        } else {
-            await executeTransaction(this.db);
-        }
-    }
-
-
-
     async getBracketFromDatabase(tournamentId: string): Promise<BracketNode[]> {
         const games = await this.db.game.findMany({
             where: { tournamentId },
@@ -574,12 +483,12 @@ export class BracketGenerator {
 
                 if (game.leftPlayerId === userId) {
                     updateData.leftPlayerId = placeholderUserId;
-                    updateData.leftPlayerUsername = null as any;
+                    updateData.leftPlayerUsername = EMPTY_SLOT_USERNAME;
                 }
 
                 if (game.rightPlayerId === userId) {
                     updateData.rightPlayerId = placeholderUserId;
-                    updateData.rightPlayerUsername = null as any;
+                    updateData.rightPlayerUsername = EMPTY_SLOT_USERNAME;
                 }
 
                 if (Object.keys(updateData).length > 0) {
