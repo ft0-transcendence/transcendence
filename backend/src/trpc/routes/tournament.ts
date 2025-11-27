@@ -407,7 +407,7 @@ export const tournamentRouter = t.router({
 						leftPlayerScore: game.leftPlayerScore,
 						rightPlayerScore: game.rightPlayerScore,
 						startDate: game.startDate,
-						scoreGoal: game.scoreGoal || 7,
+						scoreGoal: game.scoreGoal || 5,
 						tournamentRound: game.tournamentRound,
 						leftPlayerUsername: game.leftPlayerUsername,
 						rightPlayerUsername: game.rightPlayerUsername,
