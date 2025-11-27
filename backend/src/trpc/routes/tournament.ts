@@ -680,11 +680,14 @@ export const tournamentRouter = t.router({
 					});
 					
 					updateTournamentBracket(input.tournamentId, participantSlots);
+					
+					const slotPosition = Array.from(participantSlots.entries())
+						.find(([_, playerId]) => playerId === ctx.user!.id)?.[0] ?? -1;
 
 					broadcastParticipantLeft(input.tournamentId, {
 						id: ctx.user!.id,
 						username: ctx.user!.username
-					}, -1);
+					}, slotPosition);
 					broadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
 				}
 
