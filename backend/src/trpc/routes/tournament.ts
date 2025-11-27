@@ -407,7 +407,7 @@ export const tournamentRouter = t.router({
 						leftPlayerScore: game.leftPlayerScore,
 						rightPlayerScore: game.rightPlayerScore,
 						startDate: game.startDate,
-						scoreGoal: game.scoreGoal || 7,
+						scoreGoal: game.scoreGoal || 5,
 						tournamentRound: game.tournamentRound,
 						leftPlayerUsername: game.leftPlayerUsername,
 						rightPlayerUsername: game.rightPlayerUsername,
@@ -605,24 +605,46 @@ export const tournamentRouter = t.router({
 			try {
 				const tournament = await ctx.db.tournament.findUnique({
 					where: { id: input.tournamentId },
-					include: { participants: true, games: true }
+					include: { 
+						participants: {
+							include: { user: { select: { id: true, username: true } } }
+						},
+						games: true 
+					}
 				});
 
 				TournamentValidator.validateTournamentExists(tournament, input.tournamentId);
 				TournamentValidator.validateTournamentStatus(tournament!.status, ['WAITING_PLAYERS'], 'leave');
 
 				const participant = tournament!.participants.find(p => p.userId === ctx.user!.id);
-				TournamentValidator.validateNotParticipant(!!participant);
+				if (!participant) {
+					throw new TRPCError({
+						code: 'BAD_REQUEST',
+						message: 'You are not a participant of this tournament'
+					});
+				}
+
+				const isLastParticipant = tournament!.participants.length === 1;
 
 				const result = await ctx.db.$transaction(async (tx) => {
 					await tx.tournamentParticipant.delete({
-						where: {
-							id: participant?.id
-						}
+						where: { id: participant.id }
 					});
 
 					const bracketGenerator = new BracketGenerator(tx);
 					await bracketGenerator.removeParticipantFromSlots(input.tournamentId, ctx.user!.id);
+
+					if (isLastParticipant) {
+						await tx.game.deleteMany({
+							where: { tournamentId: input.tournamentId }
+						});
+						
+						await tx.tournament.delete({
+							where: { id: input.tournamentId }
+						});
+						
+						return { tournamentDeleted: true };
+					}
 
 					const updatedTournament = await tx.tournament.findUnique({
 						where: { id: input.tournamentId },
@@ -635,6 +657,11 @@ export const tournamentRouter = t.router({
 
 					return { updatedTournament };
 				});
+
+				if (isLastParticipant) {
+					removeTournamentFromCache(input.tournamentId);
+					return { success: true, tournamentDeleted: true };
+				}
 
 				const cachedTournament = cache.tournaments.active.get(input.tournamentId);
 				if (cachedTournament) {
@@ -653,15 +680,18 @@ export const tournamentRouter = t.router({
 					});
 					
 					updateTournamentBracket(input.tournamentId, participantSlots);
+					
+					const slotPosition = Array.from(participantSlots.entries())
+						.find(([_, playerId]) => playerId === ctx.user!.id)?.[0] ?? -1;
 
 					broadcastParticipantLeft(input.tournamentId, {
 						id: ctx.user!.id,
 						username: ctx.user!.username
-					}, -1);
+					}, slotPosition);
 					broadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
 				}
 
-				return { success: true };
+				return { success: true, tournamentDeleted: false };
 			} catch (error) {
 				console.error('Error leaving tournament:', error);
 				throw new TRPCError({

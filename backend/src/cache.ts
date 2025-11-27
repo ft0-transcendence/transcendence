@@ -22,7 +22,6 @@ async function handleVSGameFinish(gameId: string, state: any, gameInstance: Onli
 
 	if (isAborted) {
 		updateData.abortDate = new Date();
-		updateData.abortReason = 'Player disconnection timeout';
 	}
 
 	try {
@@ -128,7 +127,6 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				data: {
 					endDate: new Date(),
 					abortDate: new Date(),
-					abortReason: 'Game expired due to inactivity'
 				}
 			});
 			continue;
@@ -185,7 +183,6 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				data: {
 					endDate: new Date(),
 					abortDate: new Date(),
-					abortReason: 'Game expired due to inactivity'
 				}
 			});
 			continue;
@@ -215,7 +212,6 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 
 				if (isAborted) {
 					updateData.abortDate = new Date();
-					updateData.abortReason = 'Player disconnection timeout';
 				}
 
 				await db.game.update({
