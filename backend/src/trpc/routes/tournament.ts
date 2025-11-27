@@ -935,9 +935,17 @@ export const tournamentRouter = t.router({
 
 	createTournament: protectedProcedure
 		.input(z.object({
-			name: z.string().min(3).max(50),
+			name: z.string().min(3, "Tournament name must be at least 3 characters").max(50),
 			type: z.nativeEnum(TournamentType),
-			startDate: z.string().datetime().optional(),
+			startDate: z.string().datetime().optional()
+				.refine((dateString) => {
+					if (!dateString) return true; // Optional, so valid if not provided
+					const date = new Date(dateString);
+					const now = new Date();
+					return date > now;
+				}, {
+					message: "Start date must be in the future"
+				}),
 		}))
 		.mutation(async ({ ctx, input }) => {
 			try {
