@@ -1,4 +1,4 @@
-import { PrismaClient, TournamentRound } from "@prisma/client";
+import { PrismaClient, TournamentRound, Prisma } from "@prisma/client";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 
 const EMPTY_SLOT_USERNAME = 'Empty slot';
@@ -10,19 +10,19 @@ export type BracketNode = {
     position: number;
     leftPlayerId?: string | null;
     rightPlayerId?: string | null;
-    nextGameId?: string;
+    nextGameId?: string;    
     tournamentRound?: 'QUARTI' | 'SEMIFINALE' | 'FINALE';
 };
 
 export class BracketGenerator {
-    private db: PrismaClient | any;
+    private db: PrismaClient | Prisma.TransactionClient;
     private static PLACEHOLDER_USER_ID = 'placeholder-tournament-user';
 
-    constructor(db: PrismaClient | any) {
+    constructor(db: PrismaClient | Prisma.TransactionClient) {
         this.db = db;
     }
 
-    private async ensurePlaceholderUser(tx: any): Promise<string> {
+    private async ensurePlaceholderUser(tx: Prisma.TransactionClient): Promise<string> {
         try {
             let user = await tx.user.findUnique({
                 where: { id: BracketGenerator.PLACEHOLDER_USER_ID }
@@ -36,6 +36,12 @@ export class BracketGenerator {
                         username: EMPTY_SLOT_USERNAME,
                         preferredLanguage: 'en'
                     }
+                });
+            } else if (user.username !== EMPTY_SLOT_USERNAME) {
+                // Update username if it's different (e.g., old "Tournament Placeholder")
+                await tx.user.update({
+                    where: { id: BracketGenerator.PLACEHOLDER_USER_ID },
+                    data: { username: EMPTY_SLOT_USERNAME }
                 });
             }
             
@@ -112,7 +118,7 @@ export class BracketGenerator {
         tournamentId: string,
         bracket: BracketNode[]
     ): Promise<void> {
-        const executeTransaction = async (tx: any) => {
+        const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const placeholderUserId = await this.ensurePlaceholderUser(tx);
 
             const sorted = [...bracket].sort((a, b) => b.round - a.round);
@@ -136,6 +142,9 @@ export class BracketGenerator {
                         select: { username: true }
                     });
                     leftPlayerUsername = leftUser?.username || null;
+                } else {
+                    // Empty slot - use placeholder username
+                    leftPlayerUsername = EMPTY_SLOT_USERNAME;
                 }
 
                 if (node.rightPlayerId && node.rightPlayerId !== placeholderUserId) {
@@ -144,6 +153,9 @@ export class BracketGenerator {
                         select: { username: true }
                     });
                     rightPlayerUsername = rightUser?.username || null;
+                } else {
+                    // Empty slot - use placeholder username
+                    rightPlayerUsername = EMPTY_SLOT_USERNAME;
                 }
 
                 await tx.game.create({
@@ -166,7 +178,7 @@ export class BracketGenerator {
             }
         };
 
-        if ('$transaction' in this.db) {
+        if (this.db instanceof PrismaClient) {
             await this.db.$transaction(executeTransaction);
         } else {
             await executeTransaction(this.db);
@@ -174,11 +186,11 @@ export class BracketGenerator {
     }
 
     //AI game
-    async updateGameTypeForAIPlayers(tournamentId: string): Promise<void> {
-        const executeTransaction = async (tx: any) => {
-            const aiPlayerService = new AIPlayerService(tx);
+    async updateGameTypeForAIPlayers(tournamentId: string, tx?: Prisma.TransactionClient): Promise<void> {
+        const executeTransaction = async (client: Prisma.TransactionClient) => {
+            const aiPlayerService = new AIPlayerService(client);
             
-            const games = await tx.game.findMany({
+            const games = await client.game.findMany({
                 where: { tournamentId },
                 select: {
                     id: true,
@@ -192,7 +204,7 @@ export class BracketGenerator {
                 const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
 
                 if (isLeftAI || isRightAI) {
-                    await tx.game.update({
+                    await client.game.update({
                         where: { id: game.id },
                         data: { type: 'AI' }
                     });
@@ -201,9 +213,14 @@ export class BracketGenerator {
             }
         };
 
-        if ('$transaction' in this.db) {
+        if (tx) {
+            // Use provided transaction
+            await executeTransaction(tx);
+        } else if (this.db instanceof PrismaClient) {
+            // Create new transaction
             await this.db.$transaction(executeTransaction);
         } else {
+            // Use existing transaction
             await executeTransaction(this.db);
         }
     }
@@ -256,7 +273,7 @@ export class BracketGenerator {
 
 
     async assignParticipantToSlot(tournamentId: string, participantId: string): Promise<void> {
-        const executeTransaction = async (tx: any) => {
+        const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const participant = await tx.user.findUnique({
                 where: { id: participantId },
                 select: { username: true }
@@ -325,7 +342,7 @@ export class BracketGenerator {
             });
         };
 
-        if ('$transaction' in this.db) {
+        if (this.db instanceof PrismaClient) {
             await this.db.$transaction(executeTransaction);
         } else {
             await executeTransaction(this.db);
@@ -455,7 +472,7 @@ export class BracketGenerator {
     }
 
     async removeParticipantFromSlots(tournamentId: string, userId: string): Promise<void> {
-        const executeTransaction = async (tx: any) => {
+        const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const placeholderUserId = await this.ensurePlaceholderUser(tx);
             const games = await tx.game.findMany({
                 where: {
@@ -494,7 +511,7 @@ export class BracketGenerator {
             }
         };
 
-        if ('$transaction' in this.db) {
+        if (this.db instanceof PrismaClient) {
             await this.db.$transaction(executeTransaction);
         } else {
             await executeTransaction(this.db);
@@ -502,7 +519,7 @@ export class BracketGenerator {
     }
 
     async fillEmptySlotsWithAI(tournamentId: string): Promise<string[]> {
-        const executeTransaction = async (tx: any) => {
+        const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const aiPlayerService = new AIPlayerService(tx);
             const placeholderUserId = await this.ensurePlaceholderUser(tx);
             const aiSlotsFilled: string[] = [];
@@ -543,7 +560,7 @@ export class BracketGenerator {
                 }
             }
 
-            await this.updateGameTypeForAIPlayers(tournamentId);
+            await this.updateGameTypeForAIPlayers(tournamentId, tx);
 
             // Process all AI vs AI matches automatically using new username system
             const allTournamentGames = await tx.game.findMany({
@@ -576,7 +593,7 @@ export class BracketGenerator {
             return aiSlotsFilled;
         };
 
-        if ('$transaction' in this.db) {
+        if (this.db instanceof PrismaClient) {
             return await this.db.$transaction(executeTransaction);
         } else {
             return await executeTransaction(this.db);

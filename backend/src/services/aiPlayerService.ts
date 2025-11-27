@@ -1,9 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 export class AIPlayerService {
-    private db: PrismaClient | any;
+    private db: PrismaClient | Prisma.TransactionClient;
 
-    constructor(db: PrismaClient | any) {
+    constructor(db: PrismaClient | Prisma.TransactionClient) {
         this.db = db;
     }
 
@@ -19,7 +19,7 @@ export class AIPlayerService {
     }
 
     async handleAIvsAIMatch(gameId: string): Promise<void> {
-        const executeTransaction = async (tx: any) => {
+        const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const game = await tx.game.findUnique({
                 where: { id: gameId },
                 select: {
