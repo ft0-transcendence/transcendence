@@ -252,7 +252,7 @@ function setupMatchmakingNamespace(io: Server) {
 					newGame.pendingDbCreation = {
 						leftPlayerId: player1Data.id,
 						rightPlayerId: player2Data.id,
-						scoreGoal: 7
+						scoreGoal: 5
 					};
 
 					cache.active_1v1_games.set(gameId, newGame);

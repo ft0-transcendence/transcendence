@@ -203,7 +203,7 @@ export const tournamentRouter = t.router({
 						const aiPlayerService = new AIPlayerService(ctx.db);
 						return {
 							...g,
-							scoreGoal: g.scoreGoal || 7,
+							scoreGoal: g.scoreGoal || 5,
 							tournamentRound: (g as any).tournamentRound,
 							isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
 							leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
@@ -324,7 +324,7 @@ export const tournamentRouter = t.router({
 				rightPlayerScore: g.rightPlayerScore,
 				nextGameId: g.nextGameId,
 				endDate: g.endDate,
-				scoreGoal: g.scoreGoal || 7,
+				scoreGoal: g.scoreGoal || 5,
 				tournamentRound: (g as any).tournamentRound,
 				leftPlayerUsername: (g as any).leftPlayerUsername,
 				rightPlayerUsername: (g as any).rightPlayerUsername,

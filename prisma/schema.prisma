@@ -105,7 +105,7 @@ model Game {
     updatedAt           DateTime         @default(now()) @updatedAt
     endDate             DateTime?
     abortDate           DateTime?
-    scoreGoal           Int              @default(7)
+    scoreGoal           Int              @default(5)
     leftPlayerScore     Int              @default(0)
     leftPlayerId        String
     leftPlayer          User             @relation("gamesAsLeftPlayer", fields: [leftPlayerId], references: [id])

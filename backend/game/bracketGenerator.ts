@@ -152,7 +152,7 @@ export class BracketGenerator {
                         type: 'TOURNAMENT',
                         tournamentRound: tournamentRound,
                         startDate: new Date(),
-                        scoreGoal: 7,
+                        scoreGoal: 5,
                         tournamentId,
                         leftPlayerId: node.leftPlayerId || placeholderUserId,
                         rightPlayerId: node.rightPlayerId || placeholderUserId,
