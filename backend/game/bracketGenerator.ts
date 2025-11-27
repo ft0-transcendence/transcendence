@@ -552,19 +552,50 @@ export class BracketGenerator {
     }
 
     async removeParticipantFromSlots(tournamentId: string, userId: string): Promise<void> {
-        await this.db.game.updateMany({
-            where: {
-                tournamentId,
-                OR: [
-                    { leftPlayerId: userId },
-                    { rightPlayerId: userId }
-                ]
-            },
-            data: {
-                leftPlayerId: this.db.game.fields.leftPlayerId === userId ? null : undefined,
-                rightPlayerId: this.db.game.fields.rightPlayerId === userId ? null : undefined
+        const executeTransaction = async (tx: any) => {
+            const placeholderUserId = await this.ensurePlaceholderUser(tx);
+            const games = await tx.game.findMany({
+                where: {
+                    tournamentId,
+                    OR: [
+                        { leftPlayerId: userId },
+                        { rightPlayerId: userId }
+                    ]
+                },
+                select: {
+                    id: true,
+                    leftPlayerId: true,
+                    rightPlayerId: true
+                }
+            });
+
+            for (const game of games) {
+                const updateData: any = {};
+
+                if (game.leftPlayerId === userId) {
+                    updateData.leftPlayerId = placeholderUserId;
+                    updateData.leftPlayerUsername = null as any;
+                }
+
+                if (game.rightPlayerId === userId) {
+                    updateData.rightPlayerId = placeholderUserId;
+                    updateData.rightPlayerUsername = null as any;
+                }
+
+                if (Object.keys(updateData).length > 0) {
+                    await tx.game.update({
+                        where: { id: game.id },
+                        data: updateData
+                    });
+                }
             }
-        });
+        };
+
+        if ('$transaction' in this.db) {
+            await this.db.$transaction(executeTransaction);
+        } else {
+            await executeTransaction(this.db);
+        }
     }
 
     async fillEmptySlotsWithAI(tournamentId: string): Promise<string[]> {
