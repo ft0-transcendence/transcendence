@@ -18,6 +18,84 @@ const TOURNAMENT_SIZES: {[key in TournamentType]: number} = {
 	EIGHT: 8
 }
 
+// Shared logic for starting a tournament
+async function executeTournamentStart(db: any, tournamentId: string, startedByUsername: string) {
+	const result = await db.$transaction(async (tx: any) => {
+		const bracketGenerator = new BracketGenerator(tx);
+		const occupiedSlots = await bracketGenerator.getOccupiedSlotsCount(tournamentId);
+		
+		let createdAIPlayers: string[] = [];
+		if (occupiedSlots < 8) {
+			createdAIPlayers = await bracketGenerator.fillEmptySlotsWithAI(tournamentId);
+		}
+
+		await tx.tournament.update({
+			where: { id: tournamentId },
+			data: {
+				status: 'IN_PROGRESS' as TournamentStatus,
+				startDate: new Date()
+			}
+		});
+
+		return { createdAIPlayers };
+	});
+
+	const cachedTournament = cache.tournaments.active.get(tournamentId);
+	if (cachedTournament) {
+		cachedTournament.status = 'IN_PROGRESS';
+		result.createdAIPlayers.forEach((aiPlayerId: string) => {
+			cachedTournament.aiPlayers.add(aiPlayerId);
+		});
+		
+		const bracketGenerator = new BracketGenerator(db);
+		const occupiedSlots = await bracketGenerator.getOccupiedSlots(tournamentId);
+		const participantSlots = new Map<number, string | null>();
+		
+		for (let i = 0; i < 8; i++) {
+			participantSlots.set(i, null);
+		}
+		
+		occupiedSlots.forEach((playerId, slotIndex) => {
+			participantSlots.set(slotIndex, playerId);
+		});
+		
+		updateTournamentBracket(tournamentId, participantSlots);
+		
+		const isAutoStart = startedByUsername === 'System';
+		const message = isAutoStart 
+			? `Tournament started automatically with ${result.createdAIPlayers.length} AI players filling empty slots`
+			: `Tournament started with ${result.createdAIPlayers.length} AI players filling empty slots`;
+		
+		broadcastTournamentStatusChange(tournamentId, 'IN_PROGRESS', startedByUsername, message);
+		
+		if (result.createdAIPlayers.length > 0) {
+			const filledSlots = Array.from(participantSlots.entries())
+				.filter(([_, playerId]) => result.createdAIPlayers.includes(playerId || ''))
+				.map(([slotIndex, _]) => slotIndex);
+			
+			broadcastAIPlayersAdded(tournamentId, result.createdAIPlayers, filledSlots);
+		}
+		
+		broadcastBracketUpdate(tournamentId, participantSlots, cachedTournament.aiPlayers);
+	}
+
+	return result;
+}
+
+// Helper function for auto-starting tournaments (bypasses creator check)
+export async function autoStartTournament(db: any, tournamentId: string): Promise<void> {
+	const tournament = await db.tournament.findUnique({
+		where: { id: tournamentId },
+		include: { participants: { include: { user: true } }, games: true }
+	});
+
+	if (!tournament || tournament.status !== 'WAITING_PLAYERS') {
+		return; // Already started or not found
+	}
+
+	await executeTournamentStart(db, tournamentId, 'System');
+}
+
 export const tournamentRouter = t.router({
 
 	getAvailableTournaments: publicProcedure
@@ -719,60 +797,7 @@ export const tournamentRouter = t.router({
 				TournamentValidator.validateCreatorPermission(tournament!.createdById, ctx.user!.id, 'start tournament');
 				TournamentValidator.validateTournamentStatus(tournament!.status, ['WAITING_PLAYERS'], 'start');
 
-				const result = await ctx.db.$transaction(async (tx) => {
-					const bracketGenerator = new BracketGenerator(tx);
-					const occupiedSlots = await bracketGenerator.getOccupiedSlotsCount(input.tournamentId);
-					
-					let createdAIPlayers: string[] = [];
-					if (occupiedSlots < 8) {
-						createdAIPlayers = await bracketGenerator.fillEmptySlotsWithAI(input.tournamentId);
-					}
-
-					await tx.tournament.update({
-						where: { id: input.tournamentId },
-						data: {
-							status: 'IN_PROGRESS' as TournamentStatus,
-							startDate: new Date()
-						}
-					});
-
-					return { createdAIPlayers };
-				});
-
-				const cachedTournament = cache.tournaments.active.get(input.tournamentId);
-				if (cachedTournament) {
-					cachedTournament.status = 'IN_PROGRESS';
-					result.createdAIPlayers.forEach(aiPlayerId => {
-						cachedTournament.aiPlayers.add(aiPlayerId);
-					});
-					
-					const bracketGenerator = new BracketGenerator(ctx.db);
-					const occupiedSlots = await bracketGenerator.getOccupiedSlots(input.tournamentId);
-					const participantSlots = new Map<number, string | null>();
-					
-					for (let i = 0; i < 8; i++) {
-						participantSlots.set(i, null);
-					}
-					
-					occupiedSlots.forEach((playerId, slotIndex) => {
-						participantSlots.set(slotIndex, playerId);
-					});
-					
-					updateTournamentBracket(input.tournamentId, participantSlots);
-					
-					broadcastTournamentStatusChange(input.tournamentId, 'IN_PROGRESS', ctx.user!.username, 
-						`Tournament started with ${result.createdAIPlayers.length} AI players filling empty slots`);
-					
-					if (result.createdAIPlayers.length > 0) {
-						const filledSlots = Array.from(participantSlots.entries())
-							.filter(([_, playerId]) => result.createdAIPlayers.includes(playerId || ''))
-							.map(([slotIndex, _]) => slotIndex);
-						
-						broadcastAIPlayersAdded(input.tournamentId, result.createdAIPlayers, filledSlots);
-					}
-					
-					broadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
-				}
+				await executeTournamentStart(ctx.db, input.tournamentId, ctx.user!.username);
 
 				const tournamentResult = await ctx.db.tournament.findUnique({
 					where: { id: input.tournamentId },
