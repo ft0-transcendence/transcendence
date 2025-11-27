@@ -423,13 +423,7 @@ export class BracketGenerator {
 
     async getOccupiedSlots(tournamentId: string): Promise<Map<number, string>> {
         const games = await this.db.game.findMany({
-            where: { 
-                tournamentId,
-                OR: [
-                    { leftPlayerId: { not: null } },
-                    { rightPlayerId: { not: null } }
-                ]
-            },
+            where: { tournamentId },
             select: {
                 id: true,
                 leftPlayerId: true,
