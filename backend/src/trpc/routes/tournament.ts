@@ -18,83 +18,6 @@ const TOURNAMENT_SIZES: {[key in TournamentType]: number} = {
 	EIGHT: 8
 }
 
-// Shared logic for starting a tournament
-async function executeTournamentStart(db: any, tournamentId: string, startedByUsername: string) {
-	const result = await db.$transaction(async (tx: any) => {
-		const bracketGenerator = new BracketGenerator(tx);
-		const occupiedSlots = await bracketGenerator.getOccupiedSlotsCount(tournamentId);
-		
-		let createdAIPlayers: string[] = [];
-		if (occupiedSlots < 8) {
-			createdAIPlayers = await bracketGenerator.fillEmptySlotsWithAI(tournamentId);
-		}
-
-		await tx.tournament.update({
-			where: { id: tournamentId },
-			data: {
-				status: 'IN_PROGRESS' as TournamentStatus,
-				startDate: new Date()
-			}
-		});
-
-		return { createdAIPlayers };
-	});
-
-	const cachedTournament = cache.tournaments.active.get(tournamentId);
-	if (cachedTournament) {
-		cachedTournament.status = 'IN_PROGRESS';
-		result.createdAIPlayers.forEach((aiPlayerId: string) => {
-			cachedTournament.aiPlayers.add(aiPlayerId);
-		});
-		
-		const bracketGenerator = new BracketGenerator(db);
-		const occupiedSlots = await bracketGenerator.getOccupiedSlots(tournamentId);
-		const participantSlots = new Map<number, string | null>();
-		
-		for (let i = 0; i < 8; i++) {
-			participantSlots.set(i, null);
-		}
-		
-		occupiedSlots.forEach((playerId, slotIndex) => {
-			participantSlots.set(slotIndex, playerId);
-		});
-		
-		updateTournamentBracket(tournamentId, participantSlots);
-		
-		const isAutoStart = startedByUsername === 'System';
-		const message = isAutoStart 
-			? `Tournament started automatically with ${result.createdAIPlayers.length} AI players filling empty slots`
-			: `Tournament started with ${result.createdAIPlayers.length} AI players filling empty slots`;
-		
-		broadcastTournamentStatusChange(tournamentId, 'IN_PROGRESS', startedByUsername, message);
-		
-		if (result.createdAIPlayers.length > 0) {
-			const filledSlots = Array.from(participantSlots.entries())
-				.filter(([_, playerId]) => result.createdAIPlayers.includes(playerId || ''))
-				.map(([slotIndex, _]) => slotIndex);
-			
-			broadcastAIPlayersAdded(tournamentId, result.createdAIPlayers, filledSlots);
-		}
-		
-		broadcastBracketUpdate(tournamentId, participantSlots, cachedTournament.aiPlayers);
-	}
-
-	return result;
-}
-
-// Helper function for auto-starting tournaments (bypasses creator check)
-export async function autoStartTournament(db: any, tournamentId: string): Promise<void> {
-	const tournament = await db.tournament.findUnique({
-		where: { id: tournamentId },
-		include: { participants: { include: { user: true } }, games: true }
-	});
-
-	if (!tournament || tournament.status !== 'WAITING_PLAYERS') {
-		return; // Already started or not found
-	}
-
-	await executeTournamentStart(db, tournamentId, 'System');
-}
 
 export const tournamentRouter = t.router({
 
@@ -424,91 +347,9 @@ export const tournamentRouter = t.router({
 			};
 		}),
 
-	joinTournamentGame: protectedProcedure
-		.input(z.object({
-			gameId: z.string()
-		}))
-		.mutation(async ({ ctx, input }) => {
-			try {
-				const { gameId } = input;
-				const userId = ctx.user!.id;
-
-				const game = await ctx.db.game.findUnique({
-					where: { id: gameId },
-					include: {
-						leftPlayer: true,
-						rightPlayer: true,
-						tournament: {
-							include: {
-								participants: {
-									include: { user: true }
-								}
-							}
-						}
-					}
-				});
-
-				// Validations
-				if (!game) {
-					throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
-				}
-
-				if (game.type !== GameType.TOURNAMENT && game.type !== GameType.AI) {
-					throw new TRPCError({ code: "BAD_REQUEST", message: "Not a tournament game" });
-				}
-
-				if (!game.tournament) {
-					throw new TRPCError({ code: "BAD_REQUEST", message: "Game has no associated tournament" });
-				}
-
-				const isParticipant = game.tournament!.participants.some((p: any) => p.userId === userId);
-				if (!isParticipant) {
-					throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this tournament" });
-				}
-
-				const isPlayerInGame = game.leftPlayerId === userId || game.rightPlayerId === userId;
-				if (!isPlayerInGame) {
-					throw new TRPCError({ code: "FORBIDDEN", message: "You are not a player in this game" });
-				}
-
-				if (game.endDate) {
-					throw new TRPCError({ code: "BAD_REQUEST", message: "Game already finished" });
-				}
-
-				const aiPlayerService = new AIPlayerService(ctx.db);
-				
-				return {
-					game: {
-						id: game.id,
-						leftPlayer: game.leftPlayer,
-						rightPlayer: game.rightPlayer,
-						leftPlayerScore: game.leftPlayerScore,
-						rightPlayerScore: game.rightPlayerScore,
-						startDate: game.startDate,
-						scoreGoal: game.scoreGoal || 5,
-						tournamentRound: game.tournamentRound,
-						leftPlayerUsername: game.leftPlayerUsername,
-						rightPlayerUsername: game.rightPlayerUsername,
-						leftPlayerIsAI: aiPlayerService.isAIPlayer(game.leftPlayerUsername),
-						rightPlayerIsAI: aiPlayerService.isAIPlayer(game.rightPlayerUsername),
-						isAIGame: aiPlayerService.isAIPlayer(game.leftPlayerUsername) || aiPlayerService.isAIPlayer(game.rightPlayerUsername)
-					},
-					tournament: {
-						id: game.tournament!.id,
-						name: game.tournament!.name,
-						type: game.tournament!.type
-					},
-					isPlayer: true,
-					playerSide: game.leftPlayerId === userId ? 'left' : 'right'
-				};
-
-			} catch (error) {
-				handleTournamentError(error as Error, 'joinTournamentGame', undefined, ctx.user!.id);
-			}
-		}),
-
-	//user vede la sua historu dei tornei
-	getTournamentHistory: protectedProcedure
+		
+		//user vede la sua historu dei tornei
+		getTournamentHistory: protectedProcedure
 		.input(z.object({
 			limit: z.number().min(1).max(100).default(20),
 			cursor: z.string().nullish()
@@ -551,13 +392,13 @@ export const tournamentRouter = t.router({
 					}
 				}
 			});
-
+			
 			let nextCursor: typeof input.cursor | undefined = undefined;
 			if (tournaments.length > input.limit) {
 				const nextItem = tournaments.pop();
 				nextCursor = nextItem!.id;
 			}
-
+			
 			return {
 				tournaments: tournaments.map(t => ({
 					...t,
@@ -567,8 +408,89 @@ export const tournamentRouter = t.router({
 				nextCursor
 			};
 		}),
-
-	getTournamentsStats: protectedProcedure
+		
+		joinTournamentGame: protectedProcedure
+			.input(z.object({
+				gameId: z.string()
+			}))
+			.mutation(async ({ ctx, input }) => {
+				try {
+					const { gameId } = input;
+					const userId = ctx.user!.id;
+	
+					const game = await ctx.db.game.findUnique({
+						where: { id: gameId },
+						include: {
+							leftPlayer: true,
+							rightPlayer: true,
+							tournament: {
+								include: {
+									participants: {
+										include: { user: true }
+									}
+								}
+							}
+						}
+					});
+	
+					if (!game) {
+						throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
+					}
+	
+					if (game.type !== GameType.TOURNAMENT && game.type !== GameType.AI) {
+						throw new TRPCError({ code: "BAD_REQUEST", message: "Not a tournament game" });
+					}
+	
+					if (!game.tournament) {
+						throw new TRPCError({ code: "BAD_REQUEST", message: "Game has no associated tournament" });
+					}
+	
+					const isParticipant = game.tournament!.participants.some((p: any) => p.userId === userId);
+					if (!isParticipant) {
+						throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this tournament" });
+					}
+	
+					const isPlayerInGame = game.leftPlayerId === userId || game.rightPlayerId === userId;
+					if (!isPlayerInGame) {
+						throw new TRPCError({ code: "FORBIDDEN", message: "You are not a player in this game" });
+					}
+	
+					if (game.endDate) {
+						throw new TRPCError({ code: "BAD_REQUEST", message: "Game already finished" });
+					}
+	
+					const aiPlayerService = new AIPlayerService(ctx.db);
+					
+					return {
+						game: {
+							id: game.id,
+							leftPlayer: game.leftPlayer,
+							rightPlayer: game.rightPlayer,
+							leftPlayerScore: game.leftPlayerScore,
+							rightPlayerScore: game.rightPlayerScore,
+							startDate: game.startDate,
+							scoreGoal: game.scoreGoal || 5,
+							tournamentRound: game.tournamentRound,
+							leftPlayerUsername: game.leftPlayerUsername,
+							rightPlayerUsername: game.rightPlayerUsername,
+							leftPlayerIsAI: aiPlayerService.isAIPlayer(game.leftPlayerUsername),
+							rightPlayerIsAI: aiPlayerService.isAIPlayer(game.rightPlayerUsername),
+							isAIGame: aiPlayerService.isAIPlayer(game.leftPlayerUsername) || aiPlayerService.isAIPlayer(game.rightPlayerUsername)
+						},
+						tournament: {
+							id: game.tournament!.id,
+							name: game.tournament!.name,
+							type: game.tournament!.type
+						},
+						isPlayer: true,
+						playerSide: game.leftPlayerId === userId ? 'left' : 'right'
+					};
+	
+				} catch (error) {
+					handleTournamentError(error as Error, 'joinTournamentGame', undefined, ctx.user!.id);
+				}
+			}),
+		getTournamentsStats: protectedProcedure
 		.query(async ({ ctx }) => {
 			const userId = ctx.user!.id;
 
@@ -792,7 +714,6 @@ export const tournamentRouter = t.router({
 					}
 				});
 
-				// Validations
 				TournamentValidator.validateTournamentExists(tournament, input.tournamentId);
 				TournamentValidator.validateCreatorPermission(tournament!.createdById, ctx.user!.id, 'start tournament');
 				TournamentValidator.validateTournamentStatus(tournament!.status, ['WAITING_PLAYERS'], 'start');
@@ -912,7 +833,6 @@ export const tournamentRouter = t.router({
 					}
 				});
 
-				// Validations
 				TournamentValidator.validateTournamentExists(tournament, input.tournamentId);
 				TournamentValidator.validateCreatorPermission(tournament!.createdById, ctx.user!.id, 'delete tournament');
 				
@@ -964,7 +884,7 @@ export const tournamentRouter = t.router({
 			type: z.nativeEnum(TournamentType),
 			startDate: z.string().datetime().optional()
 				.refine((dateString) => {
-					if (!dateString) return true; // Optional, so valid if not provided
+					if (!dateString) return true;
 					const date = new Date(dateString);
 					const now = new Date();
 					return date > now;
@@ -1036,3 +956,79 @@ export const tournamentRouter = t.router({
 			}
 		}),
 });
+
+async function executeTournamentStart(db: any, tournamentId: string, startedByUsername: string) {
+	const result = await db.$transaction(async (tx: any) => {
+		const bracketGenerator = new BracketGenerator(tx);
+		const occupiedSlots = await bracketGenerator.getOccupiedSlotsCount(tournamentId);
+		
+		let createdAIPlayers: string[] = [];
+		if (occupiedSlots < 8) {
+			createdAIPlayers = await bracketGenerator.fillEmptySlotsWithAI(tournamentId);
+		}
+
+		await tx.tournament.update({
+			where: { id: tournamentId },
+			data: {
+				status: 'IN_PROGRESS' as TournamentStatus,
+				startDate: new Date()
+			}
+		});
+
+		return { createdAIPlayers };
+	});
+
+	const cachedTournament = cache.tournaments.active.get(tournamentId);
+	if (cachedTournament) {
+		cachedTournament.status = 'IN_PROGRESS';
+		result.createdAIPlayers.forEach((aiPlayerId: string) => {
+			cachedTournament.aiPlayers.add(aiPlayerId);
+		});
+		
+		const bracketGenerator = new BracketGenerator(db);
+		const occupiedSlots = await bracketGenerator.getOccupiedSlots(tournamentId);
+		const participantSlots = new Map<number, string | null>();
+		
+		for (let i = 0; i < 8; i++) {
+			participantSlots.set(i, null);
+		}
+		
+		occupiedSlots.forEach((playerId, slotIndex) => {
+			participantSlots.set(slotIndex, playerId);
+		});
+		
+		updateTournamentBracket(tournamentId, participantSlots);
+		
+		const isAutoStart = startedByUsername === 'System';
+		const message = isAutoStart 
+			? `Tournament started automatically with ${result.createdAIPlayers.length} AI players filling empty slots`
+			: `Tournament started with ${result.createdAIPlayers.length} AI players filling empty slots`;
+		
+		broadcastTournamentStatusChange(tournamentId, 'IN_PROGRESS', startedByUsername, message);
+		
+		if (result.createdAIPlayers.length > 0) {
+			const filledSlots = Array.from(participantSlots.entries())
+				.filter(([_, playerId]) => result.createdAIPlayers.includes(playerId || ''))
+				.map(([slotIndex, _]) => slotIndex);
+			
+			broadcastAIPlayersAdded(tournamentId, result.createdAIPlayers, filledSlots);
+		}
+		
+		broadcastBracketUpdate(tournamentId, participantSlots, cachedTournament.aiPlayers);
+	}
+
+	return result;
+}
+
+export async function autoStartTournament(db: any, tournamentId: string): Promise<void> {
+	const tournament = await db.tournament.findUnique({
+		where: { id: tournamentId },
+		include: { participants: { include: { user: true } }, games: true }
+	});
+
+	if (!tournament || tournament.status !== 'WAITING_PLAYERS') {
+		return;
+	}
+
+	await executeTournamentStart(db, tournamentId, 'System');
+}
