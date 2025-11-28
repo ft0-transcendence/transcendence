@@ -15,6 +15,7 @@ import fastifyStatic from "@fastify/static";
 import fastifySocketIO from "@ericedouard/fastify-socket.io";
 import { socketAuthSessionPlugin } from "./src/plugins/socketAuthSession";
 import { loadActiveGamesIntoCache } from "./src/cache";
+import { autoStartTournament } from "./src/trpc/routes/tournament";
 
 pino;
 
@@ -108,12 +109,51 @@ if (fs.existsSync(pathToFrontend)) {
 }
 
 
+// Function to check and auto-start tournaments
+async function checkAndStartTournaments() {
+	try {
+		const now = new Date();
+		const tournaments = await fastify.prisma.tournament.findMany({
+			where: {
+				status: 'WAITING_PLAYERS',
+				startDate: {
+					lte: now // startDate is in the past or now
+				}
+			},
+			select: {
+				id: true,
+				name: true
+			}
+		});
+
+		for (const tournament of tournaments) {
+			try {
+				fastify.log.info(`Auto-starting tournament ${tournament.id} (${tournament.name})`);
+				await autoStartTournament(fastify.prisma, tournament.id);
+				fastify.log.info(`Successfully auto-started tournament ${tournament.id}`);
+			} catch (error) {
+				fastify.log.error(`Failed to auto-start tournament ${tournament.id}:`, error);
+			}
+		}
+	} catch (error) {
+		fastify.log.error('Error checking tournaments for auto-start:', error);
+	}
+}
+
 fastify.ready().then(() => {
 	console.log('Fastify is ready');
 	// Make socket.io instance globally accessible for notifications
 	(global as any).io = fastify.io;
 	setupSocketHandlers(fastify.io);
 	loadActiveGamesIntoCache(fastify.prisma, fastify);
+	
+	// Check for tournaments to auto-start every 30 seconds
+	setInterval(() => {
+		checkAndStartTournaments();
+	}, 30000); // 30 seconds
+	
+	// Also check immediately on startup
+	checkAndStartTournaments();
 });
 
 const start = async () => {

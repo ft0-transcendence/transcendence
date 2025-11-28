@@ -174,7 +174,6 @@ export class TournamentGame extends OnlineGame {
         try {
             if (!this.leftPlayer || !this.rightPlayer) return;
 
-            // Get game data to check username fields for AI detection
             const gameData = await db.game.findUnique({
                 where: { id: this.gameId },
                 select: {
@@ -185,12 +184,9 @@ export class TournamentGame extends OnlineGame {
 
             if (!gameData) return;
 
-            // Check if left player is AI using username-based detection
             if (this.aiPlayerService.isAIPlayer(gameData.leftPlayerUsername)) {
                 this.startAI(this.leftPlayer.id, 'left');
             }
-
-            // Check if right player is AI using username-based detection
             if (this.aiPlayerService.isAIPlayer(gameData.rightPlayerUsername)) {
                 this.startAI(this.rightPlayer.id, 'right');
             }
@@ -209,7 +205,6 @@ export class TournamentGame extends OnlineGame {
                 
                 if (state.state !== 'RUNNING') return;
 
-                // AI movement - same as local AI games
                 const aiPaddlePos = side === 'left' ? state.paddles.left : state.paddles.right;
                 let target = 50;
 

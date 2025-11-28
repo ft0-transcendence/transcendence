@@ -1,9 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 export class AIPlayerService {
-    private db: PrismaClient | any;
+    private db: PrismaClient | Prisma.TransactionClient;
 
-    constructor(db: PrismaClient | any) {
+    constructor(db: PrismaClient | Prisma.TransactionClient) {
         this.db = db;
     }
 
@@ -19,7 +19,7 @@ export class AIPlayerService {
     }
 
     async handleAIvsAIMatch(gameId: string): Promise<void> {
-        const executeTransaction = async (tx: any) => {
+        const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const game = await tx.game.findUnique({
                 where: { id: gameId },
                 select: {
@@ -54,7 +54,6 @@ export class AIPlayerService {
                 }
             });
 
-            // If there's a next game, advance the AI winner to next game
             if (game.nextGameId) {
                 await this.advanceAIWinnerToNextGame(tx, game.nextGameId);
             }
@@ -80,7 +79,6 @@ export class AIPlayerService {
             throw new Error(`Next game ${nextGameId} not found`);
         }
 
-        // Assign AI player to the first available position
         if (nextGame.leftPlayerUsername === undefined) {
             await tx.game.update({
                 where: { id: nextGameId },
@@ -149,6 +147,4 @@ export class AIPlayerService {
 
         return this.isAIPlayer(game.leftPlayerUsername) || this.isAIPlayer(game.rightPlayerUsername);
     }
-
-
 }

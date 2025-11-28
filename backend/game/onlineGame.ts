@@ -1,6 +1,4 @@
 import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState } from "./game";
-import { db } from '../src/trpc/db';
-import { GameType } from '@prisma/client';
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
@@ -14,7 +12,6 @@ export class OnlineGame extends Game {
 	protected finished = false;
 	protected onFinish?: FinishCallback;
 	public wasForfeited = false;
-	public pendingDbCreation: any = null;
 
 	private readonly GRACE_MS = 15000; // 15s
 	private readonly ABORT_WARNING_AT_MS = 5000; // Warning quando rimangono 5s
@@ -52,7 +49,6 @@ export class OnlineGame extends Game {
 			}
 		});
 
-		// Listen for score updates to update database
 		this.unsubscribeScore = this.onScore(async (scores) => {
 			if (this.updateGameActivity) {
 				await this.updateGameActivity(this);
@@ -83,7 +79,6 @@ export class OnlineGame extends Game {
 			this.playerRightReady = true;
 		}
 		if (this.playerLeftReady && this.playerRightReady) {
-			// Both players ready - create in database if not already created
 			this.createInDatabaseIfNeeded();
 			
 			this.start();
@@ -98,7 +93,6 @@ export class OnlineGame extends Game {
 			console.log(`🎮 Both players ready for game ${this.gameId}, creating in database now`);
 			
 			try {
-				// Get usernames for both players
 				let leftPlayerUsername: string | null = null;
 				let rightPlayerUsername: string | null = null;
 
@@ -182,7 +176,6 @@ export class OnlineGame extends Game {
 
 		const playerName = this.getPlayerName(playerId);
 
-		// Invia primo warning
 		if (this.socketNamespace) {
 			this.socketNamespace.to(this.gameId).emit("player-disconnected", {
 				userId: playerId,
@@ -224,7 +217,6 @@ export class OnlineGame extends Game {
 		this.disconnectedUntil.delete(playerId);
 		this.abortWarningsSent.delete(playerId);
 
-		// Pulizia timer warning
 		const interval = this.warningIntervals.get(playerId);
 		if (interval) {
 			clearInterval(interval);
@@ -263,32 +255,13 @@ export class OnlineGame extends Game {
 			for (const [playerId, until] of this.disconnectedUntil.entries()) {
 				const timeLeft = until - now;
 
-				// TODO: remove this
-				// Send abort warning when time reaches ABORT_WARNING_AT_MS
-				// if (timeLeft <= this.ABORT_WARNING_AT_MS && timeLeft > 0 && !this.abortWarningsSent.has(playerId)) {
-				// 	this.abortWarningsSent.add(playerId);
-				// 	const playerName = this.getPlayerName(playerId);
-				// 	const opponentName = this.getPlayerName(this.getOpponentPlayerId(playerId) ?? '');
-
-				// 	if (this.socketNamespace) {
-				// 		this.socketNamespace.to(this.gameId).emit("game-abort-warning", {
-				// 			disconnectedPlayerId: playerId,
-				// 			disconnectedPlayerName: playerName,
-				// 			opponentName: opponentName,
-				// 			timeLeftMs: timeLeft,
-				// 			message: `Il gioco terminerà tra ${Math.ceil(timeLeft / 1000)} secondi se ${playerName} non si riconnette`
-				// 		});
-				// 	}
-				// }
-
-				// Forfeit
 				if (now >= until) {
 					const opponentId = this.getOpponentPlayerId(playerId);
 					const playerName = this.getPlayerName(playerId);
 					const opponentName = this.getPlayerName(opponentId ?? '');
 
 					if (opponentId) {
-						const FORFEIT_WIN = 7;
+						const FORFEIT_WIN = 5;
 						const FORFEIT_LOSS = 0;
 						if (this.leftPlayer && this.rightPlayer) {
 							if (opponentId === this.leftPlayer.id) {
@@ -329,7 +302,6 @@ export class OnlineGame extends Game {
 
 		console.log(`🏁 Game ${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
 
-		// Pulizia warning
 		for (const [playerId, interval] of this.warningIntervals) {
 			clearInterval(interval);
 		}
@@ -367,4 +339,5 @@ export class OnlineGame extends Game {
 			console.log(`⚠️ Game ${this.gameId} has no onFinish callback!`);
 		}
 	}
+
 }

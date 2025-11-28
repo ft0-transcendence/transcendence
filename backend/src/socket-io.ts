@@ -1,4 +1,4 @@
-import { User, GameType } from '@prisma/client';
+import { User } from '@prisma/client';
 
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 import { cache, addUserToOnlineCache, removeUserFromOnlineCache, isUserOnline } from './cache';
@@ -8,55 +8,24 @@ import { BracketGenerator } from '../game/bracketGenerator';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
-import { updateGameStats } from './utils/statsUtils';
+import { createVsGameRecord, finalizeVsGameResult } from './services/vsGameService';
 
-/**
- * Funzione centralizzata per gestire la fine di una partita VS
- */
 async function handleVSGameFinish(gameId: string, state: any, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
 	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
 	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
 	
-	const isAborted = gameInstance.wasForfeited;
-
-	const updateData: any = {
-		endDate: new Date(),
-		leftPlayerScore: state.scores.left,
-		rightPlayerScore: state.scores.right,
-	};
-
-	if (isAborted) {
-		updateData.abortDate = new Date();
-	}
-
 	try {
-		await db.game.update({
-			where: { id: gameId },
-			data: updateData,
+		await finalizeVsGameResult(db, {
+			gameId,
+			leftPlayerId,
+			rightPlayerId,
+			scores: state.scores,
+			isForfeited: gameInstance.wasForfeited,
+			finishedAt: new Date(),
 		});
-		console.log(`✅ VS Game ${gameId} successfully updated in database`);
-
-		// Aggiorna sempre le statistiche dei giocatori (anche in caso di forfeit)
-		if (state.scores.left !== state.scores.right) {
-			let winnerId: string;
-			let loserId: string;
-			
-			if (state.scores.left > state.scores.right) {
-				winnerId = leftPlayerId;
-				loserId = rightPlayerId;
-			} else {
-				winnerId = rightPlayerId;
-				loserId = leftPlayerId;
-			}
-			
-			console.log(`📊 VS Game ${gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${isAborted}`);
-			await updateGameStats(db, winnerId, loserId);
-		} else {
-			console.log(`⚠️ VS Game ${gameId} ended in a tie, skipping stats update`);
-		}
-
+		console.log(`✅ VS Game ${gameId} successfully persisted`);
 	} catch (error) {
-		console.error(`❌ VS Game ${gameId} failed to update database:`, error);
+		console.error(`❌ VS Game ${gameId} failed to finalize:`, error);
 	}
 	
 	cache.active_1v1_games.delete(gameId);
@@ -247,17 +216,24 @@ function setupMatchmakingNamespace(io: Server) {
 					);
 
 					newGame.setPlayers(player1Data, player2Data);
-					
-					// Store game info for later DB creation
-					newGame.pendingDbCreation = {
-						leftPlayerId: player1Data.id,
-						rightPlayerId: player2Data.id,
-						scoreGoal: 5
-					};
+
+					try {
+						await createVsGameRecord(db, {
+							gameId,
+							leftPlayerId: player1Data.id,
+							rightPlayerId: player2Data.id,
+							leftPlayerUsername: player1Data.username,
+							rightPlayerUsername: player2Data.username,
+							scoreGoal: 5,
+							startDate: new Date(),
+						});
+					} catch (error) {
+						fastify.log.error({ err: error }, 'Failed to create VS game %s in database', gameId);
+					}
 
 					cache.active_1v1_games.set(gameId, newGame);
 					
-					fastify.log.info('Game %s created in memory, waiting for both players to connect before saving to DB', gameId);
+					fastify.log.info('Game %s created in memory and persisted, waiting for players to connect', gameId);
 				}
 			})();
 		});

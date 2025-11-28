@@ -1,4 +1,4 @@
-import { PrismaClient, TournamentRound } from "@prisma/client";
+import { PrismaClient, TournamentRound, Prisma } from "@prisma/client";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 
 const EMPTY_SLOT_USERNAME = 'Empty slot';
@@ -10,19 +10,19 @@ export type BracketNode = {
     position: number;
     leftPlayerId?: string | null;
     rightPlayerId?: string | null;
-    nextGameId?: string;
+    nextGameId?: string;    
     tournamentRound?: 'QUARTI' | 'SEMIFINALE' | 'FINALE';
 };
 
 export class BracketGenerator {
-    private db: PrismaClient | any;
+    private db: PrismaClient | Prisma.TransactionClient;
     private static PLACEHOLDER_USER_ID = 'placeholder-tournament-user';
 
-    constructor(db: PrismaClient | any) {
+    constructor(db: PrismaClient | Prisma.TransactionClient) {
         this.db = db;
     }
 
-    private async ensurePlaceholderUser(tx: any): Promise<string> {
+    private async ensurePlaceholderUser(tx: Prisma.TransactionClient): Promise<string> {
         try {
             let user = await tx.user.findUnique({
                 where: { id: BracketGenerator.PLACEHOLDER_USER_ID }
@@ -37,11 +37,15 @@ export class BracketGenerator {
                         preferredLanguage: 'en'
                     }
                 });
+            } else if (user.username !== EMPTY_SLOT_USERNAME) {
+                await tx.user.update({
+                    where: { id: BracketGenerator.PLACEHOLDER_USER_ID },
+                    data: { username: EMPTY_SLOT_USERNAME }
+                });
             }
             
             return user.id;
         } catch (error) {
-            // If user already exists, just return the ID
             return BracketGenerator.PLACEHOLDER_USER_ID;
         }
     }
@@ -82,7 +86,6 @@ export class BracketGenerator {
                     }
                 }
 
-                // Determina il round del torneo basandosi sul round del bracket
                 let tournamentRound: 'QUARTI' | 'SEMIFINALE' | 'FINALE';
                 if (round === 3) {
                     tournamentRound = 'FINALE';
@@ -107,12 +110,11 @@ export class BracketGenerator {
         return bracket;
     }
 
-     // Crea le partite nel database con supporto per transazioni
     async createBracketGames(
         tournamentId: string,
         bracket: BracketNode[]
     ): Promise<void> {
-        const executeTransaction = async (tx: any) => {
+        const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const placeholderUserId = await this.ensurePlaceholderUser(tx);
 
             const sorted = [...bracket].sort((a, b) => b.round - a.round);
@@ -136,6 +138,8 @@ export class BracketGenerator {
                         select: { username: true }
                     });
                     leftPlayerUsername = leftUser?.username || null;
+                } else {
+                    leftPlayerUsername = EMPTY_SLOT_USERNAME;
                 }
 
                 if (node.rightPlayerId && node.rightPlayerId !== placeholderUserId) {
@@ -144,6 +148,8 @@ export class BracketGenerator {
                         select: { username: true }
                     });
                     rightPlayerUsername = rightUser?.username || null;
+                } else {
+                    rightPlayerUsername = EMPTY_SLOT_USERNAME;
                 }
 
                 await tx.game.create({
@@ -166,7 +172,7 @@ export class BracketGenerator {
             }
         };
 
-        if ('$transaction' in this.db) {
+        if (this.db instanceof PrismaClient) {
             await this.db.$transaction(executeTransaction);
         } else {
             await executeTransaction(this.db);
@@ -174,11 +180,11 @@ export class BracketGenerator {
     }
 
     //AI game
-    async updateGameTypeForAIPlayers(tournamentId: string): Promise<void> {
-        const executeTransaction = async (tx: any) => {
-            const aiPlayerService = new AIPlayerService(tx);
+    async updateGameTypeForAIPlayers(tournamentId: string, tx?: Prisma.TransactionClient): Promise<void> {
+        const executeTransaction = async (client: Prisma.TransactionClient) => {
+            const aiPlayerService = new AIPlayerService(client);
             
-            const games = await tx.game.findMany({
+            const games = await client.game.findMany({
                 where: { tournamentId },
                 select: {
                     id: true,
@@ -192,7 +198,7 @@ export class BracketGenerator {
                 const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
 
                 if (isLeftAI || isRightAI) {
-                    await tx.game.update({
+                    await client.game.update({
                         where: { id: game.id },
                         data: { type: 'AI' }
                     });
@@ -201,7 +207,9 @@ export class BracketGenerator {
             }
         };
 
-        if ('$transaction' in this.db) {
+        if (tx) {
+            await executeTransaction(tx);
+        } else if (this.db instanceof PrismaClient) {
             await this.db.$transaction(executeTransaction);
         } else {
             await executeTransaction(this.db);
@@ -216,9 +224,6 @@ export class BracketGenerator {
         await this.createBracketGames(tournamentId, bracket);
         return bracket;
     }
-
-
-
     
      // Debug:
     printBracket(bracket: BracketNode[]): void {
@@ -254,84 +259,6 @@ export class BracketGenerator {
         return bracket.find(node => !node.nextGameId);
     }
 
-
-    async assignParticipantToSlot(tournamentId: string, participantId: string): Promise<void> {
-        const executeTransaction = async (tx: any) => {
-            const participant = await tx.user.findUnique({
-                where: { id: participantId },
-                select: { username: true }
-            });
-
-            if (!participant) {
-                throw new Error(`Participant ${participantId} not found`);
-            }
-
-            const quarterFinalGames = await tx.game.findMany({
-                where: {
-                    tournamentId,
-                    tournamentRound: 'QUARTI'
-                },
-                select: {
-                    id: true,
-                    leftPlayerId: true,
-                    rightPlayerId: true,
-                    leftPlayerUsername: true,
-                    rightPlayerUsername: true
-                },
-                orderBy: [
-                    { startDate: 'asc' },
-                    { id: 'asc' }
-                ]
-            });
-
-            const placeholderUserId = await this.ensurePlaceholderUser(tx);
-            const availableSlots: { gameId: string, position: 'left' | 'right' }[] = [];
-
-            console.log('Quarter final games found:', quarterFinalGames.length);
-            
-            const isSlotEmpty = (playerId: string | null, username: string | null | undefined, placeholderId: string): boolean => {
-                if (!playerId) return true;
-                
-                if (playerId === placeholderId) return true;
-                
-                if (playerId && username === null) return true;
-                
-                return false;
-            };
-
-            for (const game of quarterFinalGames) {
-                if (isSlotEmpty(game.leftPlayerId, game.leftPlayerUsername, placeholderUserId)) {
-                    availableSlots.push({ gameId: game.id, position: 'left' as const });
-                }
-                if (isSlotEmpty(game.rightPlayerId, game.rightPlayerUsername, placeholderUserId)) {
-                    availableSlots.push({ gameId: game.id, position: 'right' as const });
-                }
-            }
-
-            if (availableSlots.length === 0) {
-                throw new Error('Nessun slot disponibile nei quarti di finale');
-            }
-
-            const randomIndex = Math.floor(Math.random() * availableSlots.length);
-            const selectedSlot = availableSlots[randomIndex];
-
-            const updateData = selectedSlot.position === 'left' 
-                ? { leftPlayerId: participantId, leftPlayerUsername: participant.username }
-                : { rightPlayerId: participantId, rightPlayerUsername: participant.username };
-
-            await tx.game.update({
-                where: { id: selectedSlot.gameId },
-                data: updateData
-            });
-        };
-
-        if ('$transaction' in this.db) {
-            await this.db.$transaction(executeTransaction);
-        } else {
-            await executeTransaction(this.db);
-        }
-    }
-
     async getBracketFromDatabase(tournamentId: string): Promise<BracketNode[]> {
         const games = await this.db.game.findMany({
             where: { tournamentId },
@@ -341,8 +268,6 @@ export class BracketGenerator {
             ]
         });
 
-        // Converti i giochi del database in BracketNode
-        // Determina il round basandosi sulla struttura del bracket
         const bracket: BracketNode[] = [];
         const gameMap = new Map<string, any>();
         
@@ -414,13 +339,6 @@ export class BracketGenerator {
         return occupiedSlots;
     }
 
-    private isPlaceholderUser(userId: string | null): boolean {
-        if (!userId) return false;
-        return userId === BracketGenerator.PLACEHOLDER_USER_ID || 
-               userId === 'placeholder-tournament-user' ||
-               userId.includes('placeholder');
-    }
-
     async getOccupiedSlots(tournamentId: string): Promise<Map<number, string>> {
         const games = await this.db.game.findMany({
             where: { tournamentId },
@@ -454,8 +372,92 @@ export class BracketGenerator {
         return slotMap;
     }
 
+    private isPlaceholderUser(userId: string | null): boolean {
+        if (!userId) return false;
+        return userId === BracketGenerator.PLACEHOLDER_USER_ID || 
+               userId === 'placeholder-tournament-user' ||
+               userId.includes('placeholder');
+    }
+
+    async assignParticipantToSlot(tournamentId: string, participantId: string): Promise<void> {
+        const executeTransaction = async (tx: Prisma.TransactionClient) => {
+            const participant = await tx.user.findUnique({
+                where: { id: participantId },
+                select: { username: true }
+            });
+
+            if (!participant) {
+                throw new Error(`Participant ${participantId} not found`);
+            }
+
+            const quarterFinalGames = await tx.game.findMany({
+                where: {
+                    tournamentId,
+                    tournamentRound: 'QUARTI'
+                },
+                select: {
+                    id: true,
+                    leftPlayerId: true,
+                    rightPlayerId: true,
+                    leftPlayerUsername: true,
+                    rightPlayerUsername: true
+                },
+                orderBy: [
+                    { startDate: 'asc' },
+                    { id: 'asc' }
+                ]
+            });
+
+            const placeholderUserId = await this.ensurePlaceholderUser(tx);
+            const availableSlots: { gameId: string, position: 'left' | 'right' }[] = [];
+
+            console.log('Quarter final games found:', quarterFinalGames.length);
+            
+            const isSlotEmpty = (playerId: string | null, username: string | null | undefined, placeholderId: string): boolean => {
+                if (!playerId) return true;
+                
+                if (playerId === placeholderId) return true;
+                
+                if (playerId && username === null) return true;
+                
+                return false;
+            };
+
+            for (const game of quarterFinalGames) {
+                if (isSlotEmpty(game.leftPlayerId, game.leftPlayerUsername, placeholderUserId)) {
+                    availableSlots.push({ gameId: game.id, position: 'left' as const });
+                }
+                if (isSlotEmpty(game.rightPlayerId, game.rightPlayerUsername, placeholderUserId)) {
+                    availableSlots.push({ gameId: game.id, position: 'right' as const });
+                }
+            }
+
+            if (availableSlots.length === 0) {
+                throw new Error('Nessun slot disponibile nei quarti di finale');
+            }
+
+            const randomIndex = Math.floor(Math.random() * availableSlots.length);
+            const selectedSlot = availableSlots[randomIndex];
+
+            const updateData = selectedSlot.position === 'left' 
+                ? { leftPlayerId: participantId, leftPlayerUsername: participant.username }
+                : { rightPlayerId: participantId, rightPlayerUsername: participant.username };
+
+            await tx.game.update({
+                where: { id: selectedSlot.gameId },
+                data: updateData
+            });
+        };
+
+        if (this.db instanceof PrismaClient) {
+            await this.db.$transaction(executeTransaction);
+        } else {
+            await executeTransaction(this.db);
+        }
+    }
+
     async removeParticipantFromSlots(tournamentId: string, userId: string): Promise<void> {
-        const executeTransaction = async (tx: any) => {
+        const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const placeholderUserId = await this.ensurePlaceholderUser(tx);
             const games = await tx.game.findMany({
                 where: {
@@ -494,7 +496,7 @@ export class BracketGenerator {
             }
         };
 
-        if ('$transaction' in this.db) {
+        if (this.db instanceof PrismaClient) {
             await this.db.$transaction(executeTransaction);
         } else {
             await executeTransaction(this.db);
@@ -502,7 +504,7 @@ export class BracketGenerator {
     }
 
     async fillEmptySlotsWithAI(tournamentId: string): Promise<string[]> {
-        const executeTransaction = async (tx: any) => {
+        const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const aiPlayerService = new AIPlayerService(tx);
             const placeholderUserId = await this.ensurePlaceholderUser(tx);
             const aiSlotsFilled: string[] = [];
@@ -510,7 +512,7 @@ export class BracketGenerator {
             const quarterFinalGames = await tx.game.findMany({
                 where: {
                     tournamentId,
-                    tournamentRound: 'QUARTI' // Filtra solo per partite dei quarti di finale
+                    tournamentRound: 'QUARTI'
                 },
                 orderBy: [
                     { startDate: 'asc' },
@@ -524,14 +526,14 @@ export class BracketGenerator {
                 if (!game.leftPlayerId || game.leftPlayerId === '' || 
                     game.leftPlayerId === placeholderUserId || 
                     game.leftPlayerUsername === undefined) {
-                    updateData.leftPlayerUsername = null; // Set to null for AI
+                    updateData.leftPlayerUsername = null;
                     aiSlotsFilled.push(`${game.id}-left`);
                 }
 
                 if (!game.rightPlayerId || game.rightPlayerId === '' || 
                     game.rightPlayerId === placeholderUserId || 
                     game.rightPlayerUsername === undefined) {
-                    updateData.rightPlayerUsername = null; // Set to null for AI
+                    updateData.rightPlayerUsername = null;
                     aiSlotsFilled.push(`${game.id}-right`);
                 }
 
@@ -543,13 +545,12 @@ export class BracketGenerator {
                 }
             }
 
-            await this.updateGameTypeForAIPlayers(tournamentId);
+            await this.updateGameTypeForAIPlayers(tournamentId, tx);
 
-            // Process all AI vs AI matches automatically using new username system
             const allTournamentGames = await tx.game.findMany({
                 where: {
                     tournamentId,
-                    endDate: null // Only unfinished games
+                    endDate: null
                 },
                 select: {
                     id: true,
@@ -576,7 +577,7 @@ export class BracketGenerator {
             return aiSlotsFilled;
         };
 
-        if ('$transaction' in this.db) {
+        if (this.db instanceof PrismaClient) {
             return await this.db.$transaction(executeTransaction);
         } else {
             return await executeTransaction(this.db);
