@@ -38,7 +38,6 @@ export class BracketGenerator {
                     }
                 });
             } else if (user.username !== EMPTY_SLOT_USERNAME) {
-                // Update username if it's different (e.g., old "Tournament Placeholder")
                 await tx.user.update({
                     where: { id: BracketGenerator.PLACEHOLDER_USER_ID },
                     data: { username: EMPTY_SLOT_USERNAME }
@@ -47,7 +46,6 @@ export class BracketGenerator {
             
             return user.id;
         } catch (error) {
-            // If user already exists, just return the ID
             return BracketGenerator.PLACEHOLDER_USER_ID;
         }
     }
@@ -88,7 +86,6 @@ export class BracketGenerator {
                     }
                 }
 
-                // Determina il round del torneo basandosi sul round del bracket
                 let tournamentRound: 'QUARTI' | 'SEMIFINALE' | 'FINALE';
                 if (round === 3) {
                     tournamentRound = 'FINALE';
@@ -113,7 +110,6 @@ export class BracketGenerator {
         return bracket;
     }
 
-     // Crea le partite nel database con supporto per transazioni
     async createBracketGames(
         tournamentId: string,
         bracket: BracketNode[]
@@ -143,7 +139,6 @@ export class BracketGenerator {
                     });
                     leftPlayerUsername = leftUser?.username || null;
                 } else {
-                    // Empty slot - use placeholder username
                     leftPlayerUsername = EMPTY_SLOT_USERNAME;
                 }
 
@@ -154,7 +149,6 @@ export class BracketGenerator {
                     });
                     rightPlayerUsername = rightUser?.username || null;
                 } else {
-                    // Empty slot - use placeholder username
                     rightPlayerUsername = EMPTY_SLOT_USERNAME;
                 }
 
@@ -214,13 +208,10 @@ export class BracketGenerator {
         };
 
         if (tx) {
-            // Use provided transaction
             await executeTransaction(tx);
         } else if (this.db instanceof PrismaClient) {
-            // Create new transaction
             await this.db.$transaction(executeTransaction);
         } else {
-            // Use existing transaction
             await executeTransaction(this.db);
         }
     }
@@ -233,9 +224,6 @@ export class BracketGenerator {
         await this.createBracketGames(tournamentId, bracket);
         return bracket;
     }
-
-
-
     
      // Debug:
     printBracket(bracket: BracketNode[]): void {
@@ -271,6 +259,125 @@ export class BracketGenerator {
         return bracket.find(node => !node.nextGameId);
     }
 
+    async getBracketFromDatabase(tournamentId: string): Promise<BracketNode[]> {
+        const games = await this.db.game.findMany({
+            where: { tournamentId },
+            orderBy: [
+                { startDate: 'asc' },
+                { id: 'asc' }
+            ]
+        });
+
+        const bracket: BracketNode[] = [];
+        const gameMap = new Map<string, any>();
+        
+        games.forEach((game: any) => {
+            gameMap.set(game.id, game);
+        });
+
+        games.forEach((game: any) => {
+            let round = 1;
+            let currentGame = game;
+            
+            while (currentGame.nextGameId) {
+                round++;
+                currentGame = gameMap.get(currentGame.nextGameId);
+                if (!currentGame) break;
+            }
+
+            const gamesInRound = games.filter((g: any) => {
+                let r = 1;
+                let curr = g;
+                while (curr.nextGameId) {
+                    r++;
+                    curr = gameMap.get(curr.nextGameId);
+                    if (!curr) break;
+                }
+                return r === round;
+            });
+
+            const position = gamesInRound.findIndex((g: any) => g.id === game.id);
+
+            bracket.push({
+                gameId: game.id,
+                round,
+                position,
+                leftPlayerId: game.leftPlayerId || null,
+                rightPlayerId: game.rightPlayerId || null,
+                nextGameId: game.nextGameId || undefined,
+                tournamentRound: game.tournamentRound as 'QUARTI' | 'SEMIFINALE' | 'FINALE' | undefined
+            });
+        });
+
+        return bracket.sort((a, b) => a.round - b.round || a.position - b.position);
+    }
+
+    async getOccupiedSlotsCount(tournamentId: string): Promise<number> {
+        const quarterFinalGames = await this.db.game.findMany({
+            where: {
+                tournamentId,
+                tournamentRound: 'QUARTI' as any
+            },
+            select: {
+                leftPlayerUsername: true,
+                rightPlayerUsername: true
+            }
+        });
+
+        let occupiedSlots = 0;
+        const placeholderUserId = BracketGenerator.PLACEHOLDER_USER_ID;
+        
+        for (const game of quarterFinalGames) {
+            if (game.leftPlayerUsername !== undefined && game.leftPlayerUsername !== null) {
+                occupiedSlots++;
+            }
+            if (game.rightPlayerUsername !== undefined && game.rightPlayerUsername !== null) {
+                occupiedSlots++;
+            }
+        }
+
+        return occupiedSlots;
+    }
+
+    async getOccupiedSlots(tournamentId: string): Promise<Map<number, string>> {
+        const games = await this.db.game.findMany({
+            where: { tournamentId },
+            select: {
+                id: true,
+                leftPlayerId: true,
+                rightPlayerId: true,
+                tournamentRound: true
+            },
+            orderBy: [
+                { tournamentRound: 'asc' },
+                { id: 'asc' }
+            ]
+        });
+
+        const slotMap = new Map<number, string>();
+        let slotIndex = 0;
+
+        for (const game of games) {
+            if (game.leftPlayerId && !this.isPlaceholderUser(game.leftPlayerId)) {
+                slotMap.set(slotIndex, game.leftPlayerId);
+            }
+            slotIndex++;
+            
+            if (game.rightPlayerId && !this.isPlaceholderUser(game.rightPlayerId)) {
+                slotMap.set(slotIndex, game.rightPlayerId);
+            }
+            slotIndex++;
+        }
+
+        return slotMap;
+    }
+
+    private isPlaceholderUser(userId: string | null): boolean {
+        if (!userId) return false;
+        return userId === BracketGenerator.PLACEHOLDER_USER_ID || 
+               userId === 'placeholder-tournament-user' ||
+               userId.includes('placeholder');
+    }
 
     async assignParticipantToSlot(tournamentId: string, participantId: string): Promise<void> {
         const executeTransaction = async (tx: Prisma.TransactionClient) => {
@@ -349,128 +456,6 @@ export class BracketGenerator {
         }
     }
 
-    async getBracketFromDatabase(tournamentId: string): Promise<BracketNode[]> {
-        const games = await this.db.game.findMany({
-            where: { tournamentId },
-            orderBy: [
-                { startDate: 'asc' },
-                { id: 'asc' }
-            ]
-        });
-
-        // Converti i giochi del database in BracketNode
-        // Determina il round basandosi sulla struttura del bracket
-        const bracket: BracketNode[] = [];
-        const gameMap = new Map<string, any>();
-        
-        games.forEach((game: any) => {
-            gameMap.set(game.id, game);
-        });
-
-        games.forEach((game: any) => {
-            let round = 1;
-            let currentGame = game;
-            
-            while (currentGame.nextGameId) {
-                round++;
-                currentGame = gameMap.get(currentGame.nextGameId);
-                if (!currentGame) break;
-            }
-
-            const gamesInRound = games.filter((g: any) => {
-                let r = 1;
-                let curr = g;
-                while (curr.nextGameId) {
-                    r++;
-                    curr = gameMap.get(curr.nextGameId);
-                    if (!curr) break;
-                }
-                return r === round;
-            });
-
-            const position = gamesInRound.findIndex((g: any) => g.id === game.id);
-
-            bracket.push({
-                gameId: game.id,
-                round,
-                position,
-                leftPlayerId: game.leftPlayerId || null,
-                rightPlayerId: game.rightPlayerId || null,
-                nextGameId: game.nextGameId || undefined,
-                tournamentRound: game.tournamentRound as 'QUARTI' | 'SEMIFINALE' | 'FINALE' | undefined
-            });
-        });
-
-        return bracket.sort((a, b) => a.round - b.round || a.position - b.position);
-    }
-
-    async getOccupiedSlotsCount(tournamentId: string): Promise<number> {
-        const quarterFinalGames = await this.db.game.findMany({
-            where: {
-                tournamentId,
-                tournamentRound: 'QUARTI' as any
-            },
-            select: {
-                leftPlayerUsername: true,
-                rightPlayerUsername: true
-            }
-        });
-
-        let occupiedSlots = 0;
-        const placeholderUserId = BracketGenerator.PLACEHOLDER_USER_ID;
-        
-        for (const game of quarterFinalGames) {
-            if (game.leftPlayerUsername !== undefined && game.leftPlayerUsername !== null) {
-                occupiedSlots++;
-            }
-            if (game.rightPlayerUsername !== undefined && game.rightPlayerUsername !== null) {
-                occupiedSlots++;
-            }
-        }
-
-        return occupiedSlots;
-    }
-
-    private isPlaceholderUser(userId: string | null): boolean {
-        if (!userId) return false;
-        return userId === BracketGenerator.PLACEHOLDER_USER_ID || 
-               userId === 'placeholder-tournament-user' ||
-               userId.includes('placeholder');
-    }
-
-    async getOccupiedSlots(tournamentId: string): Promise<Map<number, string>> {
-        const games = await this.db.game.findMany({
-            where: { tournamentId },
-            select: {
-                id: true,
-                leftPlayerId: true,
-                rightPlayerId: true,
-                tournamentRound: true
-            },
-            orderBy: [
-                { tournamentRound: 'asc' },
-                { id: 'asc' }
-            ]
-        });
-
-        const slotMap = new Map<number, string>();
-        let slotIndex = 0;
-
-        for (const game of games) {
-            if (game.leftPlayerId && !this.isPlaceholderUser(game.leftPlayerId)) {
-                slotMap.set(slotIndex, game.leftPlayerId);
-            }
-            slotIndex++;
-            
-            if (game.rightPlayerId && !this.isPlaceholderUser(game.rightPlayerId)) {
-                slotMap.set(slotIndex, game.rightPlayerId);
-            }
-            slotIndex++;
-        }
-
-        return slotMap;
-    }
-
     async removeParticipantFromSlots(tournamentId: string, userId: string): Promise<void> {
         const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const placeholderUserId = await this.ensurePlaceholderUser(tx);
@@ -527,7 +512,7 @@ export class BracketGenerator {
             const quarterFinalGames = await tx.game.findMany({
                 where: {
                     tournamentId,
-                    tournamentRound: 'QUARTI' // Filtra solo per partite dei quarti di finale
+                    tournamentRound: 'QUARTI'
                 },
                 orderBy: [
                     { startDate: 'asc' },
@@ -541,14 +526,14 @@ export class BracketGenerator {
                 if (!game.leftPlayerId || game.leftPlayerId === '' || 
                     game.leftPlayerId === placeholderUserId || 
                     game.leftPlayerUsername === undefined) {
-                    updateData.leftPlayerUsername = null; // Set to null for AI
+                    updateData.leftPlayerUsername = null;
                     aiSlotsFilled.push(`${game.id}-left`);
                 }
 
                 if (!game.rightPlayerId || game.rightPlayerId === '' || 
                     game.rightPlayerId === placeholderUserId || 
                     game.rightPlayerUsername === undefined) {
-                    updateData.rightPlayerUsername = null; // Set to null for AI
+                    updateData.rightPlayerUsername = null;
                     aiSlotsFilled.push(`${game.id}-right`);
                 }
 
@@ -562,11 +547,10 @@ export class BracketGenerator {
 
             await this.updateGameTypeForAIPlayers(tournamentId, tx);
 
-            // Process all AI vs AI matches automatically using new username system
             const allTournamentGames = await tx.game.findMany({
                 where: {
                     tournamentId,
-                    endDate: null // Only unfinished games
+                    endDate: null
                 },
                 select: {
                     id: true,
