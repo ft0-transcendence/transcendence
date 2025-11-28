@@ -1,4 +1,4 @@
-import { User, GameType } from '@prisma/client';
+import { User } from '@prisma/client';
 
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 import { cache, addUserToOnlineCache, removeUserFromOnlineCache, isUserOnline } from './cache';
@@ -10,9 +10,6 @@ import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
 import { updateGameStats } from './utils/statsUtils';
 
-/**
- * Funzione centralizzata per gestire la fine di una partita VS
- */
 async function handleVSGameFinish(gameId: string, state: any, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
 	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
 	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);

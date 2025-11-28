@@ -54,7 +54,6 @@ export class AIPlayerService {
                 }
             });
 
-            // If there's a next game, advance the AI winner to next game
             if (game.nextGameId) {
                 await this.advanceAIWinnerToNextGame(tx, game.nextGameId);
             }
@@ -80,7 +79,6 @@ export class AIPlayerService {
             throw new Error(`Next game ${nextGameId} not found`);
         }
 
-        // Assign AI player to the first available position
         if (nextGame.leftPlayerUsername === undefined) {
             await tx.game.update({
                 where: { id: nextGameId },
@@ -149,6 +147,4 @@ export class AIPlayerService {
 
         return this.isAIPlayer(game.leftPlayerUsername) || this.isAIPlayer(game.rightPlayerUsername);
     }
-
-
 }

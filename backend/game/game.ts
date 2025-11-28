@@ -101,13 +101,10 @@ export class Game {
 	public paddles: Paddles;
 	public scores: Scores;
 
-	// Tick listeners to notify external systems (e.g., OnlineGame) after each update
 	private tickListeners: Array<(state: GameStatus, now: number) => void> = [];
 	
-	// listeners to update db when a player scores
 	private scoreListeners: Array<(scores: Scores) => void> = [];
 
-	// Local-only: store players for local games
 	private _leftPlayer: GameUserInfo | null = null;
 	private _rightPlayer: GameUserInfo | null = null;
 	private leftPlayerReady: boolean = false;
