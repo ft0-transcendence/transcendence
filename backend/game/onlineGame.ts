@@ -1,6 +1,4 @@
 import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState } from "./game";
-import { db } from '../src/trpc/db';
-import { GameType } from '@prisma/client';
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
@@ -14,7 +12,6 @@ export class OnlineGame extends Game {
 	protected finished = false;
 	protected onFinish?: FinishCallback;
 	public wasForfeited = false;
-	public pendingDbCreation: any = null;
 
 	private readonly GRACE_MS = 15000; // 15s
 	private readonly ABORT_WARNING_AT_MS = 5000; // Warning quando rimangono 5s
