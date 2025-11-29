@@ -98,6 +98,14 @@ export const it: TranslationSchema = {
 	game: {
 		player_disconnected: 'Giocatore {{playerName}} si è disconnesso',
 		time_left_before_forfeit: 'Vittoria a tavolino in {{timeLeftMs}} secondi',
+		aborted: {
+			user_not_reconnected: 'Partita finita perché {{username}} non si è riconnesso in tempo',
+			generic: 'Partita annullata'
+		},
+		game_finished: 'Partita finita',
+		waiting_other_player: `In attesa che l'altro giocatore si unisca...`,
+		score_goal: 'Primo che arriva a {{score_goal}} vince!',
+		movement_instructions: 'Per muoverti usando <b>W</b> - <b>S</b> o <b>↑</b> - <b>↓</b>',
 	},
 	game_modes: {
 		ai: '1 vs IA',

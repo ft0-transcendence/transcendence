@@ -1,4 +1,6 @@
 import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState } from "./game";
+import { db } from '../src/trpc/db';
+import { GameType } from "@prisma/client";
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
@@ -80,7 +82,7 @@ export class OnlineGame extends Game {
 		}
 		if (this.playerLeftReady && this.playerRightReady) {
 			this.createInDatabaseIfNeeded();
-			
+
 			this.start();
 			if (this.socketNamespace) {
 				this.socketNamespace.to(this.gameId).emit("game-state", this.getState());
@@ -91,7 +93,7 @@ export class OnlineGame extends Game {
 	private async createInDatabaseIfNeeded() {
 		if (this.pendingDbCreation) {
 			console.log(`🎮 Both players ready for game ${this.gameId}, creating in database now`);
-			
+
 			try {
 				let leftPlayerUsername: string | null = null;
 				let rightPlayerUsername: string | null = null;
@@ -124,7 +126,7 @@ export class OnlineGame extends Game {
 						scoreGoal: this.pendingDbCreation.scoreGoal,
 					},
 				});
-				
+
 				console.log(`✅ Game ${this.gameId} successfully created in database`);
 				this.pendingDbCreation = null; // Clear pending flag
 			} catch (error) {
@@ -261,7 +263,7 @@ export class OnlineGame extends Game {
 					const opponentName = this.getPlayerName(opponentId ?? '');
 
 					if (opponentId) {
-						const FORFEIT_WIN = 5;
+						const FORFEIT_WIN = (this.config.maxScore ?? STANDARD_GAME_CONFIG.maxScore)!;
 						const FORFEIT_LOSS = 0;
 						if (this.leftPlayer && this.rightPlayer) {
 							if (opponentId === this.leftPlayer.id) {

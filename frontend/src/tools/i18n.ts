@@ -144,7 +144,7 @@ export const t = <K extends LanguageKeys>(key: K, options?: Record<string, any>)
 }
 export const getTranslation = t;
 
-export function updateDOMTranslations(container: HTMLElement | Document = document) {
+export function updateDOMTranslations(container: HTMLElement | Element | Document = document) {
 	const getValue =(element: HTMLElement, attributePrefix: string = '') => {
 		const attrPrefixStr = attributePrefix ? `${attributePrefix}-` : '';
 		const key = element.getAttribute(`data-${attrPrefixStr}i18n`);

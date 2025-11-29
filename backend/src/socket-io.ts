@@ -225,7 +225,6 @@ function setupMatchmakingNamespace(io: Server) {
 							rightPlayerId: player2Data.id,
 							leftPlayerUsername: player1Data.username,
 							rightPlayerUsername: player2Data.username,
-							scoreGoal: 5,
 							startDate: new Date(),
 						});
 					} catch (error) {

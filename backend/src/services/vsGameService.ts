@@ -1,6 +1,7 @@
 import { GameType, PrismaClient } from '@prisma/client';
 
 import { updateGameStats } from '../utils/statsUtils';
+import { STANDARD_GAME_CONFIG } from '../../game/game';
 
 export type CreateVsGameParams = {
 	gameId: string;
@@ -28,7 +29,7 @@ export async function createVsGameRecord(db: PrismaClient, params: CreateVsGameP
 		rightPlayerId,
 		leftPlayerUsername = null,
 		rightPlayerUsername = null,
-		scoreGoal = 5,
+		scoreGoal = STANDARD_GAME_CONFIG.maxScore,
 		startDate = new Date(),
 	} = params;
 
@@ -46,7 +47,7 @@ export async function createVsGameRecord(db: PrismaClient, params: CreateVsGameP
 			id: gameId,
 			type: GameType.VS,
 			startDate,
-			scoreGoal,
+			scoreGoal: params.scoreGoal,
 			leftPlayerId,
 			rightPlayerId,
 			leftPlayerUsername,

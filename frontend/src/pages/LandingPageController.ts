@@ -13,7 +13,7 @@ export class LandingPageController extends RouteController {
 		maxVelocity: 0.175,
 		paddleSpeed: 0.90,
 		movementSensitivity: 0.69,
-		maxScore: undefined,
+		maxScore: null,
 		paddleHeightPercentage: 20,
 		debug: false,
 		shouldUseRequestAnimationFrame: true,

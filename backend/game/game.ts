@@ -32,6 +32,7 @@ export interface GameStatus {
 	paddles: Paddles;
 	scores: Scores;
 	state: GameState;
+	gameScoreGoal?: number;
 
 	// Timestamp in ms when countdown ends (for 3-2-1 START). Null if not counting.
 	countdownEndsAt: number | null;
@@ -46,7 +47,7 @@ export type GameConfig = {
 	shouldUseRequestAnimationFrame?: boolean;
 
 	gameStartCountdown: number;
-	maxScore?: number;
+	maxScore?: number | null;
 
 	initialVelocity: number;
 	velocityIncrease: number;
@@ -67,14 +68,14 @@ export type GameUserInfo = {
 
 const BALL_RADIUS = 1.5;
 const COLLISION_OFFSET = 0.5;
-const TARGET_FPS = 60;
+const TARGET_FPS = 120;
 const FRAME_TIME_MS = 1000 / TARGET_FPS;
 
 export const STANDARD_GAME_CONFIG: GameConfig = {
 	debug: false,
 	shouldUseRequestAnimationFrame: false,
 	gameStartCountdown: 3000,
-	maxScore: 5,
+	maxScore: 50000,
 	initialVelocity: 0.05,
 	velocityIncrease: 0.000005,
 	maxVelocity: 0.16,
@@ -85,7 +86,7 @@ export const STANDARD_GAME_CONFIG: GameConfig = {
 };
 
 export class Game {
-	#config: GameConfig;
+	protected config: GameConfig;
 
 
 	private inputState = {
@@ -102,7 +103,7 @@ export class Game {
 	public scores: Scores;
 
 	private tickListeners: Array<(state: GameStatus, now: number) => void> = [];
-	
+
 	private scoreListeners: Array<(scores: Scores) => void> = [];
 
 	private _leftPlayer: GameUserInfo | null = null;
@@ -111,7 +112,7 @@ export class Game {
 	private rightPlayerReady: boolean = false;
 
 	constructor(config: Partial<GameConfig> = {}) {
-		this.#config = {
+		this.config = {
 			...STANDARD_GAME_CONFIG,
 			...config
 		} as GameConfig;
@@ -124,7 +125,7 @@ export class Game {
 			y: 50,
 			dirX: 0,
 			dirY: 0,
-			velocity: this.#config.initialVelocity,
+			velocity: this.config.initialVelocity,
 		};
 
 		this.paddles = {
@@ -137,9 +138,9 @@ export class Game {
 			right: 0,
 		};
 		if (config.maxScore && config.maxScore <= 0) {
-			this.#config.maxScore = undefined;
-		} else if (config.maxScore === undefined) {
-			this.#config.maxScore = undefined;
+			this.config.maxScore = undefined;
+		} else if (config.maxScore === null) {
+			this.config.maxScore = undefined;
 		}
 	}
 
@@ -179,9 +180,9 @@ export class Game {
 		if (this.state !== GameState.RUNNING) return;
 		if (this.isInCountdown()) return;
 
-		const speed = this.#config.paddleSpeed * this.#config.movementSensitivity;
-		const min = this.#config.paddleHeightPercentage / 2;
-		const max = 100 - this.#config.paddleHeightPercentage / 2;
+		const speed = this.config.paddleSpeed * this.config.movementSensitivity;
+		const min = this.config.paddleHeightPercentage / 2;
+		const max = 100 - this.config.paddleHeightPercentage / 2;
 
 		if (player === "left") {
 			if (direction === "up") this.paddles.left -= speed;
@@ -204,7 +205,7 @@ export class Game {
 	public resume(): void {
 		if (this.state === GameState.PAUSE) {
 			this.state = GameState.RUNNING;
-			this.countdown = Date.now() + this.#config.gameStartCountdown;
+			this.countdown = Date.now() + this.config.gameStartCountdown;
 		}
 	}
 
@@ -213,7 +214,7 @@ export class Game {
 		this.ball.y = 50;
 		this.paddles.left = 50;
 		this.paddles.right = 50;
-		this.ball.velocity = this.#config.initialVelocity;
+		this.ball.velocity = this.config.initialVelocity;
 
 		// Randomize initial direction
 		let direction: { x: number; y: number };
@@ -225,7 +226,7 @@ export class Game {
 		this.ball.dirX = direction.x;
 		this.ball.dirY = direction.y;
 
-		this.countdown = Date.now() + this.#config.gameStartCountdown;
+		this.countdown = Date.now() + this.config.gameStartCountdown;
 	}
 
 	public press(side: "left" | "right", direction: MovePaddleAction): void {
@@ -251,9 +252,9 @@ export class Game {
 		if (this.state === GameState.PAUSE) return;
 		if (this.isInCountdown()) return;
 
-		const step = this.#config.paddleSpeed * this.#config.movementSensitivity * (delta / 16);
-		const min = this.#config.paddleHeightPercentage / 2;
-		const max = 100 - this.#config.paddleHeightPercentage / 2;
+		const step = this.config.paddleSpeed * this.config.movementSensitivity * (delta / 16);
+		const min = this.config.paddleHeightPercentage / 2;
+		const max = 100 - this.config.paddleHeightPercentage / 2;
 
 		if (this.inputState.left.up && !this.inputState.left.down) {
 			this.paddles.left -= step;
@@ -273,8 +274,8 @@ export class Game {
 		this.ball.x += this.ball.dirX * this.ball.velocity * delta;
 		this.ball.y += this.ball.dirY * this.ball.velocity * delta;
 
-		const newVelocity = this.ball.velocity + this.#config.velocityIncrease * delta;
-		if (newVelocity <= this.#config.maxVelocity) {
+		const newVelocity = this.ball.velocity + this.config.velocityIncrease * delta;
+		if (newVelocity <= this.config.maxVelocity) {
 			this.ball.velocity = newVelocity;
 		}
 
@@ -301,17 +302,17 @@ export class Game {
 
 	private handlePaddleCollision(): void {
 		const ballRadius = BALL_RADIUS;
-		const paddleHeight = this.#config.paddleHeightPercentage;
-		const paddleWidth = this.#config.paddleWidthPercentage;
+		const paddleHeight = this.config.paddleHeightPercentage;
+		const paddleWidth = this.config.paddleWidthPercentage;
 
 		if (this.ball.dirX < 0) {
 			const leftPaddleX = 0;
 			const rightPaddleX = leftPaddleX + paddleWidth;
-			
+
 			if (this.ball.x >= leftPaddleX && this.ball.x <= rightPaddleX) {
 				const paddleTop = this.paddles.left - paddleHeight / 2;
 				const paddleBottom = this.paddles.left + paddleHeight / 2;
-				
+
 				if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 					this.#processPaddleCollision('left', leftPaddleX, rightPaddleX, paddleHeight);
 				}
@@ -321,11 +322,11 @@ export class Game {
 		if (this.ball.dirX > 0) {
 			const rightPaddleX = 100;
 			const leftPaddleX = rightPaddleX - paddleWidth;
-			
+
 			if (this.ball.x >= leftPaddleX && this.ball.x <= rightPaddleX) {
 				const paddleTop = this.paddles.right - paddleHeight / 2;
 				const paddleBottom = this.paddles.right + paddleHeight / 2;
-				
+
 				if (this.ball.y >= paddleTop - ballRadius && this.ball.y <= paddleBottom + ballRadius) {
 					this.#processPaddleCollision('right', leftPaddleX, rightPaddleX, paddleHeight);
 				}
@@ -336,21 +337,21 @@ export class Game {
 	#processPaddleCollision(side: 'left' | 'right', paddleLeftX: number, paddleRightX: number, paddleHeight: number): void {
 		const paddleCenter = side === 'left' ? this.paddles.left : this.paddles.right;
 		const paddleHalfHeight = paddleHeight / 2;
-		
+
 		const relativeY = (this.ball.y - paddleCenter) / paddleHalfHeight;
 		const clampedRelativeY = Math.max(-1, Math.min(1, relativeY));
-		
+
 		const angle = this.#calculateBounceAngle(clampedRelativeY);
-		
+
 		const currentSpeed = Math.sqrt(this.ball.dirX ** 2 + this.ball.dirY ** 2);
-		
+
 		if (side === 'left') {
 			this.ball.dirX = Math.abs(Math.cos(angle)) * currentSpeed;
 		} else {
 			this.ball.dirX = -Math.abs(Math.cos(angle)) * currentSpeed;
 		}
 		this.ball.dirY = Math.sin(angle) * currentSpeed;
-		
+
 		if (side === 'left') {
 			this.ball.x = paddleRightX + (BALL_RADIUS / 2);
 		} else {
@@ -360,7 +361,7 @@ export class Game {
 
 	#calculateBounceAngle(relativeY: number): number {
 		const distanceFromCenter = Math.abs(relativeY);
-		
+
 		let maxAngle: number;
 		if (distanceFromCenter > 0.95) {
 			maxAngle = Math.PI / 4; // 45 degrees
@@ -371,7 +372,7 @@ export class Game {
 		} else {
 			maxAngle = Math.PI / 8; // 22.5 degrees
 		}
-		
+
 		return Math.max(-maxAngle, Math.min(maxAngle, relativeY * maxAngle));
 	}
 
@@ -379,8 +380,8 @@ export class Game {
 		if (this.ball.x < 0) {
 			this.scores.right++;
 			this.scoreListeners.forEach(cb => cb({ ...this.scores }));
-			
-			if (this.scores.right >= (this.#config.maxScore || 5)) {
+
+			if (this.config.maxScore && this.scores.right >= this.config.maxScore) {
 				console.log(`🎯 Game finished! Right player won with score: ${this.scores.right}-${this.scores.left}`);
 				this.state = GameState.FINISH;
 				this.stopLoopIfNeeded();
@@ -395,8 +396,8 @@ export class Game {
 		} else if (this.ball.x > 100) {
 			this.scores.left++;
 			this.scoreListeners.forEach(cb => cb({ ...this.scores }));
-			
-			if (this.scores.left >= (this.#config.maxScore || 5)) {
+
+			if (this.config.maxScore && this.scores.left >= this.config.maxScore) {
 				console.log(`🎯 Game finished! Left player won with score: ${this.scores.left}-${this.scores.right}`);
 				this.state = GameState.FINISH;
 				this.stopLoopIfNeeded();
@@ -413,11 +414,12 @@ export class Game {
 
 	public getState(): GameStatus {
 		return {
-			debug: this.#config.debug,
+			debug: this.config.debug,
 			ball: { ...this.ball },
 			paddles: { ...this.paddles },
 			scores: { ...this.scores },
 			state: this.state,
+			gameScoreGoal: this.config.maxScore,
 			countdownEndsAt: this.countdown,
 			leftPlayer: this.leftPlayer,
 			rightPlayer: this.rightPlayer,
@@ -436,13 +438,13 @@ export class Game {
 	#loopAnimationFrameId: number | null = null;
 	private startLoop() {
 		this.lastTick = Date.now();
-		if (this.#config.shouldUseRequestAnimationFrame) {
+		if (this.config.shouldUseRequestAnimationFrame) {
 			this.#loopAnimationFrameId = requestAnimationFrame(() => this.#loop());
 		} else {
 			if (this.#loopAnimationInterval) {
 				clearInterval(this.#loopAnimationInterval);
 			}
-			this.#loopAnimationInterval = setInterval(() => this.#loop(), 1000 / 60);
+			this.#loopAnimationInterval = setInterval(() => this.#loop(), FRAME_TIME_MS);
 		}
 	}
 	#loop() {
@@ -450,7 +452,7 @@ export class Game {
 		const delta = Math.max(0, now - (this.lastTick ?? now));
 		this.lastTick = now;
 		this.update(delta);
-		if (this.#config.shouldUseRequestAnimationFrame) {
+		if (this.config.shouldUseRequestAnimationFrame) {
 			this.#loopAnimationFrameId = requestAnimationFrame(() => this.#loop());
 		}
 	}

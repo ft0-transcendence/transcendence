@@ -97,6 +97,14 @@ export const en = {
 	game: {
 		player_disconnected: 'Player <b>{{playerName}}</b> disconnected',
 		time_left_before_forfeit: 'Forfeit in {{timeLeftMs}} seconds',
+		aborted: {
+			user_not_reconnected: 'Game aborted because {{username}} did not reconnect in time',
+			generic: 'Game aborted'
+		},
+		game_finished: 'Game finished',
+		waiting_other_player: 'Waiting for other player to join...',
+		score_goal: 'First to {{score_goal}} wins!',
+		movement_instructions: 'To move use <b>W</b> - <b>S</b> or <b>↑</b> - <b>↓</b>',
 	},
 
 	game_modes: {

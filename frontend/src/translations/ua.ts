@@ -99,6 +99,14 @@ export const ua: TranslationSchema = {
 	game: {
 		player_disconnected: 'Гравець {{playerName}} від\'єднався',
 		time_left_before_forfeit: 'Автоматична перемога через {{timeLeftMs}} секунд',
+		aborted: {
+			user_not_reconnected: 'Гра перервана через те, що {{username}} не від\'єднався в течі',
+			generic: 'Гра перервана'
+		},
+		game_finished: 'Гра завершена',
+		waiting_other_player: 'Очікуємо на приєднання іншого гравця...',
+		score_goal: 'Перший до {{score_goal}} переможе!',
+		movement_instructions: 'Щоб переміститися використовуйте клавіші <b>Ц</b> - <b>І</b> або <b>↑</b> - <b>↓</b>',
 	},
 	game_modes: {
 		ai: '1 vs AI',

@@ -1,3 +1,4 @@
+import { STANDARD_GAME_CONFIG } from "../../shared_exports";
 import { Prisma, PrismaClient } from "@prisma/client";
 
 export class AIPlayerService {
@@ -8,7 +9,7 @@ export class AIPlayerService {
     }
 
     async assignAIPlayerToGame(gameId: string, position: 'left' | 'right'): Promise<void> {
-        const updateData = position === 'left' 
+        const updateData = position === 'left'
             ? { leftPlayerUsername: null }
             : { rightPlayerUsername: null };
 
@@ -42,7 +43,7 @@ export class AIPlayerService {
             }
 
             //TODO:logica simulazione AI vs AI
-            const leftScore = 5;
+            const leftScore = STANDARD_GAME_CONFIG.maxScore!;
             const rightScore = 0;
 
             await tx.game.update({

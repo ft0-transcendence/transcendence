@@ -7,12 +7,13 @@ import { BracketGenerator } from "../../../game/bracketGenerator";
 import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, TournamentCacheEntry } from "../../cache";
 import { broadcastBracketUpdate, broadcastParticipantJoined, broadcastParticipantLeft, broadcastTournamentStatusChange, broadcastAIPlayersAdded, broadcastTournamentDeleted } from "../../socket-io";
 import { AIPlayerService } from "../../services/aiPlayerService";
-import { 
-	TournamentValidator, 
+import {
+	TournamentValidator,
 	tournamentValidationSchemas,
 	handleTournamentError,
 	validateCacheConsistency
 } from "../../utils/tournamentValidation";
+import { STANDARD_GAME_CONFIG } from "../../../shared_exports";
 
 const TOURNAMENT_SIZES: {[key in TournamentType]: number} = {
 	EIGHT: 8
@@ -204,7 +205,7 @@ export const tournamentRouter = t.router({
 						const aiPlayerService = new AIPlayerService(ctx.db);
 						return {
 							...g,
-							scoreGoal: g.scoreGoal || 5,
+							scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
 							tournamentRound: (g as any).tournamentRound,
 							isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
 							leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
@@ -325,7 +326,7 @@ export const tournamentRouter = t.router({
 				rightPlayerScore: g.rightPlayerScore,
 				nextGameId: g.nextGameId,
 				endDate: g.endDate,
-				scoreGoal: g.scoreGoal || 5,
+				scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
 				tournamentRound: (g as any).tournamentRound,
 				leftPlayerUsername: (g as any).leftPlayerUsername,
 				rightPlayerUsername: (g as any).rightPlayerUsername,
@@ -347,7 +348,7 @@ export const tournamentRouter = t.router({
 			};
 		}),
 
-		
+
 		//user vede la sua historu dei tornei
 		getTournamentHistory: protectedProcedure
 		.input(z.object({
@@ -392,13 +393,13 @@ export const tournamentRouter = t.router({
 					}
 				}
 			});
-			
+
 			let nextCursor: typeof input.cursor | undefined = undefined;
 			if (tournaments.length > input.limit) {
 				const nextItem = tournaments.pop();
 				nextCursor = nextItem!.id;
 			}
-			
+
 			return {
 				tournaments: tournaments.map(t => ({
 					...t,
@@ -408,7 +409,7 @@ export const tournamentRouter = t.router({
 				nextCursor
 			};
 		}),
-		
+
 		joinTournamentGame: protectedProcedure
 			.input(z.object({
 				gameId: z.string()
@@ -417,7 +418,7 @@ export const tournamentRouter = t.router({
 				try {
 					const { gameId } = input;
 					const userId = ctx.user!.id;
-	
+
 					const game = await ctx.db.game.findUnique({
 						where: { id: gameId },
 						include: {
@@ -432,35 +433,35 @@ export const tournamentRouter = t.router({
 							}
 						}
 					});
-	
+
 					if (!game) {
 						throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
 					}
-	
+
 					if (game.type !== GameType.TOURNAMENT && game.type !== GameType.AI) {
 						throw new TRPCError({ code: "BAD_REQUEST", message: "Not a tournament game" });
 					}
-	
+
 					if (!game.tournament) {
 						throw new TRPCError({ code: "BAD_REQUEST", message: "Game has no associated tournament" });
 					}
-	
+
 					const isParticipant = game.tournament!.participants.some((p: any) => p.userId === userId);
 					if (!isParticipant) {
 						throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this tournament" });
 					}
-	
+
 					const isPlayerInGame = game.leftPlayerId === userId || game.rightPlayerId === userId;
 					if (!isPlayerInGame) {
 						throw new TRPCError({ code: "FORBIDDEN", message: "You are not a player in this game" });
 					}
-	
+
 					if (game.endDate) {
 						throw new TRPCError({ code: "BAD_REQUEST", message: "Game already finished" });
 					}
-	
+
 					const aiPlayerService = new AIPlayerService(ctx.db);
-					
+
 					return {
 						game: {
 							id: game.id,
@@ -469,7 +470,7 @@ export const tournamentRouter = t.router({
 							leftPlayerScore: game.leftPlayerScore,
 							rightPlayerScore: game.rightPlayerScore,
 							startDate: game.startDate,
-							scoreGoal: game.scoreGoal || 5,
+							scoreGoal: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
 							tournamentRound: game.tournamentRound,
 							leftPlayerUsername: game.leftPlayerUsername,
 							rightPlayerUsername: game.rightPlayerUsername,
@@ -485,7 +486,7 @@ export const tournamentRouter = t.router({
 						isPlayer: true,
 						playerSide: game.leftPlayerId === userId ? 'left' : 'right'
 					};
-	
+
 				} catch (error) {
 					handleTournamentError(error as Error, 'joinTournamentGame', undefined, ctx.user!.id);
 				}
@@ -547,7 +548,7 @@ export const tournamentRouter = t.router({
 
 				const updatedTournament = await tx.tournament.findUnique({
 					where: { id: input.tournamentId },
-					include: { 
+					include: {
 						participants: {
 							include: { user: { select: { id: true, username: true } } }
 						}
@@ -560,29 +561,29 @@ export const tournamentRouter = t.router({
 			const cachedTournament = cache.tournaments.active.get(input.tournamentId);
 			if (cachedTournament) {
 				cachedTournament.participants.add(ctx.user!.id);
-				
+
 				const bracketGenerator = new BracketGenerator(ctx.db);
 				const occupiedSlots = await bracketGenerator.getOccupiedSlots(input.tournamentId);
 				const participantSlots = new Map<number, string | null>();
-				
+
 				for (let i = 0; i < 8; i++) {
 					participantSlots.set(i, null);
 				}
-				
+
 				occupiedSlots.forEach((playerId, slotIndex) => {
 					participantSlots.set(slotIndex, playerId);
 				});
-				
+
 				updateTournamentBracket(input.tournamentId, participantSlots);
-				
+
 				const slotPosition = Array.from(participantSlots.entries())
 					.find(([_, playerId]) => playerId === ctx.user!.id)?.[0] ?? -1;
-				
+
 				broadcastParticipantJoined(input.tournamentId, {
 					id: ctx.user!.id,
 					username: ctx.user!.username
 				}, slotPosition);
-				
+
 				broadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
 			}
 
@@ -594,7 +595,7 @@ export const tournamentRouter = t.router({
 			}
 
 			return result.updatedTournament.participants.map(p => ({
-				id: p.user.id, 
+				id: p.user.id,
 				username: p.user.username
 			}));
 		}),
@@ -605,11 +606,11 @@ export const tournamentRouter = t.router({
 			try {
 				const tournament = await ctx.db.tournament.findUnique({
 					where: { id: input.tournamentId },
-					include: { 
+					include: {
 						participants: {
 							include: { user: { select: { id: true, username: true } } }
 						},
-						games: true 
+						games: true
 					}
 				});
 
@@ -638,17 +639,17 @@ export const tournamentRouter = t.router({
 						await tx.game.deleteMany({
 							where: { tournamentId: input.tournamentId }
 						});
-						
+
 						await tx.tournament.delete({
 							where: { id: input.tournamentId }
 						});
-						
+
 						return { tournamentDeleted: true };
 					}
 
 					const updatedTournament = await tx.tournament.findUnique({
 						where: { id: input.tournamentId },
-						include: { 
+						include: {
 							participants: {
 								include: { user: { select: { id: true, username: true } } }
 							}
@@ -670,17 +671,17 @@ export const tournamentRouter = t.router({
 					const bracketGenerator = new BracketGenerator(ctx.db);
 					const occupiedSlots = await bracketGenerator.getOccupiedSlots(input.tournamentId);
 					const participantSlots = new Map<number, string | null>();
-					
+
 					for (let i = 0; i < 8; i++) {
 						participantSlots.set(i, null);
 					}
-					
+
 					occupiedSlots.forEach((playerId, slotIndex) => {
 						participantSlots.set(slotIndex, playerId);
 					});
-					
+
 					updateTournamentBracket(input.tournamentId, participantSlots);
-					
+
 					const slotPosition = Array.from(participantSlots.entries())
 						.find(([_, playerId]) => playerId === ctx.user!.id)?.[0] ?? -1;
 
@@ -728,15 +729,15 @@ export const tournamentRouter = t.router({
 						type: true,
 						status: true,
 						startDate: true,
-						participants: { 
-							select: { 
-								user: { select: { id: true, username: true } } 
-							} 
+						participants: {
+							select: {
+								user: { select: { id: true, username: true } }
+							}
 						},
-						games: { 
-							select: { 
+						games: {
+							select: {
 								id: true,
-								leftPlayer: { select: { id: true, username: true } }, 
+								leftPlayer: { select: { id: true, username: true } },
 								rightPlayer: { select: { id: true, username: true } },
 								leftPlayerScore: true,
 								rightPlayerScore: true,
@@ -745,8 +746,8 @@ export const tournamentRouter = t.router({
 								tournamentRound: true,
 								leftPlayerUsername: true,
 								rightPlayerUsername: true
-							}, 
-							orderBy: { startDate: 'asc' } 
+							},
+							orderBy: { startDate: 'asc' }
 						}
 					}
 				});
@@ -807,8 +808,8 @@ export const tournamentRouter = t.router({
 			if (cachedTournament) {
 				cachedTournament.status = 'CANCELLED';
 				cachedTournament.aiPlayers.clear();
-				
-				broadcastTournamentStatusChange(t.id, 'CANCELLED', ctx.user!.username, 
+
+				broadcastTournamentStatusChange(t.id, 'CANCELLED', ctx.user!.username,
 					`Tournament "${t.name}" has been cancelled by the creator`);
 			}
 
@@ -821,13 +822,13 @@ export const tournamentRouter = t.router({
 			try {
 				const tournament = await ctx.db.tournament.findUnique({
 					where: { id: input.tournamentId },
-					include: { 
-						participants: { 
-							include: { 
-								user: { 
-									select: { id: true, username: true } 
-								} 
-							} 
+					include: {
+						participants: {
+							include: {
+								user: {
+									select: { id: true, username: true }
+								}
+							}
 						},
 						games: true
 					}
@@ -835,7 +836,7 @@ export const tournamentRouter = t.router({
 
 				TournamentValidator.validateTournamentExists(tournament, input.tournamentId);
 				TournamentValidator.validateCreatorPermission(tournament!.createdById, ctx.user!.id, 'delete tournament');
-				
+
 				if (tournament!.status === 'COMPLETED') {
 					throw new TRPCError({
 						code: 'BAD_REQUEST',
@@ -864,7 +865,7 @@ export const tournamentRouter = t.router({
 					});
 				});
 
-				removeTournamentFromCache(input.tournamentId);				
+				removeTournamentFromCache(input.tournamentId);
 				broadcastTournamentDeleted(input.tournamentId, tournament!.name, ctx.user!.username);
 
 				return {
@@ -922,7 +923,7 @@ export const tournamentRouter = t.router({
 					await tx.tournamentParticipant.create({
 						data: { tournamentId: tournament.id, userId: ctx.user!.id }
 					});
-					
+
 					await bracketGenerator.assignParticipantToSlot(tournament.id, ctx.user!.id);
 
 					return tournament;
@@ -932,7 +933,7 @@ export const tournamentRouter = t.router({
 				for (let i = 0; i < 8; i++) {
 					participantSlots.set(i, i === 0 ? ctx.user!.id : null);
 				}
-				
+
 				const tournamentCacheEntry: TournamentCacheEntry = {
 					id: result.id,
 					name: result.name,
@@ -946,7 +947,7 @@ export const tournamentRouter = t.router({
 					lastBracketUpdate: new Date(),
 					participantSlots
 				};
-				
+
 				addTournamentToCache(result.id, tournamentCacheEntry);
 
 				return result;
@@ -961,7 +962,7 @@ async function executeTournamentStart(db: any, tournamentId: string, startedByUs
 	const result = await db.$transaction(async (tx: any) => {
 		const bracketGenerator = new BracketGenerator(tx);
 		const occupiedSlots = await bracketGenerator.getOccupiedSlotsCount(tournamentId);
-		
+
 		let createdAIPlayers: string[] = [];
 		if (occupiedSlots < 8) {
 			createdAIPlayers = await bracketGenerator.fillEmptySlotsWithAI(tournamentId);
@@ -984,36 +985,36 @@ async function executeTournamentStart(db: any, tournamentId: string, startedByUs
 		result.createdAIPlayers.forEach((aiPlayerId: string) => {
 			cachedTournament.aiPlayers.add(aiPlayerId);
 		});
-		
+
 		const bracketGenerator = new BracketGenerator(db);
 		const occupiedSlots = await bracketGenerator.getOccupiedSlots(tournamentId);
 		const participantSlots = new Map<number, string | null>();
-		
+
 		for (let i = 0; i < 8; i++) {
 			participantSlots.set(i, null);
 		}
-		
+
 		occupiedSlots.forEach((playerId, slotIndex) => {
 			participantSlots.set(slotIndex, playerId);
 		});
-		
+
 		updateTournamentBracket(tournamentId, participantSlots);
-		
+
 		const isAutoStart = startedByUsername === 'System';
-		const message = isAutoStart 
+		const message = isAutoStart
 			? `Tournament started automatically with ${result.createdAIPlayers.length} AI players filling empty slots`
 			: `Tournament started with ${result.createdAIPlayers.length} AI players filling empty slots`;
-		
+
 		broadcastTournamentStatusChange(tournamentId, 'IN_PROGRESS', startedByUsername, message);
-		
+
 		if (result.createdAIPlayers.length > 0) {
 			const filledSlots = Array.from(participantSlots.entries())
 				.filter(([_, playerId]) => result.createdAIPlayers.includes(playerId || ''))
 				.map(([slotIndex, _]) => slotIndex);
-			
+
 			broadcastAIPlayersAdded(tournamentId, result.createdAIPlayers, filledSlots);
 		}
-		
+
 		broadcastBracketUpdate(tournamentId, participantSlots, cachedTournament.aiPlayers);
 	}
 
