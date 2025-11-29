@@ -13,7 +13,7 @@ import { createVsGameRecord, finalizeVsGameResult } from './services/vsGameServi
 async function handleVSGameFinish(gameId: string, state: any, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
 	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
 	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
-	
+
 	try {
 		await finalizeVsGameResult(db, {
 			gameId,
@@ -27,7 +27,7 @@ async function handleVSGameFinish(gameId: string, state: any, gameInstance: Onli
 	} catch (error) {
 		console.error(`❌ VS Game ${gameId} failed to finalize:`, error);
 	}
-	
+
 	cache.active_1v1_games.delete(gameId);
 	fastify.log.info("VS Game %s persisted and removed from cache.", gameId);
 }
@@ -148,6 +148,7 @@ function setupMatchmakingNamespace(io: Server) {
 						socket.emit('match-found', {
 							gameId: activeGameWithCurrentUser.id,
 							opponent: opponentData,
+							alreadyStarted: true,
 						});
 						return;
 					}
@@ -157,7 +158,7 @@ function setupMatchmakingNamespace(io: Server) {
 				for (const [gameId, game] of cache.active_1v1_games) {
 					if (game.isPlayerInGame(user.id)) {
 						const opponent = game.leftPlayer?.id === user.id ? game.rightPlayer : game.leftPlayer;
-						
+
 						if (opponent) {
 							const opponentData: GameUserInfo = { id: opponent.id, username: opponent.username, isPlayer: true };
 
@@ -203,7 +204,7 @@ function setupMatchmakingNamespace(io: Server) {
 							try {
 								await db.game.update({
 									where: { id: gameId },
-									data: { 
+									data: {
 										updatedAt: new Date(),
 										leftPlayerScore: gameInstance.scores.left,
 										rightPlayerScore: gameInstance.scores.right
@@ -232,7 +233,7 @@ function setupMatchmakingNamespace(io: Server) {
 					}
 
 					cache.active_1v1_games.set(gameId, newGame);
-					
+
 					fastify.log.info('Game %s created in memory and persisted, waiting for players to connect', gameId);
 				}
 			})();
@@ -285,23 +286,23 @@ function setupOnlineVersusGameNamespace(io: Server) {
 			if (isPlayerInGame) {
 				const connectedPlayers = game.getConnectedPlayers();
 				const playersInRoom = connectedPlayers.filter(p => p.isPlayer).length;
-				
+
 				if (playersInRoom === 2) {
 					fastify.log.info('Both players connected to game %s, game ready to start', gameId);
 				} else {
 					fastify.log.info('Only %d/2 players connected to game %s, starting grace period', playersInRoom, gameId);
-					
+
 					// Start 30-second grace period for the missing player
 					setTimeout(() => {
 						const currentConnectedPlayers = game.getConnectedPlayers().filter(p => p.isPlayer).length;
 						if (currentConnectedPlayers < 2) {
 							fastify.log.warn('Grace period expired for game %s, cancelling game', gameId);
-							
+
 							onlineVersusGameNamespace.to(gameId).emit('game-cancelled', {
 								reason: 'grace-period-expired',
 								message: 'La partita è stata cancellata perché non tutti i giocatori si sono connessi in tempo'
 							});
-							
+
 							cache.active_1v1_games.delete(gameId);
 						}
 					}, 30000);
@@ -526,7 +527,7 @@ function setupTournamentNamespace(io: Server) {
 			try {
 				const tournament = await db.tournament.findUnique({
 					where: { id: tournamentId },
-					include: { 
+					include: {
 						participants: { include: { user: true } },
 						games: {
 							include: {
@@ -552,7 +553,7 @@ function setupTournamentNamespace(io: Server) {
 				if (!cache.tournaments.active.has(tournamentId)) {
 					// Build participant slots from bracket games
 					const participantSlots = new Map<number, User['id'] | null>();
-					
+
 					// Initialize 8 slots
 					for (let i = 0; i < 8; i++) {
 						participantSlots.set(i, null);

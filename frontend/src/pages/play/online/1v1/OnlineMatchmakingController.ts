@@ -1,5 +1,5 @@
 import { router } from "@src/pages/_router";
-import { t } from "@src/tools/i18n";
+import { k, t } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
 import { getProfilePictureUrlByUserId } from "@src/utils/getImage";
@@ -60,10 +60,22 @@ export class OnlineMatchmakingController extends RouteController {
 
 
 									<div id="${this.id}-redirect-timer" class="hidden flex-row items-center justify-center text-neutral-300">
-										Redirecting in
+										<span data-i18n="${k('page.play.online.1v1.matchmaking.redirecting_in')}">Redirecting in</span>
 										<span id="${this.id}-redirect-timer-value" class="font-bold text-2xl text-amber-400 mx-2">5</span>
-										seconds...
+										<span data-i18n="${k('generic.seconds')}">seconds...</span>
 									</div>
+
+									<div id="${this.id}-already-started-container" class="hidden flex-col items-center justify-center text-neutral-300">
+										<span data-i18n="${k('page.play.online.1v1.matchmaking.already_started')}">The game has already started</span>
+
+										<a id="${this.id}-reconnect-link" data-route="/play/online/1v1/<gameID>" href="/play/online/1v1/<gameID>" class="ml-2 text-sm text-amber-400 hover:text-amber-300 transition-colors">
+											<i class="fa fa-arrow-right"></i>
+											<span class="ml-1" data-i18n="${k('page.play.online.1v1.matchmaking.reconnect_now')}">Reconnect now</span>
+										</a>
+									</div>
+
+
+
 									<p class="text-neutral-300 text-sm italic opacity-50 py-6">
 										game_id <span id="${this.id}-game-id" class="font-mono text-amber-300 font-semibold"></span>
 									</p>
@@ -128,6 +140,14 @@ export class OnlineMatchmakingController extends RouteController {
 
 			matchFoundContainer.classList.remove('hidden');
 			gameIdSpan.innerText = data.gameId;
+
+			const alreadyStartedContainer = document.getElementById(`${this.id}-already-started-container`)! as HTMLDivElement;
+			if (data.alreadyStarted){
+				alreadyStartedContainer.classList.add('!flex');
+				const reconnectNowLink = document.getElementById(`${this.id}-reconnect-link`)! as HTMLAnchorElement;
+				reconnectNowLink.href = `/play/online/1v1/${data.gameId}`;
+				reconnectNowLink.setAttribute('data-route', `/play/online/1v1/${data.gameId}`);
+			}
 
 			const timeLeft = new Date(Date.now() + (this.#redirectToGameSeconds * 1000));
 			this.#animateRedirectTimer(timeLeft, () => {

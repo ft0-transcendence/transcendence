@@ -17,6 +17,10 @@ export type GameComponentProps = {
 	gameType: Game['GameType'];
 
 	isLocalGame: boolean;
+
+	onGameFinished?: () => void;
+
+	goBackPath?: string;
 }
 
 export type GameComponentMovementHandler = (
@@ -51,6 +55,7 @@ export class GameComponent extends ComponentController {
 		'arrowup': { side: 'right', direction: 'up' },
 		'arrowdown': { side: 'right', direction: 'down' },
 	};
+
 
 
 	#connectedUsers: Game['GameUserInfo'][] = [];
@@ -196,6 +201,13 @@ export class GameComponent extends ComponentController {
 				canvas.width / 2,
 				canvas.height / 2
 			);
+
+			this.#destroyGameEventListeners();
+			this.#unsubscribeFromSocketEvents(this.#props.socketConnection);
+			this.#gameFinished = true;
+			document.querySelector(`${this.id}-exit-container`)?.classList.remove('!hidden');
+			document.querySelector(`${this.id}-exit-container`)?.classList.add('flex');
+			this.#props.onGameFinished?.();
 		}
 
 		// Countdown overlay: show 3-2-1-START if countdown active
@@ -215,14 +227,6 @@ export class GameComponent extends ComponentController {
 				canvas.width / 2,
 				canvas.height / 2
 			);
-		}
-
-		if (state.state === "FINISH") {
-			this.#destroyGameEventListeners();
-			this.#unsubscribeFromSocketEvents(this.#props.socketConnection);
-			this.#gameFinished = true;
-			document.querySelector(`${this.id}-exit-container`)?.classList.remove('!hidden');
-			document.querySelector(`${this.id}-exit-container`)?.classList.add('flex');
 		}
 	}
 
@@ -267,11 +271,15 @@ export class GameComponent extends ComponentController {
 		const $leftPlayerControls = document.querySelectorAll('.controls-left-player');
 		const $rightPlayerControls = document.querySelectorAll('.controls-right-player');
 		$leftPlayerControls?.forEach(el => {
-			el.classList.toggle('!hidden', !left || !isMobileDevice);
+			const hide = !left || !isMobileDevice;
+			el.classList.toggle('!hidden', hide);
+			el.classList.toggle('flex', !hide);
 			el.classList.toggle('flex-col', right);
 		});
 		$rightPlayerControls?.forEach(el => {
-			el.classList.toggle('!hidden', !right || !isMobileDevice);
+			const hide = !right || !isMobileDevice;
+			el.classList.toggle('!hidden', hide);
+			el.classList.toggle('flex', !hide);
 			el.classList.toggle('flex-col', left);
 		});
 
@@ -460,7 +468,7 @@ export class GameComponent extends ComponentController {
 				<div id="${this.id}-exit-container" class="absolute top-0 left-0 z-20 w-full h-full bg-black/50 flex-col justify-center items-center !hidden">
 					<h4 id="${this.id}-error-message" class="text-red-500"></h4>
 
-					<a data-route="/play" href="/play" class="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-400 transition-colors">
+					<a id="${this.id}-exit-button" data-route="/play" href="/play" class="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-400 transition-colors">
 						<i class="fa fa-arrow-left"></i>
 						<span class="ml-1" data-i18n="${k('generic.go_back')}">Go back</span>
 					</a>
@@ -470,7 +478,7 @@ export class GameComponent extends ComponentController {
 				<!-- Mobile Controls -->
 				<div id="${this.id}-mobile-controls" class="flex justify-evenly w-full p-4 pb-8">
 					<!-- Left Controls -->
-					<div class="flex flex-col gap-2 controls-left-player grow justify-evenly items-center">
+					<div class="!hidden flex-col gap-2 controls-left-player grow justify-evenly items-center">
 						<button data-side="left" data-direction="up" class="w-16 h-16 bg-zinc-800/80 rounded-xl active:bg-zinc-700 flex items-center justify-center touch-none select-none">
 							<i class="fa fa-arrow-up text-2xl"></i>
 						</button>
@@ -480,7 +488,7 @@ export class GameComponent extends ComponentController {
 					</div>
 
 					<!-- Right Controls -->
-					<div class="flex flex-col gap-2 controls-right-player grow justify-evenly items-center">
+					<div class="!hidden flex-col gap-2 controls-right-player grow justify-evenly items-center">
 						<button data-side="right" data-direction="up" class="w-16 h-16 bg-zinc-800/80 rounded-xl active:bg-zinc-700 flex items-center justify-center touch-none select-none">
 							<i class="fa fa-arrow-up text-2xl"></i>
 						</button>
