@@ -320,7 +320,7 @@ export class OnlineGame extends Game {
 		}
 
 		const state = this.getState();
-		if (this.socketNamespace) {
+		if (this.socketNamespace && !this.wasForfeited) {
 			this.socketNamespace.to(this.gameId).emit("game-finished", state);
 		}
 
