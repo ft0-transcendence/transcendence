@@ -167,6 +167,11 @@ export const tournamentRouter = t.router({
 										id: true,
 										username: true
 									}
+								},
+								previousGames: { 
+									select: { 
+										id: true 
+									} 
 								}
 							},
 							orderBy: { startDate: 'asc' }
@@ -202,16 +207,20 @@ export const tournamentRouter = t.router({
 					participantsCount: tournament!._count.participants,
 					maxParticipants: 8,
 					games: tournament!.games.map((g: any) => {
-						const aiPlayerService = new AIPlayerService(ctx.db);
-						return {
-							...g,
-							scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
-							tournamentRound: (g as any).tournamentRound,
-							isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-							leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
-							rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername)
-						};
-					}),
+                const aiPlayerService = new AIPlayerService(ctx.db);
+                const previousGames = g.previousGames?.map((pg: any) => pg.id) || [];
+                
+                return {
+                    ...g,
+                    scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
+                    tournamentRound: (g as any).tournamentRound,
+                    isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+                    leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
+                    rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+                    nextGameId: g.nextGameId,
+                    previousGames
+                };
+            }),
 					isRegisteredToTournament
 				};
 

@@ -4,6 +4,7 @@ import { db } from "../src/trpc/db";
 import { updateTournamentWinnerStats, updateGameStats } from "../src/utils/statsUtils";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 import { cache } from "../src/cache";
+import { broadcastTournamentStatusChange } from "../src/socket-io";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
@@ -142,7 +143,6 @@ export class TournamentGame extends OnlineGame {
 
                 await updateTournamentWinnerStats(db, winnerId);
 
-
                 const cachedTournament = cache.tournaments.active.get(this.tournamentId);
                 if (cachedTournament) {
                     cachedTournament.status = 'COMPLETED';
@@ -150,10 +150,34 @@ export class TournamentGame extends OnlineGame {
                 }
 
                 if (this.socketNamespace) {
-                    this.socketNamespace.to(this.tournamentId).emit('tournament-completed', {
-                        tournamentId: this.tournamentId,
-                        winnerId: winnerId
+                    const winnerUser = await db.user.findUnique({
+                        where: { id: winnerId },
+                        select: { username: true }
                     });
+
+                    const tournament = await db.tournament.findUnique({
+                        where: { id: this.tournamentId },
+                        include: {
+                            participants: {
+                                include: {
+                                    user: {
+                                        select: {
+                                            id: true,
+                                            username: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    broadcastTournamentStatusChange(
+                        this.tournamentId,
+                        'COMPLETED',
+                        'system',
+                        `Tournament completed! Winner: ${winnerUser?.username || 'Unknown'}`,
+                        { id: winnerId, username: winnerUser?.username || 'Unknown' },
+                    );
                 }
             }
 

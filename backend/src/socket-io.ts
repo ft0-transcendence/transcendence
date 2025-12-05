@@ -839,18 +839,30 @@ export function broadcastParticipantLeft(tournamentId: string, participant: { id
 	}
 }
 
-export function broadcastTournamentStatusChange(tournamentId: string, newStatus: string, changedBy: string, message?: string) {
-	const io = (global as any).io;
-	if (io) {
-		const tournamentNamespace = io.of("/tournament");
-		tournamentNamespace.to(tournamentId).emit('tournament-status-changed', {
-			tournamentId,
-			newStatus,
-			changedBy,
-			message: message || `Tournament status changed to ${newStatus}`,
-			timestamp: new Date()
-		});
-	}
+export function broadcastTournamentStatusChange(
+    tournamentId: string, 
+    newStatus: string, 
+    changedBy: string, 
+    message?: string,
+    winner?: { id: string, username: string },
+) {
+    const io = (global as any).io;
+    if (io) {
+        const tournamentNamespace = io.of("/tournament");
+        const eventData: any = {
+            tournamentId,
+            newStatus,
+            changedBy,
+            message: message || `Tournament status changed to ${newStatus}`,
+            timestamp: new Date()
+        };
+
+        if (newStatus === 'COMPLETED') {
+            eventData.winner = winner;
+        }
+
+        tournamentNamespace.to(tournamentId).emit('tournament-status-changed', eventData);
+    }
 }
 
 export function broadcastAIPlayersAdded(tournamentId: string, aiPlayerIds: string[], filledSlots: number[]) {
