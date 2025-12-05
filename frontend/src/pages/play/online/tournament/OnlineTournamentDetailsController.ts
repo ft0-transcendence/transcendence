@@ -1,5 +1,5 @@
 import { api } from "@main";
-import { RouterOutputs } from "@shared";
+import { RouterOutputs, TournamentRoundType } from "@shared";
 import { k, t, updateDOMTranslations } from "@src/tools/i18n";
 import toast from "@src/tools/Toast";
 import { RouteController } from "@src/tools/ViewController";
@@ -9,11 +9,16 @@ import { TRPCClientError } from "@trpc/client";
 import { authManager } from "@src/tools/AuthManager";
 import { LoadingOverlay } from "@src/components/LoadingOverlay";
 import he from 'he';
+import { io, Socket } from "socket.io-client";
 
 // TODO: it's a little messy, refactor this
 export class OnlineTournamentDetailsController extends RouteController {
 	#tournamentId: string = "";
 	#tournamentDto: RouterOutputs["tournament"]["getTournamentDetails"] | null = null;
+
+	#tournamentNamespace: Socket | null = null;
+	#bracketPollingTimeout: NodeJS.Timeout | null = null;
+	#bracketPollingMs = 5000;
 
 	#loadingOverlays = {
 		root: new LoadingOverlay(),
@@ -131,7 +136,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 					</div>
 
 					<!-- Games -->
-					<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md mb-6">
+					<!-- <div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md mb-6">
 						<h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
 							<i class="fa fa-gamepad"></i>
 							<span data-i18n="${k('generic.games')}">Games</span>
@@ -140,7 +145,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 							? /*html*/`
 								<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 									${tDto.games.map((g) => /*html*/ `
-										<div class="bg-neutral-700/50 p-3 rounded-md flex flex-col gap-2 text-sm">
+										<div data-gameId="${g.id}" class="bg-neutral-700/50 p-3 rounded-md flex flex-col gap-2 text-sm">
 											<div class="flex justify-between">
 												<span class="font-semibold">${g.leftPlayer.username}</span>
 												<span class="text-stone-400" data-i18n="${k('generic.vs')}">vs</span>
@@ -159,7 +164,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 								<div class="text-stone-400 text-sm italic" data-i18n="${k('generic.no_games_yet')}">No games yet</div>
 							`
 						}
-					</div>
+					</div> -->
 
 					${tDto.winner
 						? /*html*/ `
@@ -179,28 +184,35 @@ export class OnlineTournamentDetailsController extends RouteController {
 					}
 
 					<!-- Bracket -->
-					<div class="w-full max-w-6xl bg-neutral-800 rounded-lg p-5 shadow-md mb-6 overflow-x-auto">
+					<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md mb-6 overflow-x-auto md:overflow-x-visible">
 						<h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
-							<i class="fa fa-sitemap"></i> <span data-i18n="${k("tournament.bracket")}">Bracket</span>
+							<i class="fa fa-sitemap"></i>
+							<span data-i18n="${k("tournament.bracket")}">Bracket</span>
 						</h2>
-						<div class="flex items-start justify-center gap-8 min-w-[700px]">
-							<!-- Round 1: Quarterfinals -->
-							<div class="flex flex-col gap-8 flex-1">
-								<h3 class="text-center text-sm font-bold text-stone-400 uppercase" data-i18n="${k("tournament.quarterfinals")}">Quarterfinals</h3>
-								${this.#renderBracketRound(tDto.games, 1)}
+
+						<div id="${this.id}-bracket-container" class="flex flex-col md:flex-row items-stretch md:items-center justify-center gap-6 md:gap-8 w-full">
+
+							<!-- Round 1 -->
+							<div id="${this.id}-bracket-round-1" class="flex flex-col items-center justify-center gap-8 md:gap-16 flex-1 w-full">
+								<h3 class="text-center text-sm font-bold text-stone-400 uppercase"
+									data-i18n="${k("tournament.quarterfinals")}">Quarterfinals</h3>
+								${this.#renderBracketRoundGames(tDto.games, "QUARTI")}
 							</div>
 
-							<!-- Round 2: Semifinals -->
-							<div class="flex flex-col gap-16 flex-1">
-								<h3 class="text-center text-sm font-bold text-stone-400 uppercase" data-i18n="${k("tournament.semifinals")}">Semifinals</h3>
-								${this.#renderBracketRound(tDto.games, 2)}
+							<!-- Round 2 -->
+							<div id="${this.id}-bracket-round-2" class="flex flex-col items-center justify-center gap-8 md:gap-16 flex-1 w-full">
+								<h3 class="text-center text-sm font-bold text-stone-400 uppercase"
+									data-i18n="${k("tournament.semifinals")}">Semifinals</h3>
+								${this.#renderBracketRoundGames(tDto.games, "SEMIFINALE")}
 							</div>
 
-							<!-- Round 3: Final -->
-							<div class="flex flex-col gap-32 flex-1">
-								<h3 class="text-center text-sm font-bold text-stone-400 uppercase" data-i18n="${k("tournament.final")}">Final</h3>
-								${this.#renderBracketRound(tDto.games, 3)}
+							<!-- Round 3 -->
+							<div id="${this.id}-bracket-round-3" class="flex flex-col items-center justify-center gap-8 md:gap-16 flex-1 w-full">
+								<h3 class="text-center text-sm font-bold text-stone-400 uppercase"
+									data-i18n="${k("tournament.final")}">Final</h3>
+								${this.#renderBracketRoundGames(tDto.games, "FINALE")}
 							</div>
+
 						</div>
 					</div>
 
@@ -210,8 +222,33 @@ export class OnlineTournamentDetailsController extends RouteController {
 		`;
 	}
 
+
+	// TODO: ideally it should be a websocket event, but for now it's a polling
+	async #pollTournamentDetails() {
+		if (!this.#tournamentDto) return;
+		try {
+			const tournament = await api.tournament.getTournamentDetails.query({ tournamentId: this.#tournamentId });
+			this.#tournamentDto = tournament;
+			tournament.games.forEach(g => this.#updateBracket(tournament.games));
+			this.#renderParticipantsList(tournament.participants);
+		} catch (err) {
+			console.error('Error polling tournament details:', err);
+		}
+		if (this.#bracketPollingTimeout){
+			clearTimeout(this.#bracketPollingTimeout);
+		};
+		this.#bracketPollingTimeout = setTimeout(() => this.#pollTournamentDetails(), this.#bracketPollingMs);
+	}
+
 	protected async postRender() {
 		if (!this.#tournamentDto) return;
+
+		this.#tournamentNamespace = io("/tournament");
+		this.#tournamentNamespace.emit('join-tournament-lobby', this.#tournamentId);
+
+		// TODO: tournament events
+
+		this.#pollTournamentDetails();
 
 		this.#renderParticipantsList(this.#tournamentDto.participants);
 
@@ -245,10 +282,13 @@ export class OnlineTournamentDetailsController extends RouteController {
 			leaveBtn.addEventListener("click", async () => {
 				this.#loadingOverlays.root.show();
 				try {
-					await api.tournament.leaveTournament.mutate({ tournamentId: id });
+					const result = await api.tournament.leaveTournament.mutate({ tournamentId: id });
 					toast.info(t("generic.leave_tournament"), t("generic.leave_tournament_success") ?? "");
 					joinBtn?.classList?.remove("hidden");
 					leaveBtn?.classList?.add("hidden");
+					if (result.tournamentDeleted){
+						router.navigate('/play/online/tournaments');
+					}
 					const newList = this.#tournamentDto?.participants.filter(p => p.id !== authManager.user?.id) ?? [];
 					this.#renderParticipantsList(newList);
 				} catch (err) {
@@ -268,24 +308,71 @@ export class OnlineTournamentDetailsController extends RouteController {
 		updateDOMTranslations(document.body);
 	}
 
-	#renderBracketRound(games: RouterOutputs["tournament"]["getTournamentDetails"]["games"], round: number) {
+
+	protected async destroy() {
+		if (this.#tournamentNamespace) {
+			this.#tournamentNamespace.off('tournament-lobby-joined');
+			this.#tournamentNamespace.close();
+		}
+		if (this.#bracketPollingTimeout) {
+			clearTimeout(this.#bracketPollingTimeout);
+		}
+		super.destroy();
+
+	}
+
+	#updateBracket(games: RouterOutputs["tournament"]["getTournamentDetails"]["games"]) {
+		const bracketContainer = document.querySelector(`#${this.id}-bracket-container`);
+		if (!bracketContainer) return;
+
+		games.forEach((game, index)=>{
+			let gameEl = bracketContainer.querySelector(`[data-game-id="${game.id}"]`) as HTMLElement | null;
+			if (gameEl) {
+				this.#updateBracketGame(gameEl, game);
+			}
+		})
+
+	}
+
+	#getUserUsername(user: RouterOutputs["tournament"]["getTournamentDetails"]["games"][number]['leftPlayer'] | RouterOutputs["tournament"]["getTournamentDetails"]["games"][number]['rightPlayer']) {
+		return (user.id === 'placeholder-tournament-user')
+			? /*html*/`<p class="text-stone-400 font-thin" data-i18n="${k('generic.tbd')}">TBD</p>`
+			: user.username;
+	}
+
+	#updateBracketGame(gameEl: HTMLElement, game: RouterOutputs["tournament"]["getTournamentDetails"]["games"][number]) {
+		gameEl.querySelector('.left-player-username')!.innerHTML = this.#getUserUsername(game.leftPlayer);
+		gameEl.querySelector('.right-player-username')!.innerHTML = this.#getUserUsername(game.rightPlayer);
+
+		gameEl.querySelector('.left-player-score')!.innerHTML = game.leftPlayerScore.toString();
+		gameEl.querySelector('.right-player-score')!.innerHTML = game.rightPlayerScore.toString();
+
+		const gameState = gameEl.querySelector('.state')
+		if (gameState) {
+			const key = game.endDate ? k('generic.finished') : game.abortDate ? k('generic.aborted') : k('generic.pending');
+			const value = game.endDate ? 'Finished' : game.abortDate ? 'Aborted' : 'Pending';
+			gameState.setAttribute('data-i18n', key);
+			gameState.innerHTML = value;
+		}
+		updateDOMTranslations(gameEl);
+	}
+
+	#renderBracketRoundGames(games: RouterOutputs["tournament"]["getTournamentDetails"]["games"], round: TournamentRoundType) {
 		let filteredGames: typeof games = [];
-		if (round === 1) filteredGames = games.slice(0, 4);
-		else if (round === 2) filteredGames = games.slice(4, 6);
-		else if (round === 3) filteredGames = games.slice(6, 7);
+		filteredGames = games.filter(g => g.tournamentRound === round);
 
 		if (!filteredGames.length) {
 			return /*html*/`<div class="text-center text-stone-500 text-xs italic">No games</div>`;
 		}
 
 		return filteredGames
-			.map(
-				(g) => /*html*/ `
-				<div class="bg-neutral-700/40 rounded-md p-3 flex flex-col items-center justify-center w-44">
+			.map((g, index) => /*html*/ `
+				<div id="${g.id}" class="bg-neutral-700/40 rounded-md p-3 flex flex-col items-center justify-center w-full md:w-44 relative">
+					<p class="absolute bottom-2 left-2 text-sm uppercase text-stone-400 font-semibold font-mono">${index + 1}</p>
 					<div class="flex flex-col items-center text-sm text-center gap-1">
-						<span class="font-semibold">${g.leftPlayer.username}</span>
+						<span class="font-semibold">${this.#getUserUsername(g.leftPlayer)}</span>
 						<span class="text-stone-400 text-xs">vs</span>
-						<span class="font-semibold">${g.rightPlayer.username}</span>
+						<span class="font-semibold">${this.#getUserUsername(g.rightPlayer)}</span>
 					</div>
 					<div class="text-xs text-orange-600 mt-2">
 						<div class="flex gap-1 items-center">
@@ -295,13 +382,15 @@ export class OnlineTournamentDetailsController extends RouteController {
 						</div>
 					</div>
 					<div class="text-xs text-stone-400 mt-2">
-						${g.endDate ? "Finished" : g.abortDate ? "Aborted" : "Pending"}
+						<p class="uppercase font-bold" data-i18n="${g.endDate != null ? k('generic.finished') : g.abortDate ? k('generic.aborted') : k('generic.pending')}">
+							${g.endDate != null ? 'Finished' : g.abortDate ? 'Aborted' : 'Pending'}
+						</p>
 					</div>
-				</div>`
+				</div>
+				`
 			)
 			.join("");
 	}
-
 
 	#renderParticipantsList(participants: RouterOutputs["tournament"]["getTournamentDetails"]["participants"]) {
 		const container = document.querySelector(`#${this.id}-participants-list`);

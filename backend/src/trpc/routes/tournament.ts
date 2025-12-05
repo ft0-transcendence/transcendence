@@ -168,10 +168,10 @@ export const tournamentRouter = t.router({
 										username: true
 									}
 								},
-								previousGames: { 
-									select: { 
-										id: true 
-									} 
+								previousGames: {
+									select: {
+										id: true
+									}
 								}
 							},
 							orderBy: { startDate: 'asc' }
@@ -203,24 +203,24 @@ export const tournamentRouter = t.router({
 					endDate: tournament!.endDate,
 					createdBy: tournament!.createdBy,
 					winner: tournament!.winner,
-					participants: tournament!.participants.map((p: any) => p.user),
+					participants: tournament!.participants.map(p => p.user),
 					participantsCount: tournament!._count.participants,
 					maxParticipants: 8,
-					games: tournament!.games.map((g: any) => {
-                const aiPlayerService = new AIPlayerService(ctx.db);
-                const previousGames = g.previousGames?.map((pg: any) => pg.id) || [];
-                
-                return {
-                    ...g,
-                    scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
-                    tournamentRound: (g as any).tournamentRound,
-                    isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-                    leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
-                    rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-                    nextGameId: g.nextGameId,
-                    previousGames
-                };
-            }),
+					games: tournament!.games.map((g) => {
+					const aiPlayerService = new AIPlayerService(ctx.db);
+					const previousGames = g.previousGames?.map(pg => pg.id) || [];
+
+					return {
+						...g,
+						scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
+						tournamentRound: g.tournamentRound,
+						isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+						leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
+						rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+						nextGameId: g.nextGameId,
+						previousGames
+					};
+				}),
 					isRegisteredToTournament
 				};
 

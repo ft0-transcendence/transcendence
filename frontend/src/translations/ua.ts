@@ -85,6 +85,11 @@ export const ua: TranslationSchema = {
 		vs: "vs",
 		score_goal: "Очки для перемоги",
 		participants: "Учасники",
+		tbd: "TBD",
+		finished: "Завершено",
+		aborted: "Перервано",
+		pending: "В очікуванні",
+		game_not_found: "Гра не знайдена",
 	},
 	tournament:{
 		bracket: "Склад",
@@ -163,6 +168,7 @@ export const ua: TranslationSchema = {
 				"1v1_game": '1 vs 1 - гра онлайн',
 				"1v1_matchmaking": '1 vs 1 Matchmaking - онлайн',
 				"tournaments": 'Турніри - онлайн',
+				"tournament_game": 'Турнірна гра - онлайн',
 			},
 			offline: {
 				"1vAI": '1 vs AI - оффлайн',

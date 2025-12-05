@@ -83,6 +83,11 @@ export const en = {
 		vs: "vs",
 		score_goal: "Score goal",
 		participants: "Participants",
+		tbd: "TBD",
+		finished: "Finished",
+		aborted: "Aborted",
+		pending: "Pending",
+		game_not_found: "Game not found",
 	},
 	tournament:{
 		bracket: "Bracket",
@@ -167,6 +172,7 @@ export const en = {
 				"1v1_game": '1 VS 1 - online game',
 				"1v1_matchmaking": '1 VS 1 Matchmaking - online',
 				"tournaments": 'Tournaments - online',
+				"tournament_game": 'Tournament game - online',
 			},
 			offline: {
 				"1vAI": '1 VS AI - offline',

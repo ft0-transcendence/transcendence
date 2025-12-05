@@ -1,6 +1,7 @@
 import { PrismaClient, TournamentRound, Prisma } from "@prisma/client";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 
+//TODO: Remove this shit
 const EMPTY_SLOT_USERNAME = 'Empty slot';
 const PLACEHOLDER_EMAIL = 'tournament-empty-slot@system.local';
 
@@ -10,7 +11,7 @@ export type BracketNode = {
     position: number;
     leftPlayerId?: string | null;
     rightPlayerId?: string | null;
-    nextGameId?: string;    
+    nextGameId?: string;
     tournamentRound?: 'QUARTI' | 'SEMIFINALE' | 'FINALE';
 };
 
@@ -27,7 +28,7 @@ export class BracketGenerator {
             let user = await tx.user.findUnique({
                 where: { id: BracketGenerator.PLACEHOLDER_USER_ID }
             });
-            
+
             if (!user) {
                 user = await tx.user.create({
                     data: {
@@ -43,7 +44,7 @@ export class BracketGenerator {
                     data: { username: EMPTY_SLOT_USERNAME }
                 });
             }
-            
+
             return user.id;
         } catch (error) {
             return BracketGenerator.PLACEHOLDER_USER_ID;
@@ -77,7 +78,7 @@ export class BracketGenerator {
                 if (round === 1 && participants.length > 0) {
                     const leftIndex = position * 2;
                     const rightIndex = position * 2 + 1;
-                    
+
                     if (leftIndex < participants.length) {
                         leftPlayerId = participants[leftIndex];
                     }
@@ -183,7 +184,7 @@ export class BracketGenerator {
     async updateGameTypeForAIPlayers(tournamentId: string, tx?: Prisma.TransactionClient): Promise<void> {
         const executeTransaction = async (client: Prisma.TransactionClient) => {
             const aiPlayerService = new AIPlayerService(client);
-            
+
             const games = await client.game.findMany({
                 where: { tournamentId },
                 select: {
@@ -224,7 +225,7 @@ export class BracketGenerator {
         await this.createBracketGames(tournamentId, bracket);
         return bracket;
     }
-    
+
      // Debug:
     printBracket(bracket: BracketNode[]): void {
         const rounds = new Map<number, BracketNode[]>();
@@ -270,7 +271,7 @@ export class BracketGenerator {
 
         const bracket: BracketNode[] = [];
         const gameMap = new Map<string, any>();
-        
+
         games.forEach((game: any) => {
             gameMap.set(game.id, game);
         });
@@ -278,7 +279,7 @@ export class BracketGenerator {
         games.forEach((game: any) => {
             let round = 1;
             let currentGame = game;
-            
+
             while (currentGame.nextGameId) {
                 round++;
                 currentGame = gameMap.get(currentGame.nextGameId);
@@ -326,7 +327,7 @@ export class BracketGenerator {
 
         let occupiedSlots = 0;
         const placeholderUserId = BracketGenerator.PLACEHOLDER_USER_ID;
-        
+
         for (const game of quarterFinalGames) {
             if (game.leftPlayerUsername !== undefined && game.leftPlayerUsername !== null) {
                 occupiedSlots++;
@@ -362,7 +363,7 @@ export class BracketGenerator {
                 slotMap.set(slotIndex, game.leftPlayerId);
             }
             slotIndex++;
-            
+
             if (game.rightPlayerId && !this.isPlaceholderUser(game.rightPlayerId)) {
                 slotMap.set(slotIndex, game.rightPlayerId);
             }
@@ -374,7 +375,7 @@ export class BracketGenerator {
 
     private isPlaceholderUser(userId: string | null): boolean {
         if (!userId) return false;
-        return userId === BracketGenerator.PLACEHOLDER_USER_ID || 
+        return userId === BracketGenerator.PLACEHOLDER_USER_ID ||
                userId === 'placeholder-tournament-user' ||
                userId.includes('placeholder');
     }
@@ -412,14 +413,14 @@ export class BracketGenerator {
             const availableSlots: { gameId: string, position: 'left' | 'right' }[] = [];
 
             console.log('Quarter final games found:', quarterFinalGames.length);
-            
+
             const isSlotEmpty = (playerId: string | null, username: string | null | undefined, placeholderId: string): boolean => {
                 if (!playerId) return true;
-                
+
                 if (playerId === placeholderId) return true;
-                
+
                 if (playerId && username === null) return true;
-                
+
                 return false;
             };
 
@@ -439,7 +440,7 @@ export class BracketGenerator {
             const randomIndex = Math.floor(Math.random() * availableSlots.length);
             const selectedSlot = availableSlots[randomIndex];
 
-            const updateData = selectedSlot.position === 'left' 
+            const updateData = selectedSlot.position === 'left'
                 ? { leftPlayerId: participantId, leftPlayerUsername: participant.username }
                 : { rightPlayerId: participantId, rightPlayerUsername: participant.username };
 
@@ -523,15 +524,15 @@ export class BracketGenerator {
             for (const game of quarterFinalGames) {
                 let updateData: any = {};
 
-                if (!game.leftPlayerId || game.leftPlayerId === '' || 
-                    game.leftPlayerId === placeholderUserId || 
+                if (!game.leftPlayerId || game.leftPlayerId === '' ||
+                    game.leftPlayerId === placeholderUserId ||
                     game.leftPlayerUsername === undefined) {
                     updateData.leftPlayerUsername = null;
                     aiSlotsFilled.push(`${game.id}-left`);
                 }
 
-                if (!game.rightPlayerId || game.rightPlayerId === '' || 
-                    game.rightPlayerId === placeholderUserId || 
+                if (!game.rightPlayerId || game.rightPlayerId === '' ||
+                    game.rightPlayerId === placeholderUserId ||
                     game.rightPlayerUsername === undefined) {
                     updateData.rightPlayerUsername = null;
                     aiSlotsFilled.push(`${game.id}-right`);

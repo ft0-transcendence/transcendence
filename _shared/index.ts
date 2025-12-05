@@ -1,4 +1,4 @@
-import type { GameType, AppRouter, RouterInputs, RouterOutputs, SocketFriendInfo } from '../backend/shared_exports';
+import type { GameType, AppRouter, RouterInputs, RouterOutputs, SocketFriendInfo, TournamentRoundType } from '../backend/shared_exports';
 
 import { Game as GameClass, GameStatus, GameConfig, GameUserInfo, MovePaddleAction, Ball, Paddles, Scores, GameState, STANDARD_GAME_CONFIG } from '../backend/game/game';
 
@@ -7,7 +7,8 @@ export type {
 	RouterOutputs,
 	RouterInputs,
 	GameType,
-	SocketFriendInfo
+	SocketFriendInfo,
+	TournamentRoundType
 };
 
 export type Game = {

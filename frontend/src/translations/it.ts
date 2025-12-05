@@ -84,6 +84,11 @@ export const it: TranslationSchema = {
 		vs: "vs",
 		score_goal: "Punteggio per vincere",
 		participants: "Partecipanti",
+		tbd: "TBD",
+		finished: "Finito",
+		aborted: "Interrotto",
+		pending: "In attesa",
+		game_not_found: "Partita non trovata",
 	},
 	tournament:{
 		bracket: "Programma",
@@ -164,6 +169,7 @@ export const it: TranslationSchema = {
 				"1v1_game": '1 vs 1 - partita online',
 				"1v1_matchmaking": '1 vs 1 Matchmaking - online',
 				"tournaments": 'Tornei - online',
+				"tournament_game": 'Partita torneo - online',
 			},
 			offline: {
 				"1vAI": '1 vs IA - offline',

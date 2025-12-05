@@ -628,6 +628,7 @@ function setupTournamentNamespace(io: Server) {
 			}
 		});
 
+		///@unused
 		socket.on("leave-tournament-lobby", async (tournamentId: string) => {
 			try {
 				// Remove user from tournament lobby
@@ -662,6 +663,7 @@ function setupTournamentNamespace(io: Server) {
 		});
 
 		// New event for real-time bracket updates
+		///TODO: the server should send the bracket update to the client, not the other way around
 		socket.on("request-bracket-update", async (tournamentId: string) => {
 			try {
 				const tournamentInfo = cache.tournaments.active.get(tournamentId);
@@ -750,10 +752,10 @@ function setupTournamentNamespace(io: Server) {
 
 				const isPlayerInGame = game.isPlayerInGame(user.id);
 
-				if (!isPlayerInGame) {
-					socket.emit('error', 'You are not a player in this game');
-					return;
-				}
+				// if (!isPlayerInGame) {
+				// 	socket.emit('error', 'You are not a player in this game');
+				// 	return;
+				// }
 
 				game.setSocketNamespace(tournamentNamespace);
 
@@ -780,7 +782,8 @@ function setupTournamentNamespace(io: Server) {
 						state: game.getState()
 					},
 					playerSide: game.leftPlayer?.id === user.id ? 'left' : 'right',
-					isPlayer: true
+					isPlayer: true,
+					ableToPlay: isPlayerInGame
 				});
 
 				socket.to(gameId).emit('player-joined-tournament-game', {
@@ -840,9 +843,9 @@ export function broadcastParticipantLeft(tournamentId: string, participant: { id
 }
 
 export function broadcastTournamentStatusChange(
-    tournamentId: string, 
-    newStatus: string, 
-    changedBy: string, 
+    tournamentId: string,
+    newStatus: string,
+    changedBy: string,
     message?: string,
     winner?: { id: string, username: string },
 ) {
