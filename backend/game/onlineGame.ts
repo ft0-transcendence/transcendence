@@ -1,12 +1,16 @@
-import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState } from "./game";
+import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState, STANDARD_GAME_CONFIG } from "./game";
 import { db } from '../src/trpc/db';
-import { GameType } from "@prisma/client";
+import { GameType, Prisma, PrismaClient, Game as PrismaGame } from "@prisma/client";
+import { TypedSocket } from "@backend/src/socket-io";
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
 export class OnlineGame extends Game {
 	protected gameId: string;
-	protected socketNamespace: any;
+	protected socketNamespace: TypedSocket;
+
+	public pendingDbCreation: PrismaGame | null = null;
+
 	protected updateGameActivity?: (gameInstance?: any) => Promise<void>;
 
 	protected unsubscribeTick: (() => void) | null = null;
@@ -91,6 +95,7 @@ export class OnlineGame extends Game {
 	}
 
 	private async createInDatabaseIfNeeded() {
+		// TODO: remove this. `pendingDbCreation` is never valorized
 		if (this.pendingDbCreation) {
 			console.log(`🎮 Both players ready for game ${this.gameId}, creating in database now`);
 

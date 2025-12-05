@@ -32,7 +32,7 @@ export interface GameStatus {
 	paddles: Paddles;
 	scores: Scores;
 	state: GameState;
-	gameScoreGoal?: number;
+	gameScoreGoal?: number | null;
 
 	// Timestamp in ms when countdown ends (for 3-2-1 START). Null if not counting.
 	countdownEndsAt: number | null;
