@@ -20,31 +20,89 @@ export class AIPlayerService {
     }
 
     async handleAIvsAIMatch(gameId: string): Promise<void> {
+        const game = await this.db.game.findUnique({
+            where: { id: gameId },
+            select: {
+                id: true,
+                nextGameId: true,
+                leftPlayerUsername: true,
+                rightPlayerUsername: true
+            }
+        });
+
+        if (!game) {
+            throw new Error(`Game ${gameId} not found`);
+        }
+
+        const isLeftPlayerAI = this.isAIPlayer(game.leftPlayerUsername);
+        const isRightPlayerAI = this.isAIPlayer(game.rightPlayerUsername);
+
+        if (!isLeftPlayerAI || !isRightPlayerAI) {
+            throw new Error(`Game ${gameId} is not an AI vs AI match`);
+        }
+
+        console.log(`🤖 Starting AI vs AI simulation for game ${gameId}`);
+
+        // Avvia simulazione con Promise
+        return new Promise((resolve, reject) => {
+            let leftScore = 0;
+            let rightScore = 0;
+            const maxScore = STANDARD_GAME_CONFIG.maxScore || 5;
+
+            console.log(`🎮 AI Match ${gameId} - Target score: ${maxScore}`);
+
+            // Ogni 5 secondi un AI casuale segna
+            const simulationInterval = setInterval(async () => {
+                try {
+                    const leftScores = Math.random() > 0.5;
+
+                    if (leftScores) {
+                        leftScore++;
+                        console.log(`🎯 Game ${gameId} - Left AI scored! Score: ${leftScore}-${rightScore}`);
+                    } else {
+                        rightScore++;
+                        console.log(`🎯 Game ${gameId} - Right AI scored! Score: ${leftScore}-${rightScore}`);
+                    }
+
+                    if (leftScore >= maxScore || rightScore >= maxScore) {
+                        clearInterval(simulationInterval);
+
+                        console.log(`✅ AI Match ${gameId} completed: ${leftScore}-${rightScore}`);
+
+                        await this.saveAIMatchResult(gameId, leftScore, rightScore);
+
+                        resolve();
+                    }
+                } catch (error) {
+                    clearInterval(simulationInterval);
+                    console.error(`❌ Error during AI match simulation for game ${gameId}:`, error);
+                    reject(error);
+                }
+            }, 5000);
+        });
+    }
+
+    private async saveAIMatchResult(
+        gameId: string,
+        leftScore: number,
+        rightScore: number
+    ): Promise<void> {
         const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const game = await tx.game.findUnique({
                 where: { id: gameId },
                 select: {
                     id: true,
                     nextGameId: true,
-                    leftPlayerUsername: true,
-                    rightPlayerUsername: true
+                    leftPlayerId: true,
+                    rightPlayerId: true
                 }
             });
 
             if (!game) {
-                throw new Error(`Game ${gameId} not found`);
+                throw new Error(`Game ${gameId} not found when saving result`);
             }
 
-            const isLeftPlayerAI = this.isAIPlayer(game.leftPlayerUsername);
-            const isRightPlayerAI = this.isAIPlayer(game.rightPlayerUsername);
-
-            if (!isLeftPlayerAI || !isRightPlayerAI) {
-                throw new Error(`Game ${gameId} is not an AI vs AI match`);
-            }
-
-            //TODO:logica simulazione AI vs AI
-            const leftScore = STANDARD_GAME_CONFIG.maxScore!;
-            const rightScore = 0;
+            console.log(`💾 Saving AI match result for game ${gameId}: ${leftScore}-${rightScore}`);
 
             await tx.game.update({
                 where: { id: gameId },
@@ -56,8 +114,11 @@ export class AIPlayerService {
             });
 
             if (game.nextGameId) {
+                console.log(`➡️ Advancing AI winner to next game ${game.nextGameId}`);
                 await this.advanceAIWinnerToNextGame(tx, game.nextGameId);
             }
+
+            console.log(`✅ AI match ${gameId} saved successfully`);
         };
 
         if ('$transaction' in this.db) {
