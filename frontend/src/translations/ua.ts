@@ -66,6 +66,8 @@ export const ua: TranslationSchema = {
 		already_joined_troll_description: "Хороша попроба, але ви вже у турнірі. Ви не можете зайти двічі.",
 		already_left_troll_description: "Хороша попроба, але ви вже вийшли з турніру. Ви не можете залишити турнір, на якому не зареєстровані.",
 		leave_tournament: "Вийти з турніру",
+		start_tournament: "Почати турнір",
+		delete_tournament: "Видалити турнір",
 		tournamentList: {
 			join: "Приєднатися",
 			leave: "Вийти",
@@ -73,6 +75,9 @@ export const ua: TranslationSchema = {
 
 		},
 		leave_tournament_success: "Ви успішно вийшли з турніру",
+		start_tournament_success: "Турнір успішно розпочато",
+		delete_tournament_success: "Турнір успішно видалено",
+		delete_tournament_confirm: "Ви впевнені, що хочете видалити цей турнір? Цю дію неможливо скасувати.",
 		create: "Створити",
 		tournament: "Турнір",
 		tournament_not_found: "Турнір не знайдено",

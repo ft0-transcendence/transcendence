@@ -129,6 +129,7 @@ export const tournamentRouter = t.router({
 		}))
 		.query(async ({ ctx, input }) => {
 			try {
+				console.log('[getTournamentDetails] Fetching tournament:', input.tournamentId);
 				const tournament = await ctx.db.tournament.findUnique({
 					where: { id: input.tournamentId },
 					include: {
@@ -184,6 +185,7 @@ export const tournamentRouter = t.router({
 					}
 				});
 
+				console.log('[getTournamentDetails] Tournament found:', tournament?.id, tournament?.name);
 				TournamentValidator.validateTournamentExists(tournament, input.tournamentId);
 
 				if (tournament!.status === 'WAITING_PLAYERS' || tournament!.status === 'IN_PROGRESS') {
@@ -194,7 +196,9 @@ export const tournamentRouter = t.router({
 					? tournament!.participants.some((p: any) => p.user.id === ctx.user!.id)
 					: false;
 
-				return {
+				const aiPlayerService = new AIPlayerService(ctx.db);
+
+				const result = {
 					id: tournament!.id,
 					name: tournament!.name,
 					type: tournament!.type,
@@ -207,24 +211,36 @@ export const tournamentRouter = t.router({
 					participantsCount: tournament!._count.participants,
 					maxParticipants: 8,
 					games: tournament!.games.map((g) => {
-					const aiPlayerService = new AIPlayerService(ctx.db);
-					const previousGames = g.previousGames?.map(pg => pg.id) || [];
+						const previousGames = g.previousGames?.map(pg => pg.id) || [];
 
-					return {
-						...g,
-						scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
-						tournamentRound: g.tournamentRound,
-						isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-						leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
-						rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-						nextGameId: g.nextGameId,
-						previousGames
-					};
-				}),
+						return {
+							id: g.id,
+							leftPlayer: g.leftPlayer,
+							rightPlayer: g.rightPlayer,
+							leftPlayerScore: g.leftPlayerScore,
+							rightPlayerScore: g.rightPlayerScore,
+							startDate: g.startDate,
+							endDate: g.endDate,
+							abortDate: g.abortDate,
+							scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
+							tournamentRound: g.tournamentRound,
+							leftPlayerUsername: g.leftPlayerUsername,
+							rightPlayerUsername: g.rightPlayerUsername,
+							isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+							leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
+							rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+							nextGameId: g.nextGameId,
+							previousGames
+						};
+					}),
 					isRegisteredToTournament
 				};
 
+				console.log('[getTournamentDetails] Returning result with', result.games.length, 'games');
+				return result;
+
 			} catch (error) {
+				console.error('[getTournamentDetails] Error occurred:', error);
 				handleTournamentError(error as Error, 'getTournamentDetails', input.tournamentId, ctx.user?.id);
 			}
 		}),
