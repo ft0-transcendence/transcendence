@@ -63,7 +63,7 @@ export type TournamentCacheEntry = {
 	id: string;
 	name: string;
 	type: 'EIGHT';
-	status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+	status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED';
 	participants: Set<User['id']>;
 	connectedUsers: Set<User['id']>;
 	creatorId: string;

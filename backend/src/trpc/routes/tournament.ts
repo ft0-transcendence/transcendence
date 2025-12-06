@@ -797,50 +797,6 @@ export const tournamentRouter = t.router({
 			}
 		}),
 
-	cancelTournament: protectedProcedure
-		.input(z.object({ tournamentId: tournamentValidationSchemas.tournamentId }))
-		.mutation(async ({ ctx, input }) => {
-
-			const t = await ctx.db.tournament.findUnique({
-				where: { id: input.tournamentId },
-				include: { participants: true, games: true }
-			});
-
-			if (!t) {
-				throw new TRPCError({ code: 'NOT_FOUND', message: 'Tournament not found' });
-			}
-
-			if (t.createdById !== ctx.user!.id) {
-				throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the tournament creator can cancel the tournament' });
-			}
-
-			if (t.status === 'COMPLETED') {
-				throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot cancel a completed tournament' });
-			}
-
-			await ctx.db.$transaction(async (tx) => {
-				await tx.game.deleteMany({
-					where: { tournamentId: t.id }
-				});
-
-				await tx.tournament.update({
-					where: { id: t.id },
-					data: { status: 'CANCELLED' as TournamentStatus, endDate: new Date() }
-				});
-			});
-
-			const cachedTournament = cache.tournaments.active.get(t.id);
-			if (cachedTournament) {
-				cachedTournament.status = 'CANCELLED';
-				cachedTournament.aiPlayers.clear();
-
-				broadcastTournamentStatusChange(t.id, 'CANCELLED', ctx.user!.username,
-					`Tournament "${t.name}" has been cancelled by the creator`);
-			}
-
-			return { success: true } as const;
-		}),
-
 	deleteTournament: protectedProcedure
 		.input(z.object({ tournamentId: tournamentValidationSchemas.tournamentId }))
 		.mutation(async ({ ctx, input }) => {
@@ -963,7 +919,7 @@ export const tournamentRouter = t.router({
 					id: result.id,
 					name: result.name,
 					type: result.type as 'EIGHT',
-					status: result.status as 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED',
+					status: result.status as 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED',
 					participants: new Set([ctx.user!.id]),
 					connectedUsers: new Set(),
 					creatorId: ctx.user!.id,
