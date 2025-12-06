@@ -40,14 +40,23 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 	protected async preRender() {
 		this.registerChildComponent(this.#loadingOverlays.root);
+		console.debug('[TournamentDetails] Loading tournament with ID:', this.#tournamentId);
 		try {
 			this.#tournamentDto = await api.tournament.getTournamentDetails.query({tournamentId: this.#tournamentId});
+			console.debug('[TournamentDetails] Tournament loaded successfully:', this.#tournamentDto);
 		} catch (err) {
+			console.error('[TournamentDetails] Failed to load tournament:', err);
 			if (err instanceof TRPCClientError) {
 				const msg = err.data?.zodError?.fieldErrors ? Object.values(err.data.zodError.fieldErrors).join(", ") : err.message;
-				toast.error(t("generic.join_tournament"), msg);
+				toast.error(t("generic.tournament"), msg);
+
+				if (err.data?.httpStatus === 404 || err.message.includes('not found')) {
+					setTimeout(() => {
+						router.navigate('/play/online/tournaments');
+					}, 2000);
+				}
 			} else {
-				toast.error(t("generic.join_tournament"), t("error.generic_server_error") ?? "");
+				toast.error(t("generic.tournament"), t("error.generic_server_error") ?? "");
 			}
 		}
 		this.updateTitleSuffix();
@@ -74,6 +83,19 @@ export class OnlineTournamentDetailsController extends RouteController {
 		const tDto = this.#tournamentDto;
 		const startDate = new Date(tDto.startDate).toLocaleString();
 		const statusColor = tDto.status === "WAITING_PLAYERS" ? "bg-yellow-600" : tDto.status === "IN_PROGRESS" ? "bg-green-600" : "bg-red-700";
+
+		const isCreator = authManager.user?.id === tDto.createdBy.id;
+		const canStart = isCreator && tDto.status === 'WAITING_PLAYERS';
+		const canDelete = isCreator && tDto.status !== 'COMPLETED';
+
+		console.debug('Tournament button visibility:', {
+			currentUserId: authManager.user?.id,
+			creatorId: tDto.createdBy.id,
+			isCreator,
+			status: tDto.status,
+			canStart,
+			canDelete
+		});
 
 		return /*html*/ `
 			<div class="flex flex-col relative grow bg-neutral-900 text-white">
@@ -113,7 +135,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 							<div><i class="fa fa-trophy mr-1"></i>${tDto.type ?? "EIGHT"}</div>
 						</div>
 
-						<div class="mt-5 flex gap-3">
+						<div class="mt-5 flex flex-wrap gap-3">
 							<button id="${this.id}-leave-btn"
 								class="${!tDto.isRegisteredToTournament ? 'hidden' : ''} px-4 py-2 bg-red-700 hover:bg-red-600 rounded-md font-semibold text-sm">
 								<i class="fa fa-sign-out mr-1"></i>${t("generic.leave_tournament")}
@@ -122,6 +144,18 @@ export class OnlineTournamentDetailsController extends RouteController {
 								class="${tDto.isRegisteredToTournament ? 'hidden' : ''} px-4 py-2 bg-green-700 hover:bg-green-600 rounded-md font-semibold text-sm">
 								<i class="fa fa-sign-in mr-1"></i>${t("generic.join_tournament")}
 							</button>
+							${canStart ? /*html*/`
+								<button id="${this.id}-start-btn"
+									class="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded-md font-semibold text-sm">
+									<i class="fa fa-play mr-1"></i>${t("generic.start_tournament")}
+								</button>
+							` : ''}
+							${canDelete ? /*html*/`
+								<button id="${this.id}-delete-btn"
+									class="px-4 py-2 bg-stone-700 hover:bg-stone-600 rounded-md font-semibold text-sm">
+									<i class="fa fa-trash mr-1"></i>${t("generic.delete_tournament")}
+								</button>
+							` : ''}
 						</div>
 					</div>
 
@@ -232,7 +266,11 @@ export class OnlineTournamentDetailsController extends RouteController {
 			tournament.games.forEach(g => this.#updateBracket(tournament.games));
 			this.#renderParticipantsList(tournament.participants);
 		} catch (err) {
-			console.error('Error polling tournament details:', err);
+			if (err instanceof TRPCClientError && err.data?.httpStatus === 404) {
+				console.debug('Tournament not found during polling, will retry...');
+			} else {
+				console.error('Error polling tournament details:', err);
+			}
 		}
 		if (this.#bracketPollingTimeout){
 			clearTimeout(this.#bracketPollingTimeout);
@@ -254,6 +292,8 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 		const joinBtn = document.querySelector(`#${this.id}-join-btn`) as HTMLButtonElement | null;
 		const leaveBtn = document.querySelector(`#${this.id}-leave-btn`) as HTMLButtonElement | null;
+		const startBtn = document.querySelector(`#${this.id}-start-btn`) as HTMLButtonElement | null;
+		const deleteBtn = document.querySelector(`#${this.id}-delete-btn`) as HTMLButtonElement | null;
 		const id = this.#tournamentId;
 
 		if (joinBtn) {
@@ -298,6 +338,53 @@ export class OnlineTournamentDetailsController extends RouteController {
 						console.warn(err);
 					} else {
 						toast.error(t("generic.leave_tournament"), t("error.generic_server_error") ?? "");
+						console.error(err);
+					}
+				}
+				this.#loadingOverlays.root.hide();
+			});
+		}
+		if (startBtn) {
+			startBtn.addEventListener("click", async () => {
+				this.#loadingOverlays.root.show();
+				try {
+					await api.tournament.startTournament.mutate({ tournamentId: id });
+					toast.success(t("generic.start_tournament"), t("generic.start_tournament_success") ?? "");
+					// Refresh the tournament details to update the UI
+					const tournament = await api.tournament.getTournamentDetails.query({ tournamentId: id });
+					this.#tournamentDto = tournament;
+					// Force a re-render by navigating to the same page
+					router.navigate(`/play/online/tournaments/${id}`);
+				} catch (err) {
+					if (err instanceof TRPCClientError) {
+						const msg = err.data?.zodError?.fieldErrors ? Object.values(err.data.zodError.fieldErrors).join(', ') : err.message;
+						toast.error(t("generic.start_tournament"), msg);
+						console.warn(err);
+					} else {
+						toast.error(t("generic.start_tournament"), t("error.generic_server_error") ?? "");
+						console.error(err);
+					}
+				}
+				this.#loadingOverlays.root.hide();
+			});
+		}
+		if (deleteBtn) {
+			deleteBtn.addEventListener("click", async () => {
+				const confirmed = confirm(t("generic.delete_tournament_confirm") ?? "Are you sure you want to delete this tournament?");
+				if (!confirmed) return;
+
+				this.#loadingOverlays.root.show();
+				try {
+					await api.tournament.deleteTournament.mutate({ tournamentId: id });
+					toast.success(t("generic.delete_tournament"), t("generic.delete_tournament_success") ?? "");
+					router.navigate('/play/online/tournaments');
+				} catch (err) {
+					if (err instanceof TRPCClientError) {
+						const msg = err.data?.zodError?.fieldErrors ? Object.values(err.data.zodError.fieldErrors).join(', ') : err.message;
+						toast.error(t("generic.delete_tournament"), msg);
+						console.warn(err);
+					} else {
+						toast.error(t("generic.delete_tournament"), t("error.generic_server_error") ?? "");
 						console.error(err);
 					}
 				}
