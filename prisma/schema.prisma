@@ -59,7 +59,6 @@ enum TournamentStatus {
     WAITING_PLAYERS
     IN_PROGRESS
     COMPLETED
-    CANCELLED
 }
 
 model Tournament {
