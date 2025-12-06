@@ -109,8 +109,8 @@ export const it: TranslationSchema = {
 		player_disconnected: 'Giocatore {{playerName}} si è disconnesso',
 		time_left_before_forfeit: 'Vittoria a tavolino in {{timeLeftMs}} secondi',
 		aborted: {
-			user_not_reconnected: 'Partita finita perché {{username}} non si è riconnesso in tempo',
-			generic: 'Partita annullata'
+			user_not_reconnected: 'Partita terminata perché {{username}} non si è riconnesso in tempo',
+			generic: 'Partita terminata'
 		},
 		game_finished: 'Partita finita',
 		waiting_other_player: `In attesa che l'altro giocatore si unisca...`,

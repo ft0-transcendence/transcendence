@@ -108,8 +108,8 @@ export const en = {
 		player_disconnected: 'Player <b>{{playerName}}</b> disconnected',
 		time_left_before_forfeit: 'Forfeit in {{timeLeftMs}} seconds',
 		aborted: {
-			user_not_reconnected: 'Game aborted because {{username}} did not reconnect in time',
-			generic: 'Game aborted'
+			user_not_reconnected: 'Game ended because {{username}} did not reconnect in time',
+			generic: 'Game ended'
 		},
 		game_finished: 'Game finished',
 		waiting_other_player: 'Waiting for other player to join...',

@@ -110,8 +110,8 @@ export const ua: TranslationSchema = {
 		player_disconnected: 'Гравець {{playerName}} від\'єднався',
 		time_left_before_forfeit: 'Автоматична перемога через {{timeLeftMs}} секунд',
 		aborted: {
-			user_not_reconnected: 'Гра перервана через те, що {{username}} не від\'єднався в течі',
-			generic: 'Гра перервана'
+			user_not_reconnected: 'Гра завершена через те, що {{username}} не від\'єднався вчасно',
+			generic: 'Гра завершена'
 		},
 		game_finished: 'Гра завершена',
 		waiting_other_player: 'Очікуємо на приєднання іншого гравця...',
