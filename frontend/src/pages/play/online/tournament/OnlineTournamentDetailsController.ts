@@ -124,7 +124,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 							</div>
 							<div class="flex flex-col sm:items-end justify-center text-sm text-stone-300">
 								<div><i class="fa fa-clock-o mr-1"></i> ${startDate}</div>
-								<div class="mt-1 text-xs px-2 py-1 rounded-full ${statusColor} font-semibold uppercase">
+								<div id="${this.id}-status-badge" class="mt-1 text-xs px-2 py-1 rounded-full ${statusColor} font-semibold uppercase">
 									${tDto.status.replace("_", " ")}
 								</div>
 							</div>
@@ -267,7 +267,12 @@ export class OnlineTournamentDetailsController extends RouteController {
 			this.#renderParticipantsList(tournament.participants);
 		} catch (err) {
 			if (err instanceof TRPCClientError && err.data?.httpStatus === 404) {
-				console.debug('Tournament not found during polling, will retry...');
+				console.debug('Tournament not found during polling, stopping polling...');
+				if (this.#bracketPollingTimeout) {
+					clearTimeout(this.#bracketPollingTimeout);
+					this.#bracketPollingTimeout = null;
+				}
+				return; // Exit early, don't schedule another poll
 			} else {
 				console.error('Error polling tournament details:', err);
 			}
@@ -350,11 +355,19 @@ export class OnlineTournamentDetailsController extends RouteController {
 				try {
 					await api.tournament.startTournament.mutate({ tournamentId: id });
 					toast.success(t("generic.start_tournament"), t("generic.start_tournament_success") ?? "");
-					// Refresh the tournament details to update the UI
 					const tournament = await api.tournament.getTournamentDetails.query({ tournamentId: id });
 					this.#tournamentDto = tournament;
-					// Force a re-render by navigating to the same page
-					router.navigate(`/play/online/tournaments/${id}`);
+					this.updateTitleSuffix();
+
+					startBtn.remove();
+
+					const statusBadge = document.getElementById(`${this.id}-status-badge`);
+					if (statusBadge) {
+						statusBadge.classList.remove('bg-yellow-600');
+						statusBadge.classList.add('bg-green-600');
+						statusBadge.textContent = tournament.status.replace("_", " ");
+					}
+
 				} catch (err) {
 					if (err instanceof TRPCClientError) {
 						const msg = err.data?.zodError?.fieldErrors ? Object.values(err.data.zodError.fieldErrors).join(', ') : err.message;
@@ -373,6 +386,11 @@ export class OnlineTournamentDetailsController extends RouteController {
 				const confirmed = confirm(t("generic.delete_tournament_confirm") ?? "Are you sure you want to delete this tournament?");
 				if (!confirmed) return;
 
+				if (this.#bracketPollingTimeout) {
+					clearTimeout(this.#bracketPollingTimeout);
+					this.#bracketPollingTimeout = null;
+				}
+
 				this.#loadingOverlays.root.show();
 				try {
 					await api.tournament.deleteTournament.mutate({ tournamentId: id });
@@ -386,6 +404,9 @@ export class OnlineTournamentDetailsController extends RouteController {
 					} else {
 						toast.error(t("generic.delete_tournament"), t("error.generic_server_error") ?? "");
 						console.error(err);
+					}
+					if (!this.#bracketPollingTimeout) {
+						this.#bracketPollingTimeout = setTimeout(() => this.#pollTournamentDetails(), this.#bracketPollingMs);
 					}
 				}
 				this.#loadingOverlays.root.hide();
@@ -482,7 +503,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 	#renderParticipantsList(participants: RouterOutputs["tournament"]["getTournamentDetails"]["participants"]) {
 		const container = document.querySelector(`#${this.id}-participants-list`);
 		if (!container) {
-			console.warn('Participants list not found. Cannot render participants');
+			console.debug('Participants list not found. Page may be navigating away.');
 			return;
 		}
 
