@@ -798,6 +798,104 @@ function setupTournamentNamespace(io: Server) {
 				socket.emit('error', 'Failed to join tournament game');
 			}
 		});
+
+		// Tournament game input handlers
+		socket.on("player-press", (action: MovePaddleAction) => {
+			const rooms = Array.from(socket.rooms);
+			const gameId = rooms.find(room => room !== socket.id && room !== `tournament-${user.id}`);
+
+			if (!gameId) {
+				socket.emit('error', 'Not in any game room');
+				return;
+			}
+
+			const game = cache.tournaments.activeTournamentGames.get(gameId);
+			if (!game) {
+				socket.emit('error', 'Tournament game not found');
+				return;
+			}
+
+			const isPlayerInGame = game.isPlayerInGame(user.id);
+			if (!isPlayerInGame) {
+				socket.emit('error', 'You are not a player in this game');
+				return;
+			}
+
+			if (game.leftPlayer?.id === user.id) {
+				game.press("left", action);
+			} else if (game.rightPlayer?.id === user.id) {
+				game.press("right", action);
+			}
+
+			// Broadcast game state to all players in the game room
+			socket.to(gameId).emit("game-state", game.getState());
+			socket.emit("game-state", game.getState());
+		});
+
+		socket.on("player-release", (action: MovePaddleAction) => {
+			const rooms = Array.from(socket.rooms);
+			const gameId = rooms.find(room => room !== socket.id && room !== `tournament-${user.id}`);
+
+			if (!gameId) {
+				socket.emit('error', 'Not in any game room');
+				return;
+			}
+
+			const game = cache.tournaments.activeTournamentGames.get(gameId);
+			if (!game) {
+				socket.emit('error', 'Tournament game not found');
+				return;
+			}
+
+			const isPlayerInGame = game.isPlayerInGame(user.id);
+			if (!isPlayerInGame) {
+				socket.emit('error', 'You are not a player in this game');
+				return;
+			}
+
+			if (game.leftPlayer?.id === user.id) {
+				game.release("left", action);
+			} else if (game.rightPlayer?.id === user.id) {
+				game.release("right", action);
+			}
+
+			// Broadcast game state to all players in the game room
+			socket.to(gameId).emit("game-state", game.getState());
+			socket.emit("game-state", game.getState());
+		});
+
+		socket.on("leave-game", async (gameId: string) => {
+			await socket.leave(gameId);
+			fastify.log.info(`User ${user.username} left tournament game room ${gameId}`);
+			socket.to(gameId).emit("player-left", { userId: user.id });
+
+			const game = cache.tournaments.activeTournamentGames.get(gameId);
+			if (game && game.isPlayerInGame(user.id)) {
+				(game as OnlineGame).markPlayerDisconnected(user.id);
+			}
+		});
+
+		socket.on("disconnect", () => {
+			fastify.log.info("Tournament socket disconnected %s", socket.id);
+
+			const userGameInfo = {
+				id: user.id,
+				username: user.username,
+				isPlayer: false,
+			};
+
+			// Handle disconnection for all active tournament games
+			cache.tournaments.activeTournamentGames.forEach((game, gameId) => {
+				const removed = game.removeConnectedUser(userGameInfo);
+				if (removed) {
+					socket.to(gameId).emit('player-left', userGameInfo);
+				}
+
+				if (game.isPlayerInGame(user.id)) {
+					(game as OnlineGame).markPlayerDisconnected(user.id);
+				}
+			});
+		});
 	});
 }
 
