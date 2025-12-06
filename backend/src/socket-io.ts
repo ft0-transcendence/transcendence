@@ -613,6 +613,32 @@ function setupTournamentNamespace(io: Server) {
 					lastBracketUpdate: tournamentInfo.lastBracketUpdate
 				});
 
+				// Check if player has an active match ready to play
+				if (tournament.status === 'IN_PROGRESS') {
+					const playerGames = tournament.games.filter(g =>
+						(g.leftPlayerId === user.id || g.rightPlayerId === user.id) &&
+						!g.endDate &&
+						!g.abortDate
+					);
+
+					if (playerGames.length > 0) {
+						// Find the next match the player should play
+						const nextMatch = playerGames[0];
+						const opponentId = nextMatch.leftPlayerId === user.id ? nextMatch.rightPlayerId : nextMatch.leftPlayerId;
+						const opponent = tournament.participants.find(p => p.userId === opponentId);
+
+						socket.emit('your-match-ready', {
+							tournamentId: tournament.id,
+							tournamentName: tournament.name,
+							gameId: nextMatch.id,
+							round: nextMatch.tournamentRound,
+							opponentId: opponentId,
+							opponentUsername: opponent?.user.username || 'AI Player',
+							message: `Your ${nextMatch.tournamentRound?.toLowerCase() || 'match'} is ready!`
+						});
+					}
+				}
+
 				// Notify other participants about user joining lobby
 				socket.to(tournamentId).emit('user-joined-tournament-lobby', {
 					userId: user.id,
