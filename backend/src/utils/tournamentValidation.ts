@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { TournamentStatus, TournamentType } from "@prisma/client";
+import { PrismaClient, Tournament, TournamentStatus, TournamentType } from "@prisma/client";
 import { z } from "zod";
 import { fastify } from "../../main";
 import { cache } from "../cache";
@@ -8,7 +8,7 @@ import { AIPlayerService } from "../services/aiPlayerService";
 
 export const tournamentValidationSchemas = {
   tournamentId: z.string().min(1, "Tournament ID is required"),
-  
+
   createTournament: z.object({
     name: z.string()
       .min(3, "Tournament name must be at least 3 characters")
@@ -41,8 +41,8 @@ export const tournamentValidationSchemas = {
 };
 
 export class TournamentValidator {
-  
-  static validateTournamentExists(tournament: any, tournamentId: string): void {
+
+  static validateTournamentExists(tournament: Tournament | null, tournamentId: string): void {
     if (!tournament) {
       throw new TRPCError({
         code: 'NOT_FOUND',
@@ -105,15 +105,15 @@ export class TournamentValidator {
     }
   }
 
-  static validateAIPlayerByUsername(username: string | null, db: any): boolean {
+  static validateAIPlayerByUsername(username: string | null, db: PrismaClient): boolean {
     const aiPlayerService = new AIPlayerService(db);
     return aiPlayerService.isAIPlayer(username);
   }
 
   static validateGameAIConfiguration(
-    leftPlayerUsername: string | null, 
-    rightPlayerUsername: string | null, 
-    db: any
+    leftPlayerUsername: string | null,
+    rightPlayerUsername: string | null,
+    db: PrismaClient
   ): { leftIsAI: boolean; rightIsAI: boolean; isAIGame: boolean } {
     const aiPlayerService = new AIPlayerService(db);
     const leftIsAI = aiPlayerService.isAIPlayer(leftPlayerUsername);
@@ -123,7 +123,7 @@ export class TournamentValidator {
     return { leftIsAI, rightIsAI, isAIGame };
   }
 
-  static async validateTournamentBracketConsistency(tournamentId: string, db: any): Promise<void> {
+  static async validateTournamentBracketConsistency(tournamentId: string, db: PrismaClient): Promise<void> {
     try {
       const tournament = await db.tournament.findUnique({
         where: { id: tournamentId },
@@ -184,7 +184,7 @@ export class TournamentValidator {
   static validateAIvsAIGameConfiguration(
     leftPlayerUsername: string | null,
     rightPlayerUsername: string | null,
-    db: any
+    db: PrismaClient
   ): boolean {
     const aiPlayerService = new AIPlayerService(db);
     return aiPlayerService.isAIPlayer(leftPlayerUsername) && aiPlayerService.isAIPlayer(rightPlayerUsername);
@@ -239,17 +239,17 @@ export function handleTournamentError(error: Error, operation: string, tournamen
 }
 
 // Enhanced cache consistency check with AI player validation
-export function validateCacheConsistency(tournamentId: string, db: any): void {
+export function validateCacheConsistency(tournamentId: string, db: PrismaClient): void {
   // Simple async check without blocking the main operation
   setTimeout(async () => {
     try {
       const cachedTournament = cache.tournaments.active.get(tournamentId);
-      
+
       if (cachedTournament) {
         // Simple check - if cache exists, verify basic data
         const dbTournament = await db.tournament.findUnique({
           where: { id: tournamentId },
-          include: { 
+          include: {
             participants: true,
             games: {
               select: {
@@ -261,7 +261,7 @@ export function validateCacheConsistency(tournamentId: string, db: any): void {
             }
           }
         });
-        
+
         if (!dbTournament) {
           fastify.log.warn(`Tournament ${tournamentId} exists in cache but not in database`);
           cache.tournaments.active.delete(tournamentId);
@@ -273,8 +273,8 @@ export function validateCacheConsistency(tournamentId: string, db: any): void {
 
           // Validate AI player cache consistency
           const aiPlayerService = new AIPlayerService(db);
-          const dbAIPlayerCount = dbTournament.games.filter((game: any) => 
-            aiPlayerService.isAIPlayer(game.leftPlayerUsername) || 
+          const dbAIPlayerCount = dbTournament.games.filter((game) =>
+            aiPlayerService.isAIPlayer(game.leftPlayerUsername) ||
             aiPlayerService.isAIPlayer(game.rightPlayerUsername)
           ).length;
 

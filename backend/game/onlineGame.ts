@@ -1,17 +1,17 @@
-import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState, STANDARD_GAME_CONFIG } from "./game";
+import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState, STANDARD_GAME_CONFIG, GameConfig } from "./game";
 import { db } from '../src/trpc/db';
 import { GameType, Prisma, PrismaClient, Game as PrismaGame } from "@prisma/client";
-import { TypedSocket } from "@backend/src/socket-io";
+import { TypedSocket, TypedSocketNamespace } from "@backend/src/socket-io";
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
 export class OnlineGame extends Game {
 	protected gameId: string;
-	protected socketNamespace: TypedSocket;
+	protected socketNamespace: TypedSocketNamespace | null;
 
 	public pendingDbCreation: PrismaGame | null = null;
 
-	protected updateGameActivity?: (gameInstance?: any) => Promise<void>;
+	protected updateGameActivity?: (gameInstance?: OnlineGame) => Promise<void>;
 
 	protected unsubscribeTick: (() => void) | null = null;
 	protected unsubscribeScore: (() => void) | null = null;
@@ -33,10 +33,10 @@ export class OnlineGame extends Game {
 
 	constructor(
 		gameId: string,
-		socketNamespace: any,
-		config?: Partial<ConstructorParameters<typeof Game>[0]>,
+		socketNamespace: TypedSocketNamespace | null,
+		config?: Partial<GameConfig>,
 		onFinish?: FinishCallback,
-		updateGameActivity?: (gameInstance?: any) => Promise<void>,
+		updateGameActivity?: (gameInstance?: OnlineGame) => Promise<void>,
 	) {
 		super(config);
 		this.gameId = gameId;
@@ -69,7 +69,7 @@ export class OnlineGame extends Game {
 		this.movePlayerPaddle(playerId, action);
 	}
 
-	public setSocketNamespace(socketNamespace: any): void {
+	public setSocketNamespace(socketNamespace: TypedSocketNamespace): void {
 		this.socketNamespace = socketNamespace;
 	}
 

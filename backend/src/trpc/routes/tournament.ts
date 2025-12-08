@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, t } from "../trpc";
 import { z } from "zod";
-import { TournamentType, GameType, TournamentStatus } from "@prisma/client";
+import { TournamentType, GameType, TournamentStatus, PrismaClient } from "@prisma/client";
 import sanitizeHtml from 'sanitize-html';
 import { BracketGenerator } from "../../../game/bracketGenerator";
 import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, TournamentCacheEntry } from "../../cache";
@@ -191,7 +191,7 @@ export const tournamentRouter = t.router({
 				}
 
 				const isRegisteredToTournament = ctx.user?.id
-					? tournament!.participants.some((p: any) => p.user.id === ctx.user!.id)
+					? tournament!.participants.some((p) => p.user.id === ctx.user!.id)
 					: false;
 
 				return {
@@ -455,7 +455,7 @@ export const tournamentRouter = t.router({
 						throw new TRPCError({ code: "BAD_REQUEST", message: "Game has no associated tournament" });
 					}
 
-					const isParticipant = game.tournament!.participants.some((p: any) => p.userId === userId);
+					const isParticipant = game.tournament!.participants.some((p) => p.userId === userId);
 					if (!isParticipant) {
 						throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this tournament" });
 					}
@@ -854,8 +854,8 @@ export const tournamentRouter = t.router({
 				}
 
 				const participantsToNotify = tournament!.participants
-					.filter((p: any) => p.userId !== ctx.user!.id)
-					.map((p: any) => ({
+					.filter((p) => p.userId !== ctx.user!.id)
+					.map((p) => ({
 						id: p.user.id,
 						username: p.user.username
 					}));
@@ -967,8 +967,8 @@ export const tournamentRouter = t.router({
 		}),
 });
 
-async function executeTournamentStart(db: any, tournamentId: string, startedByUsername: string) {
-	const result = await db.$transaction(async (tx: any) => {
+async function executeTournamentStart(db: PrismaClient, tournamentId: string, startedByUsername: string) {
+	const result = await db.$transaction(async (tx) => {
 		const bracketGenerator = new BracketGenerator(tx);
 		const occupiedSlots = await bracketGenerator.getOccupiedSlotsCount(tournamentId);
 
@@ -1030,7 +1030,7 @@ async function executeTournamentStart(db: any, tournamentId: string, startedByUs
 	return result;
 }
 
-export async function autoStartTournament(db: any, tournamentId: string): Promise<void> {
+export async function autoStartTournament(db: PrismaClient, tournamentId: string): Promise<void> {
 	const tournament = await db.tournament.findUnique({
 		where: { id: tournamentId },
 		include: { participants: { include: { user: true } }, games: true }

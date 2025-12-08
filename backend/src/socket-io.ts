@@ -1,8 +1,8 @@
 import { User } from '@prisma/client';
 
-import { DefaultEventsMap, Server, Socket } from "socket.io";
+import { DefaultEventsMap, Namespace, Server, Socket } from "socket.io";
 import { cache, addUserToOnlineCache, removeUserFromOnlineCache, isUserOnline } from './cache';
-import { Game, GameUserInfo, MovePaddleAction } from '../game/game';
+import { Game, GameStatus, GameUserInfo, MovePaddleAction } from '../game/game';
 import { OnlineGame } from '../game/onlineGame';
 import { BracketGenerator } from '../game/bracketGenerator';
 import { fastify } from '../main';
@@ -10,7 +10,7 @@ import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
 import { createVsGameRecord, finalizeVsGameResult } from './services/vsGameService';
 
-async function handleVSGameFinish(gameId: string, state: any, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
+async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
 	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
 	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
 
@@ -46,6 +46,7 @@ export type SocketFriendInfo = {
 
 // README: if you want to have the custom socket's data type for each listener you have to add the type CustomSocket on the function's parameter
 export type TypedSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
+export type TypedSocketNamespace = Namespace<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 
 export function setupSocketHandlers(io: Server) {
 
@@ -206,8 +207,8 @@ function setupMatchmakingNamespace(io: Server) {
 									where: { id: gameId },
 									data: {
 										updatedAt: new Date(),
-										leftPlayerScore: gameInstance.scores.left,
-										rightPlayerScore: gameInstance.scores.right
+										leftPlayerScore: gameInstance?.scores.left,
+										rightPlayerScore: gameInstance?.scores.right
 									}
 								});
 							} catch (error) {
@@ -976,17 +977,20 @@ export function broadcastTournamentStatusChange(
     const io = (global as any).io;
     if (io) {
         const tournamentNamespace = io.of("/tournament");
-        const eventData: any = {
+        const eventData = {
             tournamentId,
             newStatus,
             changedBy,
             message: message || `Tournament status changed to ${newStatus}`,
-            timestamp: new Date()
+            timestamp: new Date(),
+			winner: winner
         };
 
         if (newStatus === 'COMPLETED') {
             eventData.winner = winner;
-        }
+        } else {
+			eventData.winner = undefined;
+		}
 
         tournamentNamespace.to(tournamentId).emit('tournament-status-changed', eventData);
     }

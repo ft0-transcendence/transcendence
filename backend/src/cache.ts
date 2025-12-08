@@ -1,4 +1,4 @@
-import { PrismaClient, User } from "@prisma/client";
+import { Game, PrismaClient, User } from "@prisma/client";
 import { OnlineGame } from "../game/onlineGame";
 import { TournamentGame } from "../game/tournamentGame";
 import { TypedSocket } from "./socket-io";
@@ -6,15 +6,16 @@ import { FastifyInstance } from "fastify/types/instance";
 import { db } from "./trpc/db";
 import { fastify } from "../main";
 import { updateGameStats } from "./utils/statsUtils";
+import { GameStatus } from "../game/game";
 
 
-async function handleVSGameFinish(gameId: string, state: any, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
+async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
 	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
 	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
-	
+
 	const isAborted = gameInstance.wasForfeited;
 
-	const updateData: any = {
+	const updateData: Partial<Game> = {
 		endDate: new Date(),
 		leftPlayerScore: state.scores.left,
 		rightPlayerScore: state.scores.right,
@@ -31,11 +32,11 @@ async function handleVSGameFinish(gameId: string, state: any, gameInstance: Onli
 		});
 		console.log(`✅ VS Game ${gameId} successfully updated in database`);
 
-		// Aggiorna sempre le statistiche dei giocatori 
+		// Aggiorna sempre le statistiche dei giocatori
 		if (state.scores.left !== state.scores.right) {
 			let winnerId: string;
 			let loserId: string;
-			
+
 			if (state.scores.left > state.scores.right) {
 				winnerId = leftPlayerId;
 				loserId = rightPlayerId;
@@ -43,7 +44,7 @@ async function handleVSGameFinish(gameId: string, state: any, gameInstance: Onli
 				winnerId = rightPlayerId;
 				loserId = leftPlayerId;
 			}
-			
+
 			console.log(`📊 VS Game ${gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${isAborted}`);
 			await updateGameStats(db, winnerId, loserId);
 		} else {
@@ -53,7 +54,7 @@ async function handleVSGameFinish(gameId: string, state: any, gameInstance: Onli
 	} catch (error) {
 		console.error(`❌ VS Game ${gameId} failed to update database:`, error);
 	}
-	
+
 	cache.active_1v1_games.delete(gameId);
 	fastify.log.info("VS Game %s persisted and removed from cache.", gameId);
 }
@@ -144,10 +145,10 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 			async (gameInstance) => {
 				await db.game.update({
 					where: { id: game.id },
-					data: { 
+					data: {
 						updatedAt: new Date(),
-						leftPlayerScore: gameInstance.scores.left,
-						rightPlayerScore: gameInstance.scores.right
+						leftPlayerScore: gameInstance?.scores.left,
+						rightPlayerScore: gameInstance?.scores.right
 					}
 				});
 			}
@@ -204,7 +205,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				// Check if game was forfeited due to disconnection
 				const isAborted = gameInstance.wasForfeited;
 
-				const updateData: any = {
+				const updateData: Partial<Game> = {
 					endDate: new Date(),
 					leftPlayerScore: state.scores.left,
 					rightPlayerScore: state.scores.right,
@@ -298,7 +299,7 @@ export function removeTournamentFromCache(tournamentId: string) {
 	}
 }
 
-export function addTournamentGameToCache(gameId: string, game: any) {
+export function addTournamentGameToCache(gameId: string, game: TournamentGame) {
 	cache.tournaments.activeTournamentGames.set(gameId, game);
 }
 

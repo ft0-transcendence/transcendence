@@ -1,10 +1,10 @@
 import { OnlineGame } from "./onlineGame";
-import { GameUserInfo, GameStatus } from "./game";
+import { GameUserInfo, GameStatus, GameConfig } from "./game";
 import { db } from "../src/trpc/db";
 import { updateTournamentWinnerStats, updateGameStats } from "../src/utils/statsUtils";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 import { cache } from "../src/cache";
-import { broadcastTournamentStatusChange } from "../src/socket-io";
+import { broadcastTournamentStatusChange, TypedSocket, TypedSocketNamespace } from "../src/socket-io";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
@@ -17,8 +17,8 @@ export class TournamentGame extends OnlineGame {
     constructor(
         gameId: string,
         tournamentId: string,
-        socketNamespace: any,
-        config?: any,
+        socketNamespace: TypedSocketNamespace | null,
+        config?: Partial<GameConfig>,
         onTournamentFinish?: TournamentGameFinishCallback,
         updateGameActivity?: () => Promise<void>,
     ) {
@@ -72,7 +72,7 @@ export class TournamentGame extends OnlineGame {
         try {
             const winnerId = this.scores.left > this.scores.right ? this.leftPlayer?.id : this.rightPlayer?.id;
             const loserId = this.scores.left > this.scores.right ? this.rightPlayer?.id : this.leftPlayer?.id;
-            
+
             if (!winnerId || !loserId) {
                 console.error(`Tournament Game ${this.gameId}: No winner/loser determined`);
                 return;
@@ -99,14 +99,14 @@ export class TournamentGame extends OnlineGame {
                 if (nextGame && nextGame.previousGames.length === 2) {
                     const childIds = nextGame.previousGames.map(g => g.id).sort();
                     const isLeft = this.gameId === childIds[0];
-                    
+
                     // Get winner's username
                     const winnerUser = await db.user.findUnique({
                         where: { id: winnerId },
                         select: { username: true }
                     });
-                    
-                    const data: any = isLeft 
+
+                    const data = isLeft
                         ? { leftPlayerId: winnerId, leftPlayerUsername: winnerUser?.username || null }
                         : { rightPlayerId: winnerId, rightPlayerUsername: winnerUser?.username || null };
 
@@ -133,7 +133,7 @@ export class TournamentGame extends OnlineGame {
                 await db.$transaction(async (tx) => {
                     await tx.tournament.update({
                         where: { id: this.tournamentId },
-                        data: { 
+                        data: {
                             endDate: new Date(),
                             winnerId: winnerId,
                             status: 'COMPLETED'
@@ -226,7 +226,7 @@ export class TournamentGame extends OnlineGame {
         const aiLogic = () => {
             try {
                 const state = this.getState();
-                
+
                 if (state.state !== 'RUNNING') return;
 
                 const aiPaddlePos = side === 'left' ? state.paddles.left : state.paddles.right;

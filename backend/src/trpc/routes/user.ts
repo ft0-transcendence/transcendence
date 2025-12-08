@@ -3,11 +3,12 @@ import {protectedProcedure, publicProcedure, t} from "../trpc";
 import { z } from "zod";
 import { AppLanguage } from '../../../shared_exports';
 import sanitizeHtml from 'sanitize-html';
+import { PrismaClient } from "@prisma/client";
 
 const MAX_PROFILE_PICTURE_SIZE_MB = 2.5;
 const MAX_PROFILE_PICTURE_SIZE_BYTES = MAX_PROFILE_PICTURE_SIZE_MB * 1024 * 1024;
 
-async function calculateUserStats(db: any, userId: string) {
+async function calculateUserStats(db: PrismaClient, userId: string) {
 	const userGames = await db.game.findMany({
 		where: {
 			endDate: { not: null },

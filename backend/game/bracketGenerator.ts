@@ -1,4 +1,4 @@
-import { PrismaClient, TournamentRound, Prisma } from "@prisma/client";
+import { PrismaClient, TournamentRound, Prisma, Game } from "@prisma/client";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 
 //TODO: Remove this shit
@@ -12,7 +12,7 @@ export type BracketNode = {
     leftPlayerId?: string | null;
     rightPlayerId?: string | null;
     nextGameId?: string;
-    tournamentRound?: 'QUARTI' | 'SEMIFINALE' | 'FINALE';
+    tournamentRound: Game['tournamentRound'];
 };
 
 export class BracketGenerator {
@@ -270,15 +270,15 @@ export class BracketGenerator {
         });
 
         const bracket: BracketNode[] = [];
-        const gameMap = new Map<string, any>();
+        const gameMap = new Map<string, Game>();
 
-        games.forEach((game: any) => {
+        games.forEach((game) => {
             gameMap.set(game.id, game);
         });
 
-        games.forEach((game: any) => {
+        games.forEach((game) => {
             let round = 1;
-            let currentGame = game;
+            let currentGame: Game | undefined = game;
 
             while (currentGame.nextGameId) {
                 round++;
@@ -286,9 +286,9 @@ export class BracketGenerator {
                 if (!currentGame) break;
             }
 
-            const gamesInRound = games.filter((g: any) => {
+            const gamesInRound = games.filter((g) => {
                 let r = 1;
-                let curr = g;
+                let curr: Game | undefined = g;
                 while (curr.nextGameId) {
                     r++;
                     curr = gameMap.get(curr.nextGameId);
@@ -297,7 +297,7 @@ export class BracketGenerator {
                 return r === round;
             });
 
-            const position = gamesInRound.findIndex((g: any) => g.id === game.id);
+            const position = gamesInRound.findIndex((g) => g.id === game.id);
 
             bracket.push({
                 gameId: game.id,
@@ -306,7 +306,7 @@ export class BracketGenerator {
                 leftPlayerId: game.leftPlayerId || null,
                 rightPlayerId: game.rightPlayerId || null,
                 nextGameId: game.nextGameId || undefined,
-                tournamentRound: game.tournamentRound as 'QUARTI' | 'SEMIFINALE' | 'FINALE' | undefined
+                tournamentRound: game.tournamentRound
             });
         });
 
@@ -476,7 +476,7 @@ export class BracketGenerator {
             });
 
             for (const game of games) {
-                const updateData: any = {};
+                const updateData: Partial<Game> = {};
 
                 if (game.leftPlayerId === userId) {
                     updateData.leftPlayerId = placeholderUserId;
@@ -522,7 +522,7 @@ export class BracketGenerator {
             });
 
             for (const game of quarterFinalGames) {
-                let updateData: any = {};
+                let updateData: Partial<Game> = {};
 
                 if (!game.leftPlayerId || game.leftPlayerId === '' ||
                     game.leftPlayerId === placeholderUserId ||

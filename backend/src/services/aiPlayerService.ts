@@ -67,7 +67,7 @@ export class AIPlayerService {
         }
     }
 
-    private async advanceAIWinnerToNextGame(tx: any, nextGameId: string): Promise<void> {
+    private async advanceAIWinnerToNextGame(tx: Prisma.TransactionClient, nextGameId: string): Promise<void> {
         const nextGame = await tx.game.findUnique({
             where: { id: nextGameId },
             select: {
@@ -112,7 +112,7 @@ export class AIPlayerService {
             select: { id: true }
         });
 
-        return aiGames.map((game: any) => game.id);
+        return aiGames.map((game) => game.id);
     }
 
 
