@@ -95,6 +95,8 @@ export const ua: TranslationSchema = {
 		aborted: "Перервано",
 		pending: "В очікуванні",
 		game_not_found: "Гра не знайдена",
+		game: "Гра",
+		seconds: "секунд",
 	},
 	tournament:{
 		bracket: "Склад",
@@ -182,4 +184,17 @@ export const ua: TranslationSchema = {
 			}
 		}
 	},
+	page: {
+		play: {
+			online: {
+				"1v1": {
+					matchmaking: {
+						redirecting_in: "Перенаправлення через",
+						already_started: "Уже запущена",
+						reconnect_now: "Підключитися зараз",
+					}
+				}
+			}
+		}
+	}
 }

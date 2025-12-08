@@ -12,6 +12,7 @@ import { ZodError } from "zod";
 import { isMobile } from "@src/utils/agentUtils";
 import { ConfirmModal } from "@src/tools/ConfirmModal";
 import { Socket } from "socket.io-client";
+import { showAndLogTrpcError } from "@src/utils/trpcResponseUtils";
 
 export class HomeController extends RouteController {
 	#baseSocket: Socket | null = null;
@@ -405,21 +406,7 @@ export class HomeController extends RouteController {
 			console.debug('Friend add result=', result);
 			this.#toggleFriendInput!.value = '';
 		} catch (err) {
-
-			if (err instanceof TRPCClientError) {
-				console.warn('Friend add error', err);
-
-				const zodError = err.data?.zodError;
-				if (zodError && zodError.fieldErrors) {
-					const values = Object.values(zodError.fieldErrors);
-					for (const err of values) {
-						toast.error(t('generic.add_friend'), err as string);
-					}
-				} else {
-					toast.warn(t('generic.add_friend'), err.message);
-					console.debug('Friend add error', err);
-				}
-			}
+			showAndLogTrpcError(err, 'generic.add_friend');
 		}
 	}
 
@@ -582,19 +569,7 @@ export class HomeController extends RouteController {
 			console.debug('Friend request accepted', result);
 			return true;
 		} catch (err) {
-			if (err instanceof TRPCClientError) {
-				console.warn('Friend accept error', err);
-				const zodError = err.data?.zodError;
-				if (zodError && zodError.fieldErrors) {
-					const values = Object.values(zodError.fieldErrors);
-					for (const err of values) {
-						toast.error(t('generic.accept_friend_request'), err as string);
-					}
-				} else {
-					toast.warn(t('generic.accept_friend_request'), err.message);
-					console.debug('Friend accept error', err);
-				}
-			}
+			showAndLogTrpcError(err, 'generic.accept_friend_request');
 		}
 		return false;
 	}
@@ -604,19 +579,7 @@ export class HomeController extends RouteController {
 			console.debug('Friend request rejected', result);
 			return true;
 		} catch (err) {
-			if (err instanceof TRPCClientError) {
-				console.warn('Friend reject error', err);
-				const zodError = err.data?.zodError;
-				if (zodError && zodError.fieldErrors) {
-					const values = Object.values(zodError.fieldErrors);
-					for (const err of values) {
-						toast.error(t('generic.reject_friend_request'), err as string);
-					}
-				} else {
-					toast.warn(t('generic.reject_friend_request'), err.message);
-					console.debug('Friend reject error', err);
-				}
-			}
+			showAndLogTrpcError(err, 'generic.reject_friend_request');
 		}
 		return false;
 	}
@@ -786,20 +749,7 @@ export class HomeController extends RouteController {
 				try {
 					await api.friendship.removeFriend.mutate({ friendId });
 				} catch (err) {
-					console.error('Friend remove error', err);
-					if (err instanceof TRPCClientError) {
-						console.warn('Friend remove error', err);
-						const zodError = err.data?.zodError;
-						if (zodError && zodError.fieldErrors) {
-							const values = Object.values(zodError.fieldErrors);
-							for (const err of values) {
-								toast.error(t('generic.remove_friend'), err as string);
-							}
-						} else {
-							toast.warn(t('generic.remove_friend'), err.message);
-							console.debug('Friend remove error', err);
-						}
-					}
+					showAndLogTrpcError(err, 'generic.remove_friend');
 				}
 			}
 		});
@@ -935,20 +885,7 @@ export class HomeController extends RouteController {
 					friendElement.remove();
 					this.#updateFriendsCount();
 				} catch (err) {
-					console.error('Friend remove error', err);
-					if (err instanceof TRPCClientError) {
-						console.warn('Friend remove error', err);
-						const zodError = err.data?.zodError;
-						if (zodError && zodError.fieldErrors) {
-							const values = Object.values(zodError.fieldErrors);
-							for (const err of values) {
-								toast.error(t('generic.remove_friend'), err as string);
-							}
-						} else {
-							toast.warn(t('generic.remove_friend'), err.message);
-							console.debug('Friend remove error', err);
-						}
-					}
+					showAndLogTrpcError(err, 'generic.remove_friend');
 				}
 			}
 		});

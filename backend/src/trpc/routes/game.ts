@@ -134,4 +134,55 @@ export const gameRouter = t.router({
 				...obj
 			};
 		}),
+	getVersusGameDetails: protectedProcedure
+		.input(z.object({
+			gameId: z.string().nonempty(),
+		}))
+		.query(async ({ input, ctx }) => {
+			const { gameId } = input;
+			const user = ctx.session.user!;
+			const id = user.id;
+
+			const game = await ctx.db.game.findFirst({
+				where: {
+					id: gameId,
+					type: 'VS',
+				},
+				include: {
+					leftPlayer: {
+						select: {
+							id: true,
+							username: true,
+						}
+					},
+					rightPlayer: {
+						select: {
+							id: true,
+							username: true,
+						}
+					}
+				}
+			});
+			if (!game) {
+				// Fastest way to tell if game not found
+				return null;
+			}
+
+			const isPlayerInGame = game.leftPlayerId === id || game.rightPlayerId === id;
+
+			const mySide: "left" | "right" = game.leftPlayerId === id ? 'left' : 'right';
+			const winner = game.leftPlayerScore > game.rightPlayerScore ? game.leftPlayer : game.rightPlayer;
+			const result: "W" | "L" = winner.id === id ? 'W' : 'L';
+
+			let obj = isPlayerInGame ? {
+				mySide,
+				result,
+			} : {};
+
+			return {
+				...game,
+				...obj
+			};
+
+		}),
 })

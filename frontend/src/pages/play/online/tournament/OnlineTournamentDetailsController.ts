@@ -11,6 +11,7 @@ import { LoadingOverlay } from "@src/components/LoadingOverlay";
 import he from 'he';
 import { io, Socket } from "socket.io-client";
 import { ConfirmModal } from "@src/tools/ConfirmModal";
+import { showAndLogTrpcError } from "@src/utils/trpcResponseUtils";
 
 // TODO: it's a little messy, refactor this
 export class OnlineTournamentDetailsController extends RouteController {
@@ -47,10 +48,8 @@ export class OnlineTournamentDetailsController extends RouteController {
 			console.debug('[TournamentDetails] Tournament loaded successfully:', this.#tournamentDto);
 		} catch (err) {
 			console.error('[TournamentDetails] Failed to load tournament:', err);
+			showAndLogTrpcError(err, 'generic.tournament');
 			if (err instanceof TRPCClientError) {
-				const msg = err.data?.zodError?.fieldErrors ? Object.values(err.data.zodError.fieldErrors).join(", ") : err.message;
-				toast.error(t("generic.tournament"), msg);
-
 				if (err.data?.httpStatus === 404 || err.message.includes('not found')) {
 					setTimeout(() => {
 						router.navigate('/play/online/tournaments');

@@ -94,6 +94,8 @@ export const it: TranslationSchema = {
 		aborted: "Interrotto",
 		pending: "In attesa",
 		game_not_found: "Partita non trovata",
+		game: "Partita",
+		seconds: "secondi",
 	},
 	tournament:{
 		bracket: "Programma",
@@ -182,5 +184,18 @@ export const it: TranslationSchema = {
 				"tournaments": 'Tornei - offline',
 			}
 		}
+	},
+	page: {
+		play: {
+			online: {
+				"1v1": {
+					matchmaking: {
+						redirecting_in: "Reindirizzamento in",
+						already_started: "La partita è già iniziata",
+						reconnect_now: "Riconnetti ora",
+					}
+				}
+			},
+		},
 	}
 }

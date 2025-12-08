@@ -93,6 +93,8 @@ export const en = {
 		aborted: "Aborted",
 		pending: "Pending",
 		game_not_found: "Game not found",
+		game: "Game",
+		seconds: "seconds",
 	},
 	tournament:{
 		bracket: "Bracket",
@@ -186,6 +188,19 @@ export const en = {
 			}
 		}
 	},
+	page: {
+		play: {
+			online: {
+				"1v1": {
+					matchmaking: {
+						redirecting_in: "Redirecting in",
+						already_started: "The game has already started",
+						reconnect_now: "Reconnect now",
+					}
+				}
+			}
+		}
+	}
 };
 
 
