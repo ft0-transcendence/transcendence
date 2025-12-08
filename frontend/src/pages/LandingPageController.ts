@@ -94,8 +94,6 @@ export class LandingPageController extends RouteController {
 
 	}
 
-	// TODO: improve it :)
-	// CHATGPT START=================================================================================
 	private startAnimation() {
 		// TODO: use the Game's loop instead of this
 		const animate = (currentTime: number) => {
