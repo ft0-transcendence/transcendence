@@ -37,7 +37,8 @@ export class ConfirmModal {
 		const confirmButtonClass = options.invertConfirmAndCancelColors ? 'bg-red-700 hover:bg-red-800 active:bg-red-600' : 'bg-green-600 hover:bg-green-700 active:bg-green-500';
 		const cancelButtonClass = options.invertConfirmAndCancelColors ? 'bg-gray-600 hover:bg-gray-700 active:bg-gray-500' : 'bg-red-600 hover:bg-red-700 active:bg-red-500';
 		this.modalContainer.innerHTML = /*html*/`
-			<div class="max-w-xl w-full max-h-screen flex flex-col bg-zinc-800 text-white rounded-sm">
+			<div class="toggle-modal-container absolute inset-0 w-full h-full"></div>
+			<div class="max-w-xl w-full max-h-screen flex flex-col bg-zinc-800 text-white rounded-sm z-20">
 				<header class="flex px-4 py-3 text-2xl font-medium items-center">
 					<span class="modal-title grow"></span>
 					<button class="modal-close-button p-2 cursor-pointer text-xl"><i class="fa fa-times" aria-hidden="true"></i></button>
@@ -52,23 +53,23 @@ export class ConfirmModal {
 			</div>
 		`;
 
-		this.modalContainer.className = `modal hidden w-dvw h-dvh flex flex-col justify-center items-center bg-black/50 px-2 py-5`;
+		this.modalContainer.className = `modal hidden w-dvw h-dvh flex flex-col justify-center items-center bg-black/50 px-2 py-5 relative`;
 		this.titleElement = document.createElement('h3');
 		this.messageElement = document.createElement('p');
 		this.confirmButtonElement = this.modalContainer.querySelector('.modal-confirm-button')!;
 		this.cancelButtonElement = this.modalContainer.querySelector('.modal-cancel-button')!;
 
-		this.titleElement.textContent = options.title;
-		this.messageElement.textContent = options.message;
+		this.titleElement.innerHTML = options.title;
+		this.messageElement.innerHTML = options.message;
 
 		if (!options.hideConfirmButton){
-			this.confirmButtonElement.textContent = options.confirmButtonText ?? t('generic.confirm') ?? "Confirm";
+			this.confirmButtonElement.innerHTML = options.confirmButtonText ?? t('generic.confirm') ?? "Confirm";
 			this.confirmButtonElement.addEventListener('click', this.onConfirmClick);
 		} else {
 			this.confirmButtonElement.classList.add('hidden');
 		}
 		if (!options.hideCancelButton) {
-			this.cancelButtonElement.textContent = options.cancelButtonText ?? t('generic.cancel') ?? "Cancel";
+			this.cancelButtonElement.innerHTML = options.cancelButtonText ?? t('generic.cancel') ?? "Cancel";
 			this.cancelButtonElement.addEventListener('click', this.onCancelClick);
 		} else {
 			this.cancelButtonElement.classList.add('hidden');
@@ -81,6 +82,15 @@ export class ConfirmModal {
 		}
 		this.modalContainer.querySelector('.modal-title')?.appendChild(this.titleElement);
 		this.modalContainer.querySelector('.modal-message')?.appendChild(this.messageElement);
+
+		document.body.addEventListener('keydown', this.#onKeyDown.bind(this), { once: true });
+		this.modalContainer.querySelector('.toggle-modal-container')?.addEventListener('click', this.destroy.bind(this), { once: true });
+	}
+
+	#onKeyDown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			this.destroy();
+		}
 	}
 
 	async show() {
