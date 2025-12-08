@@ -66,12 +66,17 @@ export const it: TranslationSchema = {
 		already_joined_troll_description: "Bene, che è stato un buon tentativo, ma sei già nel torneo. Non puoi entrare due volte.",
 		already_left_troll_description: "Bene, che è stato un buon tentativo, ma sei già uscito dal torneo. Non puoi lasciare ciò a cui non sei registrato.",
 		leave_tournament: "Lascia Torneo",
+		start_tournament: "Inizia Torneo",
+		delete_tournament: "Elimina Torneo",
 		tournamentList: {
 			join: "Partecipa",
 			leave: "Lascia",
 			registered: "Registrato",
 		},
 		leave_tournament_success: "Sei uscito dal torneo",
+		start_tournament_success: "Torneo iniziato con successo",
+		delete_tournament_success: "Torneo eliminato con successo",
+		delete_tournament_confirm: "Sei sicuro di voler eliminare questo torneo? Questa azione non può essere annullata.",
 		create: "Crea",
 		tournament: "Torneo",
 		tournament_not_found: "Torneo non trovato",
@@ -104,8 +109,8 @@ export const it: TranslationSchema = {
 		player_disconnected: 'Giocatore {{playerName}} si è disconnesso',
 		time_left_before_forfeit: 'Vittoria a tavolino in {{timeLeftMs}} secondi',
 		aborted: {
-			user_not_reconnected: 'Partita finita perché {{username}} non si è riconnesso in tempo',
-			generic: 'Partita annullata'
+			user_not_reconnected: 'Partita terminata perché {{username}} non si è riconnesso in tempo',
+			generic: 'Partita terminata'
 		},
 		game_finished: 'Partita finita',
 		waiting_other_player: `In attesa che l'altro giocatore si unisca...`,

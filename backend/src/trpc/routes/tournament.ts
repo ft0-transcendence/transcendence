@@ -129,6 +129,7 @@ export const tournamentRouter = t.router({
 		}))
 		.query(async ({ ctx, input }) => {
 			try {
+				console.log('[getTournamentDetails] Fetching tournament:', input.tournamentId);
 				const tournament = await ctx.db.tournament.findUnique({
 					where: { id: input.tournamentId },
 					include: {
@@ -184,6 +185,7 @@ export const tournamentRouter = t.router({
 					}
 				});
 
+				console.log('[getTournamentDetails] Tournament found:', tournament?.id, tournament?.name);
 				TournamentValidator.validateTournamentExists(tournament, input.tournamentId);
 
 				if (tournament!.status === 'WAITING_PLAYERS' || tournament!.status === 'IN_PROGRESS') {
@@ -194,7 +196,9 @@ export const tournamentRouter = t.router({
 					? tournament!.participants.some((p) => p.user.id === ctx.user!.id)
 					: false;
 
-				return {
+				const aiPlayerService = new AIPlayerService(ctx.db);
+
+				const result = {
 					id: tournament!.id,
 					name: tournament!.name,
 					type: tournament!.type,
@@ -207,24 +211,36 @@ export const tournamentRouter = t.router({
 					participantsCount: tournament!._count.participants,
 					maxParticipants: 8,
 					games: tournament!.games.map((g) => {
-					const aiPlayerService = new AIPlayerService(ctx.db);
-					const previousGames = g.previousGames?.map(pg => pg.id) || [];
+						const previousGames = g.previousGames?.map(pg => pg.id) || [];
 
-					return {
-						...g,
-						scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
-						tournamentRound: g.tournamentRound,
-						isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-						leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
-						rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-						nextGameId: g.nextGameId,
-						previousGames
-					};
-				}),
+						return {
+							id: g.id,
+							leftPlayer: g.leftPlayer,
+							rightPlayer: g.rightPlayer,
+							leftPlayerScore: g.leftPlayerScore,
+							rightPlayerScore: g.rightPlayerScore,
+							startDate: g.startDate,
+							endDate: g.endDate,
+							abortDate: g.abortDate,
+							scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
+							tournamentRound: g.tournamentRound,
+							leftPlayerUsername: g.leftPlayerUsername,
+							rightPlayerUsername: g.rightPlayerUsername,
+							isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+							leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
+							rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+							nextGameId: g.nextGameId,
+							previousGames
+						};
+					}),
 					isRegisteredToTournament
 				};
 
+				console.log('[getTournamentDetails] Returning result with', result.games.length, 'games');
+				return result;
+
 			} catch (error) {
+				console.error('[getTournamentDetails] Error occurred:', error);
 				handleTournamentError(error as Error, 'getTournamentDetails', input.tournamentId, ctx.user?.id);
 			}
 		}),
@@ -781,50 +797,6 @@ export const tournamentRouter = t.router({
 			}
 		}),
 
-	cancelTournament: protectedProcedure
-		.input(z.object({ tournamentId: tournamentValidationSchemas.tournamentId }))
-		.mutation(async ({ ctx, input }) => {
-
-			const t = await ctx.db.tournament.findUnique({
-				where: { id: input.tournamentId },
-				include: { participants: true, games: true }
-			});
-
-			if (!t) {
-				throw new TRPCError({ code: 'NOT_FOUND', message: 'Tournament not found' });
-			}
-
-			if (t.createdById !== ctx.user!.id) {
-				throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the tournament creator can cancel the tournament' });
-			}
-
-			if (t.status === 'COMPLETED') {
-				throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot cancel a completed tournament' });
-			}
-
-			await ctx.db.$transaction(async (tx) => {
-				await tx.game.deleteMany({
-					where: { tournamentId: t.id }
-				});
-
-				await tx.tournament.update({
-					where: { id: t.id },
-					data: { status: 'CANCELLED' as TournamentStatus, endDate: new Date() }
-				});
-			});
-
-			const cachedTournament = cache.tournaments.active.get(t.id);
-			if (cachedTournament) {
-				cachedTournament.status = 'CANCELLED';
-				cachedTournament.aiPlayers.clear();
-
-				broadcastTournamentStatusChange(t.id, 'CANCELLED', ctx.user!.username,
-					`Tournament "${t.name}" has been cancelled by the creator`);
-			}
-
-			return { success: true } as const;
-		}),
-
 	deleteTournament: protectedProcedure
 		.input(z.object({ tournamentId: tournamentValidationSchemas.tournamentId }))
 		.mutation(async ({ ctx, input }) => {
@@ -947,7 +919,7 @@ export const tournamentRouter = t.router({
 					id: result.id,
 					name: result.name,
 					type: result.type as 'EIGHT',
-					status: result.status as 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED',
+					status: result.status as 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED',
 					participants: new Set([ctx.user!.id]),
 					connectedUsers: new Set(),
 					creatorId: ctx.user!.id,

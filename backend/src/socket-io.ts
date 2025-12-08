@@ -358,7 +358,6 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				return;
 			}
 
-			// Map to side and press API on base Game
 			if (game.leftPlayer?.id === user.id) {
 				game.press("left", action);
 			} else if (game.rightPlayer?.id === user.id) {
@@ -420,7 +419,6 @@ function setupOnlineVersusGameNamespace(io: Server) {
 				if (removed) {
 					socket.to(gameId).emit('player-left', userGameInfo);
 				}
-				// If the disconnected user is a player in this game, start grace period
 				if (game.isPlayerInGame(user.id)) {
 					(game as OnlineGame).markPlayerDisconnected(user.id);
 				}
@@ -579,7 +577,7 @@ function setupTournamentNamespace(io: Server) {
 						id: tournament.id,
 						name: tournament.name,
 						type: 'EIGHT',
-						status: tournament.status as 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED',
+						status: tournament.status as 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED',
 						participants: new Set(tournament.participants.map(p => p.userId)),
 						connectedUsers: new Set(),
 						creatorId: tournament.createdById,
@@ -854,7 +852,6 @@ function setupTournamentNamespace(io: Server) {
 				game.press("right", action);
 			}
 
-			// Broadcast game state to all players in the game room
 			socket.to(gameId).emit("game-state", game.getState());
 			socket.emit("game-state", game.getState());
 		});
@@ -886,7 +883,6 @@ function setupTournamentNamespace(io: Server) {
 				game.release("right", action);
 			}
 
-			// Broadcast game state to all players in the game room
 			socket.to(gameId).emit("game-state", game.getState());
 			socket.emit("game-state", game.getState());
 		});
