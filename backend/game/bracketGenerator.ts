@@ -329,10 +329,14 @@ export class BracketGenerator {
         const placeholderUserId = BracketGenerator.PLACEHOLDER_USER_ID;
 
         for (const game of quarterFinalGames) {
-            if (game.leftPlayerUsername !== undefined && game.leftPlayerUsername !== null) {
+            if (game.leftPlayerUsername !== undefined &&
+                game.leftPlayerUsername !== null &&
+                game.leftPlayerUsername !== EMPTY_SLOT_USERNAME) {
                 occupiedSlots++;
             }
-            if (game.rightPlayerUsername !== undefined && game.rightPlayerUsername !== null) {
+            if (game.rightPlayerUsername !== undefined &&
+                game.rightPlayerUsername !== null &&
+                game.rightPlayerUsername !== EMPTY_SLOT_USERNAME) {
                 occupiedSlots++;
             }
         }
@@ -504,9 +508,10 @@ export class BracketGenerator {
         }
     }
 
-    async fillEmptySlotsWithAI(tournamentId: string): Promise<string[]> {
+    async fillEmptySlotsWithAI(tournamentId: string, mainDb?: PrismaClient): Promise<string[]> {
         const executeTransaction = async (tx: Prisma.TransactionClient) => {
             const aiPlayerService = new AIPlayerService(tx);
+            const aiPlayerServiceForAsync = new AIPlayerService(mainDb || tx);
             const placeholderUserId = await this.ensurePlaceholderUser(tx);
             const aiSlotsFilled: string[] = [];
 
@@ -570,8 +575,10 @@ export class BracketGenerator {
                 const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
 
                 if (isLeftAI && isRightAI) {
-                    console.log(`🤖 Processing AI vs AI match: ${game.id} (${game.tournamentRound})`);
-                    await aiPlayerService.handleAIvsAIMatch(game.id);
+                    console.log(`🤖 Starting AI vs AI match simulation in background: ${game.id} (${game.tournamentRound})`);
+                    aiPlayerServiceForAsync.handleAIvsAIMatch(game.id).catch((error) => {
+                        console.error(`❌ AI vs AI match ${game.id} simulation failed:`, error);
+                    });
                 }
             }
 
