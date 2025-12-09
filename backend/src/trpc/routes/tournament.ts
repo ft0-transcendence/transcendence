@@ -14,6 +14,7 @@ import {
 	validateCacheConsistency
 } from "../../utils/tournamentValidation";
 import { STANDARD_GAME_CONFIG } from "../../../shared_exports";
+import { TournamentGame } from "../../../game/tournamentGame";
 
 const TOURNAMENT_SIZES: {[key in TournamentType]: number} = {
 	EIGHT: 8
@@ -939,6 +940,200 @@ export const tournamentRouter = t.router({
 		}),
 });
 
+async function createTournamentGameInstances(db: PrismaClient, tournamentId: string): Promise<void> {
+	console.log(`🎮 Creating TournamentGame instances for tournament ${tournamentId} (quarter finals only)`);
+
+	const io = (global as any).io;
+	if (!io) {
+		console.warn('Socket.io not available, skipping TournamentGame instance creation');
+		return;
+	}
+	const tournamentNamespace = io.of("/tournament");
+
+	// Only create instances for QUARTER FINALS initially
+	const allGames = await db.game.findMany({
+		where: {
+			tournamentId,
+			tournamentRound: 'QUARTI',
+			endDate: null
+		},
+		select: {
+			id: true,
+			scoreGoal: true,
+			leftPlayerScore: true,
+			rightPlayerScore: true,
+			tournamentRound: true,
+			leftPlayer: { select: { id: true, username: true } },
+			rightPlayer: { select: { id: true, username: true } },
+			leftPlayerUsername: true,
+			rightPlayerUsername: true
+		},
+		orderBy: { startDate: 'asc' }
+	});
+
+	const aiPlayerService = new AIPlayerService(db);
+	let humanGamesCreated = 0;
+	let aiGamesSkipped = 0;
+
+	for (const game of allGames) {
+		const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
+		const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
+
+		if (isLeftAI && isRightAI) {
+			console.log(`⏭️ Skipping AI vs AI game ${game.id} - already handled by simulation`);
+			aiGamesSkipped++;
+			continue;
+		}
+
+		console.log(`🆕 Creating TournamentGame instance for game ${game.id} (round: ${game.tournamentRound})`);
+
+		const gameInstance = new TournamentGame(
+			game.id,
+			tournamentId,
+			tournamentNamespace,
+			{ maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
+			async (state: any, _tid: string, gid: string) => {
+				const isAborted = gameInstance.wasForfeited;
+
+				console.log(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
+
+				await db.game.update({
+					where: { id: gid },
+					data: {
+						endDate: new Date(),
+						abortDate: isAborted ? new Date() : null,
+						leftPlayerScore: state.scores.left,
+						rightPlayerScore: state.scores.right
+					}
+				});
+
+				cache.tournaments.activeTournamentGames.delete(gid);
+				console.log(`🗑️ Tournament Game ${gid} removed from cache`);
+			},
+			async () => {
+				await db.game.update({
+					where: { id: game.id },
+					data: { updatedAt: new Date() }
+				});
+			}
+		);
+
+		gameInstance.setPlayers(
+			{ id: game.leftPlayer.id, username: game.leftPlayer.username, isPlayer: true },
+			{ id: game.rightPlayer.id, username: game.rightPlayer.username, isPlayer: true }
+		);
+
+		// Add to cache
+		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
+		humanGamesCreated++;
+
+		console.log(`✅ TournamentGame instance created for ${game.id} - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
+	}
+
+	console.log(`🎮 Tournament ${tournamentId}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
+}
+
+export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId: string, gameId: string): Promise<boolean> {
+	const io = (global as any).io;
+	if (!io) {
+		console.warn('Socket.io not available, cannot create game instance');
+		return false;
+	}
+
+	const existingInstance = cache.tournaments.activeTournamentGames.get(gameId);
+	if (existingInstance) {
+		console.log(`🔄 Game instance ${gameId} already exists, skipping creation`);
+		return false;
+	}
+
+	const game = await db.game.findUnique({
+		where: { id: gameId },
+		select: {
+			id: true,
+			scoreGoal: true,
+			leftPlayerScore: true,
+			rightPlayerScore: true,
+			tournamentRound: true,
+			leftPlayer: { select: { id: true, username: true } },
+			rightPlayer: { select: { id: true, username: true } },
+			leftPlayerUsername: true,
+			rightPlayerUsername: true,
+			endDate: true
+		}
+	});
+
+	if (!game || game.endDate) {
+		console.log(`⚠️ Game ${gameId} not found or already ended`);
+		return false;
+	}
+
+	const aiPlayerService = new AIPlayerService(db);
+	const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
+	const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
+
+	// Don't create instance if both are AI
+	if (isLeftAI && isRightAI) {
+		console.log(`⏭️ Game ${gameId} is AI vs AI, no instance needed`);
+		return false;
+	}
+
+	const EMPTY_SLOT = 'Empty slot';
+	if (game.leftPlayerUsername === EMPTY_SLOT || game.rightPlayerUsername === EMPTY_SLOT ||
+		game.leftPlayerUsername === undefined || game.rightPlayerUsername === undefined) {
+		console.log(`⏭️ Game ${gameId} has empty slots, waiting for players`);
+		return false;
+	}
+
+	console.log(`🆕 Creating on-demand game instance for ${gameId} (${game.tournamentRound})`);
+
+	const tournamentNamespace = io.of("/tournament");
+	const gameInstance = new TournamentGame(
+		game.id,
+		tournamentId,
+		tournamentNamespace,
+		{ maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
+		async (state: any, _tid: string, gid: string) => {
+			const isAborted = gameInstance.wasForfeited;
+			console.log(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
+
+			await db.game.update({
+				where: { id: gid },
+				data: {
+					endDate: new Date(),
+					abortDate: isAborted ? new Date() : null,
+					leftPlayerScore: state.scores.left,
+					rightPlayerScore: state.scores.right
+				}
+			});
+
+			cache.tournaments.activeTournamentGames.delete(gid);
+			console.log(`🗑️ Tournament Game ${gid} removed from cache`);
+		},
+		async () => {
+			await db.game.update({
+				where: { id: game.id },
+				data: { updatedAt: new Date() }
+			});
+		}
+	);
+
+	gameInstance.setPlayers(
+		{ id: game.leftPlayer.id, username: game.leftPlayer.username, isPlayer: true },
+		{ id: game.rightPlayer.id, username: game.rightPlayer.username, isPlayer: true }
+	);
+
+	if (game.leftPlayerScore > 0 || game.rightPlayerScore > 0) {
+		gameInstance.scores.left = game.leftPlayerScore;
+		gameInstance.scores.right = game.rightPlayerScore;
+		console.log(`📊 Restored scores for game ${game.id}: ${game.leftPlayerScore}-${game.rightPlayerScore}`);
+	}
+
+	cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
+	console.log(`✅ On-demand game instance created for ${game.id} - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
+
+	return true;
+}
+
 async function executeTournamentStart(db: PrismaClient, tournamentId: string, startedByUsername: string) {
 	const result = await db.$transaction(async (tx) => {
 		const bracketGenerator = new BracketGenerator(tx);
@@ -946,7 +1141,7 @@ async function executeTournamentStart(db: PrismaClient, tournamentId: string, st
 
 		let createdAIPlayers: string[] = [];
 		if (occupiedSlots < 8) {
-			createdAIPlayers = await bracketGenerator.fillEmptySlotsWithAI(tournamentId);
+			createdAIPlayers = await bracketGenerator.fillEmptySlotsWithAI(tournamentId, db);
 		}
 
 		await tx.tournament.update({
@@ -998,6 +1193,9 @@ async function executeTournamentStart(db: PrismaClient, tournamentId: string, st
 
 		broadcastBracketUpdate(tournamentId, participantSlots, cachedTournament.aiPlayers);
 	}
+
+	// NEW: Create TournamentGame instances for non-AI-vs-AI games
+	await createTournamentGameInstances(db, tournamentId);
 
 	return result;
 }
