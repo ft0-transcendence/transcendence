@@ -73,7 +73,9 @@ export class AIPlayerService {
                     id: true,
                     nextGameId: true,
                     leftPlayerId: true,
-                    rightPlayerId: true
+                    rightPlayerId: true,
+                    tournamentId: true,
+                    tournamentRound: true
                 }
             });
 
@@ -113,6 +115,18 @@ export class AIPlayerService {
             await this.db.$transaction(executeTransaction);
         } else {
             await executeTransaction(this.db);
+        }
+
+        // Check if we need to create game instances for the next round (after transaction completes)
+        const game = await this.db.game.findUnique({
+            where: { id: gameId },
+            select: { tournamentId: true, tournamentRound: true }
+        });
+
+        if (game?.tournamentId && game?.tournamentRound) {
+            const { checkAndCreateNextRoundInstances } = await import('../trpc/routes/tournament.js');
+            const mainDb = '$transaction' in this.db ? this.db : this.db;
+            await checkAndCreateNextRoundInstances(mainDb as any, game.tournamentId, game.tournamentRound);
         }
     }
 
