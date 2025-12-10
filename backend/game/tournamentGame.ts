@@ -127,6 +127,12 @@ export class TournamentGame extends OnlineGame {
                         });
                     }
                 }
+
+                // Check if we need to create game instances for the next round
+                if (currentGame.tournamentRound) {
+                    const { checkAndCreateNextRoundInstances } = await import('../src/trpc/routes/tournament.js');
+                    await checkAndCreateNextRoundInstances(db, this.tournamentId, currentGame.tournamentRound);
+                }
             } else { // Torneo completato
                 console.log(`Tournament ${this.tournamentId} completed! Winner: ${winnerId}`);
 

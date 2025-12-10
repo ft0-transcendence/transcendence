@@ -20,27 +20,6 @@ export class AIPlayerService {
     }
 
     async handleAIvsAIMatch(gameId: string): Promise<void> {
-        const game = await this.db.game.findUnique({
-            where: { id: gameId },
-            select: {
-                id: true,
-                nextGameId: true,
-                leftPlayerUsername: true,
-                rightPlayerUsername: true
-            }
-        });
-
-        if (!game) {
-            throw new Error(`Game ${gameId} not found`);
-        }
-
-        const isLeftPlayerAI = this.isAIPlayer(game.leftPlayerUsername);
-        const isRightPlayerAI = this.isAIPlayer(game.rightPlayerUsername);
-
-        if (!isLeftPlayerAI || !isRightPlayerAI) {
-            throw new Error(`Game ${gameId} is not an AI vs AI match`);
-        }
-
         console.log(`🤖 Starting AI vs AI simulation for game ${gameId}`);
 
         // Avvia simulazione con Promise
@@ -94,7 +73,9 @@ export class AIPlayerService {
                     id: true,
                     nextGameId: true,
                     leftPlayerId: true,
-                    rightPlayerId: true
+                    rightPlayerId: true,
+                    tournamentId: true,
+                    tournamentRound: true
                 }
             });
 
@@ -115,7 +96,16 @@ export class AIPlayerService {
 
             if (game.nextGameId) {
                 console.log(`➡️ Advancing AI winner to next game ${game.nextGameId}`);
-                await this.advanceAIWinnerToNextGame(tx, game.nextGameId);
+                const nextGameBecameAIvsAI = await this.advanceAIWinnerToNextGame(tx, game.nextGameId);
+
+                if (nextGameBecameAIvsAI) {
+                    console.log(`🎮 Next game ${game.nextGameId} is now AI vs AI, starting simulation`);
+                    setTimeout(() => {
+                        this.handleAIvsAIMatch(game.nextGameId!).catch((error) => {
+                            console.error(`❌ Failed to start AI vs AI simulation for game ${game.nextGameId}:`, error);
+                        });
+                    }, 100);
+                }
             }
 
             console.log(`✅ AI match ${gameId} saved successfully`);
@@ -126,9 +116,23 @@ export class AIPlayerService {
         } else {
             await executeTransaction(this.db);
         }
+
+        // Check if we need to create game instances for the next round (after transaction completes)
+        const game = await this.db.game.findUnique({
+            where: { id: gameId },
+            select: { tournamentId: true, tournamentRound: true }
+        });
+
+        if (game?.tournamentId && game?.tournamentRound) {
+            const { checkAndCreateNextRoundInstances } = await import('../trpc/routes/tournament.js');
+            const mainDb = '$transaction' in this.db ? this.db : this.db;
+            await checkAndCreateNextRoundInstances(mainDb as any, game.tournamentId, game.tournamentRound);
+        }
     }
 
-    private async advanceAIWinnerToNextGame(tx: Prisma.TransactionClient, nextGameId: string): Promise<void> {
+    private async advanceAIWinnerToNextGame(tx: Prisma.TransactionClient, nextGameId: string): Promise<boolean> {
+        const EMPTY_SLOT = 'Empty slot';
+
         const nextGame = await tx.game.findUnique({
             where: { id: nextGameId },
             select: {
@@ -141,19 +145,54 @@ export class AIPlayerService {
             throw new Error(`Next game ${nextGameId} not found`);
         }
 
-        if (nextGame.leftPlayerUsername === undefined) {
-            await tx.game.update({
-                where: { id: nextGameId },
+        let slotFilled = false;
+        let leftSlotIsAI = this.isAIPlayer(nextGame.leftPlayerUsername);
+        let rightSlotIsAI = this.isAIPlayer(nextGame.rightPlayerUsername);
+
+        if (nextGame.leftPlayerUsername === EMPTY_SLOT || nextGame.leftPlayerUsername === undefined) {
+            const updateResult = await tx.game.updateMany({
+                where: {
+                    id: nextGameId,
+                    OR: [
+                        { leftPlayerUsername: EMPTY_SLOT },
+                        { leftPlayerUsername: undefined }
+                    ]
+                },
                 data: { leftPlayerUsername: null }
             });
-        } else if (nextGame.rightPlayerUsername === undefined) {
-            await tx.game.update({
-                where: { id: nextGameId },
+
+            if (updateResult.count > 0) {
+                console.log(`✅ AI winner advanced to next game ${nextGameId} (left slot)`);
+                leftSlotIsAI = true;
+                slotFilled = true;
+            }
+        }
+
+        if (!slotFilled && (nextGame.rightPlayerUsername === EMPTY_SLOT || nextGame.rightPlayerUsername === undefined)) {
+            const updateResult = await tx.game.updateMany({
+                where: {
+                    id: nextGameId,
+                    OR: [
+                        { rightPlayerUsername: EMPTY_SLOT },
+                        { rightPlayerUsername: undefined }
+                    ]
+                },
                 data: { rightPlayerUsername: null }
             });
-        } else {
-            throw new Error(`Next game ${nextGameId} is already full`);
+
+            if (updateResult.count > 0) {
+                console.log(`✅ AI winner advanced to next game ${nextGameId} (right slot)`);
+                rightSlotIsAI = true;
+                slotFilled = true;
+            }
         }
+
+        if (!slotFilled) {
+            console.warn(`⚠️ Next game ${nextGameId} is already full, skipping advancement`);
+            return false;
+        }
+
+        return leftSlotIsAI && rightSlotIsAI;
     }
 
 

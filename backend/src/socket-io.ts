@@ -777,18 +777,13 @@ function setupTournamentNamespace(io: Server) {
 
 				const isPlayerInGame = game.isPlayerInGame(user.id);
 
-				// if (!isPlayerInGame) {
-				// 	socket.emit('error', 'You are not a player in this game');
-				// 	return;
-				// }
-
 				game.setSocketNamespace(tournamentNamespace);
 
 				// add utente alla partita
 				const gameUserInfo: GameUserInfo = {
 					id: user.id,
 					username: user.username,
-					isPlayer: true
+					isPlayer: isPlayerInGame
 				};
 
 				game.addConnectedUser(gameUserInfo);
@@ -799,6 +794,11 @@ function setupTournamentNamespace(io: Server) {
 				// set giocatore come ready
 				game.playerReady(gameUserInfo);
 
+				// If the user is a player and was previously disconnected, mark as reconnected (15s grace period)
+				if (isPlayerInGame && 'markPlayerReconnected' in game) {
+					(game as OnlineGame).markPlayerReconnected(user.id);
+				}
+
 				socket.emit('tournament-game-joined', {
 					gameId: gameId,
 					game: {
@@ -807,7 +807,7 @@ function setupTournamentNamespace(io: Server) {
 						state: game.getState()
 					},
 					playerSide: game.leftPlayer?.id === user.id ? 'left' : 'right',
-					isPlayer: true,
+					isPlayer: isPlayerInGame,
 					ableToPlay: isPlayerInGame
 				});
 
