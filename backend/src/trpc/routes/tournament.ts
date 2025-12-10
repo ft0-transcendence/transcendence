@@ -1134,14 +1134,10 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 	return true;
 }
 
-/**
- * Checks if all games in a specific round are finished and creates game instances for the next round
- * Only creates instances for games with at least one human player
- */
+ //Only creates instances for games with at least one human player
 export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournamentId: string, currentRound: 'QUARTI' | 'SEMIFINALE' | 'FINALE'): Promise<void> {
 	console.log(`🔍 Checking if round ${currentRound} is complete for tournament ${tournamentId}`);
 
-	// Get all games in the current round
 	const currentRoundGames = await db.game.findMany({
 		where: {
 			tournamentId,
@@ -1164,7 +1160,6 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 
 	console.log(`✅ Round ${currentRound} is complete! Checking for next round games...`);
 
-	// Determine next round
 	let nextRound: 'SEMIFINALE' | 'FINALE' | null = null;
 	if (currentRound === 'QUARTI') {
 		nextRound = 'SEMIFINALE';
@@ -1177,7 +1172,6 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 		return;
 	}
 
-	// Get all games in the next round that have at least one human player
 	const nextRoundGames = await db.game.findMany({
 		where: {
 			tournamentId,
@@ -1210,7 +1204,6 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 	let aiGamesSkipped = 0;
 
 	for (const game of nextRoundGames) {
-		// Skip if instance already exists
 		if (cache.tournaments.activeTournamentGames.has(game.id)) {
 			console.log(`⏭️ Game instance ${game.id} already exists, skipping`);
 			continue;
@@ -1226,7 +1219,6 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 			continue;
 		}
 
-		// Skip games with empty slots
 		const EMPTY_SLOT = 'Empty slot';
 		if (game.leftPlayerUsername === EMPTY_SLOT || game.rightPlayerUsername === EMPTY_SLOT ||
 			game.leftPlayerUsername === undefined || game.rightPlayerUsername === undefined) {
@@ -1271,13 +1263,6 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 			{ id: game.leftPlayer.id, username: game.leftPlayer.username, isPlayer: true },
 			{ id: game.rightPlayer.id, username: game.rightPlayer.username, isPlayer: true }
 		);
-
-		// Restore scores if needed
-		if (game.leftPlayerScore > 0 || game.rightPlayerScore > 0) {
-			gameInstance.scores.left = game.leftPlayerScore;
-			gameInstance.scores.right = game.rightPlayerScore;
-			console.log(`📊 Restored scores for game ${game.id}: ${game.leftPlayerScore}-${game.rightPlayerScore}`);
-		}
 
 		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
 		humanGamesCreated++;
