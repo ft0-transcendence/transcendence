@@ -82,6 +82,8 @@ model TournamentParticipant {
     userId       String
     tournament   Tournament @relation("participants", fields: [tournamentId], references: [id])
     user         User       @relation("joinedTournaments", fields: [userId], references: [id])
+
+    @@unique([tournamentId, userId])
 }
 
 enum GameType {
