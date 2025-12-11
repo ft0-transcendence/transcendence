@@ -4,7 +4,7 @@ import { updateGameStats } from '../utils/statsUtils';
 import { STANDARD_GAME_CONFIG } from '../../game/game';
 
 export type CreateVsGameParams = {
-	gameId: string;
+	gameId?: string;
 	leftPlayerId: string;
 	rightPlayerId: string;
 	leftPlayerUsername?: string | null;
@@ -22,7 +22,11 @@ export type FinalizeVsGameParams = {
 	finishedAt?: Date;
 };
 
-export async function createVsGameRecord(db: PrismaClient, params: CreateVsGameParams): Promise<void> {
+/**
+ * //TODO: remove this function and use the db.game.create method instead.
+ * @deprecated Should not be used anymore. Use the db.game.create method instead.
+ */
+export async function createVsGameRecord(db: PrismaClient, params: CreateVsGameParams) {
 	const {
 		gameId,
 		leftPlayerId,
@@ -42,12 +46,12 @@ export async function createVsGameRecord(db: PrismaClient, params: CreateVsGameP
 		return;
 	}
 
-	await db.game.create({
+	return await db.game.create({
 		data: {
 			id: gameId,
 			type: GameType.VS,
 			startDate,
-			scoreGoal: params.scoreGoal,
+			scoreGoal: scoreGoal!,
 			leftPlayerId,
 			rightPlayerId,
 			leftPlayerUsername,

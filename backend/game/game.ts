@@ -58,6 +58,11 @@ export type GameConfig = {
 
 	paddleHeightPercentage: number;
 	paddleWidthPercentage: number;
+
+	initialData?: {
+		leftPlayerScore?: number;
+		rightPlayerScore?: number;
+	}
 }
 
 export type GameUserInfo = {
@@ -129,13 +134,13 @@ export class Game {
 		};
 
 		this.paddles = {
-			left: 50,
+			left:  50,
 			right: 50,
 		};
 
 		this.scores = {
-			left: 0,
-			right: 0,
+			left: this.config.initialData?.leftPlayerScore ?? 0,
+			right: this.config.initialData?.rightPlayerScore ?? 0,
 		};
 		if (config.maxScore && config.maxScore <= 0) {
 			this.config.maxScore = undefined;

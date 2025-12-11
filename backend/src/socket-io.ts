@@ -1,14 +1,14 @@
-import { User } from '@prisma/client';
+import { GameType, User, Game as PrismaGame } from '@prisma/client';
 
 import { DefaultEventsMap, Namespace, Server, Socket } from "socket.io";
 import { cache, addUserToOnlineCache, removeUserFromOnlineCache, isUserOnline } from './cache';
-import { Game, GameStatus, GameUserInfo, MovePaddleAction } from '../game/game';
+import { Game, GameStatus, GameUserInfo, MovePaddleAction, STANDARD_GAME_CONFIG } from '../game/game';
 import { OnlineGame } from '../game/onlineGame';
 import { BracketGenerator } from '../game/bracketGenerator';
 import { fastify } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
-import { createVsGameRecord, finalizeVsGameResult } from './services/vsGameService';
+import { finalizeVsGameResult } from './services/vsGameService';
 
 async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
 	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
@@ -184,11 +184,35 @@ function setupMatchmakingNamespace(io: Server) {
 					const player1 = cache.matchmaking.queuedPlayers.pop()!;
 					const player2 = socket;
 
-					const gameId = crypto.randomUUID();
-					fastify.log.info('Matchmaking two players, id1=%s, id2=%s, gameId=%s', player1.id, player2.id, gameId);
 
 					const player1Data: GameUserInfo = { id: player1.data.user.id, username: player1.data.user.username, isPlayer: true };
 					const player2Data: GameUserInfo = { id: player2.data.user.id, username: player2.data.user.username, isPlayer: true };
+
+					let game: PrismaGame | null = null;
+					let gameId: string | null = null;
+
+					try {
+						game = await db.game.create({
+								data: {
+									type: GameType.VS,
+									startDate: new Date(),
+									scoreGoal: STANDARD_GAME_CONFIG.maxScore!,
+									leftPlayerId: player1Data.id,
+									rightPlayerId: player2Data.id,
+									leftPlayerUsername: player1Data.username,
+									rightPlayerUsername: player2Data.username,
+								},
+							});
+						gameId = game!.id;
+
+					} catch (error) {
+						fastify.log.error({ err: error }, 'Failed to create VS game %s in database', gameId);
+						player1.emit('error', 'Failed to create VS game. Please try again later.');
+						player2.emit('error', 'Failed to create VS game. Please try again later.');
+						return;
+					}
+
+					fastify.log.info('Matchmaking two players, id1=%s, id2=%s, gameId=%s', player1.id, player2.id, gameId);
 
 					player1.emit('match-found', { gameId, opponent: player2Data });
 					player2.emit('match-found', { gameId, opponent: player1Data });
@@ -219,18 +243,6 @@ function setupMatchmakingNamespace(io: Server) {
 
 					newGame.setPlayers(player1Data, player2Data);
 
-					try {
-						await createVsGameRecord(db, {
-							gameId,
-							leftPlayerId: player1Data.id,
-							rightPlayerId: player2Data.id,
-							leftPlayerUsername: player1Data.username,
-							rightPlayerUsername: player2Data.username,
-							startDate: new Date(),
-						});
-					} catch (error) {
-						fastify.log.error({ err: error }, 'Failed to create VS game %s in database', gameId);
-					}
 
 					cache.active_1v1_games.set(gameId, newGame);
 

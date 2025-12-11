@@ -85,7 +85,6 @@ export class OnlineGame extends Game {
 			this.playerRightReady = true;
 		}
 		if (this.playerLeftReady && this.playerRightReady) {
-			this.createInDatabaseIfNeeded();
 
 			this.start();
 			if (this.socketNamespace) {
@@ -94,51 +93,6 @@ export class OnlineGame extends Game {
 		}
 	}
 
-	private async createInDatabaseIfNeeded() {
-		// TODO: remove this. `pendingDbCreation` is never valorized
-		if (this.pendingDbCreation) {
-			console.log(`🎮 Both players ready for game ${this.gameId}, creating in database now`);
-
-			try {
-				let leftPlayerUsername: string | null = null;
-				let rightPlayerUsername: string | null = null;
-
-				if (this._playerLeft) {
-					const leftUser = await db.user.findUnique({
-						where: { id: this.pendingDbCreation.leftPlayerId },
-						select: { username: true }
-					});
-					leftPlayerUsername = leftUser?.username || null;
-				}
-
-				if (this._playerRight) {
-					const rightUser = await db.user.findUnique({
-						where: { id: this.pendingDbCreation.rightPlayerId },
-						select: { username: true }
-					});
-					rightPlayerUsername = rightUser?.username || null;
-				}
-
-				await db.game.create({
-					data: {
-						id: this.gameId,
-						startDate: new Date(),
-						type: GameType.VS,
-						leftPlayerId: this.pendingDbCreation.leftPlayerId,
-						rightPlayerId: this.pendingDbCreation.rightPlayerId,
-						leftPlayerUsername: leftPlayerUsername,
-						rightPlayerUsername: rightPlayerUsername,
-						scoreGoal: this.pendingDbCreation.scoreGoal,
-					},
-				});
-
-				console.log(`✅ Game ${this.gameId} successfully created in database`);
-				this.pendingDbCreation = null; // Clear pending flag
-			} catch (error) {
-				console.error(`❌ Failed to create game ${this.gameId} in database:`, error);
-			}
-		}
-	}
 
 	public isPlayerInGame(id: GameUserInfo['id']) {
 		return id === this._playerLeft?.id || id === this._playerRight?.id;

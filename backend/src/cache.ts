@@ -110,7 +110,8 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 	const activeVSGames = await db.game.findMany({
 		where: {
 			endDate: null,
-			type: 'VS'
+			type: 'VS',
+			tournamentId: null,
 		},
 		include: { leftPlayer: true, rightPlayer: true },
 	});
@@ -138,6 +139,10 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 			null,
 			{
 				maxScore: game.scoreGoal,
+				initialData: {
+					leftPlayerScore: game.leftPlayerScore,
+					rightPlayerScore: game.rightPlayerScore,
+				}
 			},
 			async (state) => {
 				await handleVSGameFinish(game.id, state, gameInstance, game.leftPlayerId, game.rightPlayerId);
@@ -164,6 +169,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 	const activeTournamentGames = await db.game.findMany({
 		where: {
 			endDate: null,
+			tournamentId: {not: null},
 			OR: [
 				{ type: 'TOURNAMENT' },
 				{ type: 'AI', tournamentId: { not: null } }
@@ -172,22 +178,31 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		include: { leftPlayer: true, rightPlayer: true, tournament: true },
 	});
 
-	for (const game of activeTournamentGames) {
-		const LEASE_TIME = 1000 * 60; // 1 min
 
-		const now = new Date();
-		const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);
-		if (now > limitDate) {
-			fastify.log.warn('Tournament Game %s is expired (last updated: %s), removing from cache', game.id, game.updatedAt.toISOString());
-			await db.game.update({
-				where: { id: game.id },
-				data: {
-					endDate: new Date(),
-					abortDate: new Date(),
-				}
-			});
+	for (const game of activeTournamentGames) {
+		if (game.tournament?.status === 'COMPLETED') {
+			fastify.log.warn('Tournament Game %s is completed, skipping', game.id);
 			continue;
 		}
+
+		const LEASE_TIME = 1000 * 60; // 1 min
+
+		if (game.tournament?.status === 'IN_PROGRESS') {
+			const now = new Date();
+			const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);
+			if (now > limitDate) {
+				fastify.log.warn('Tournament Game %s is expired (last updated: %s), removing from cache', game.id, game.updatedAt.toISOString());
+				await db.game.update({
+					where: { id: game.id },
+					data: {
+						endDate: new Date(),
+						abortDate: new Date(),
+					}
+				});
+				continue;
+			}
+		}
+
 
 		if (!game.tournamentId) {
 			fastify.log.warn('Tournament Game %s has no tournamentId, skipping', game.id);
@@ -200,6 +215,10 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 			null,
 			{
 				maxScore: game.scoreGoal,
+				initialData: {
+					leftPlayerScore: game.leftPlayerScore,
+					rightPlayerScore: game.rightPlayerScore,
+				}
 			},
 			async (state, tournamentId, gameId) => {
 				// Check if game was forfeited due to disconnection
