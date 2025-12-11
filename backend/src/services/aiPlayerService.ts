@@ -1,5 +1,6 @@
 import { STANDARD_GAME_CONFIG } from "../../shared_exports";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { checkAndCreateNextRoundInstances } from "../trpc/routes/tournament";
 
 export class AIPlayerService {
     private db: PrismaClient | Prisma.TransactionClient;
@@ -124,7 +125,6 @@ export class AIPlayerService {
         });
 
         if (game?.tournamentId && game?.tournamentRound) {
-            const { checkAndCreateNextRoundInstances } = await import('../trpc/routes/tournament.js');
             const mainDb = '$transaction' in this.db ? this.db : this.db;
             await checkAndCreateNextRoundInstances(mainDb as any, game.tournamentId, game.tournamentRound);
         }

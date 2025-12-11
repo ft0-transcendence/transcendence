@@ -5,6 +5,7 @@ import { updateTournamentWinnerStats, updateGameStats } from "../src/utils/stats
 import { AIPlayerService } from "../src/services/aiPlayerService";
 import { cache } from "../src/cache";
 import { broadcastTournamentStatusChange, TypedSocket, TypedSocketNamespace } from "../src/socket-io";
+import { checkAndCreateNextRoundInstances } from "../src/trpc/routes/tournament";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
@@ -130,7 +131,6 @@ export class TournamentGame extends OnlineGame {
 
                 // Check if we need to create game instances for the next round
                 if (currentGame.tournamentRound) {
-                    const { checkAndCreateNextRoundInstances } = await import('../src/trpc/routes/tournament.js');
                     await checkAndCreateNextRoundInstances(db, this.tournamentId, currentGame.tournamentRound);
                 }
             } else { // Torneo completato
