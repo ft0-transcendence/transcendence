@@ -25,6 +25,8 @@ export class BracketGenerator {
 
     private async ensurePlaceholderUser(tx: Prisma.TransactionClient): Promise<string> {
         try {
+
+			//TODO: is the placeholder user needed? can we just check for `userId` to be null?
             let user = await tx.user.findUnique({
                 where: { id: BracketGenerator.PLACEHOLDER_USER_ID }
             });
