@@ -97,6 +97,7 @@ export const it: TranslationSchema = {
 		game: "Partita",
 		seconds: "secondi",
 		user_profile: "Profilo utente",
+		user_not_found: "Utente non trovato",
 	},
 	tournament:{
 		bracket: "Programma",

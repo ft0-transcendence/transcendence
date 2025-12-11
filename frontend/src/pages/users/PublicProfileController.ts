@@ -56,7 +56,7 @@ export class PublicProfileController extends RouteController {
 	#renderNotFound() {
 		return /*html*/ `
 		<div class="flex flex-col items-center justify-center text-3xl grow">
-			<h1 class="text-2xl uppercase font-mono font-bold" data-i18n="${k("generic.user_profile")}">User profile</h1>
+			<h1 class="text-2xl uppercase font-mono font-bold" data-i18n="${k("generic.user_not_found")}">User not found</h1>
 			<a data-route="/home" href="/home"
 				class="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-400 transition-colors">
 				<i class="fa fa-arrow-left"></i>
@@ -205,9 +205,6 @@ export class PublicProfileController extends RouteController {
 	}
 
 	async destroy() {
-
-		const socketEventsToUnsubscribe = ['friends-list', 'friend-updated', 'friend-removed', 'friend-request-received', 'friend-request-sent', 'friend-request-accepted', 'friend-request-rejected', 'friend-request-rejected-by-me', 'pending-friend-removed']
-
 	}
 
 
@@ -283,9 +280,11 @@ export class PublicProfileController extends RouteController {
 				<!-- Match Avatar -->
 				<div class="grid grid-cols-3 gap-1 items-center col-span-9">
 					<div class="flex flex-col justify-center items-center gap-1 text-sm">
-						<img src="${getProfilePictureUrlByUserId(match.leftPlayer.id)}"
-						 alt="${match?.leftPlayerUsername ?? match.leftPlayer.username}'s avatar"
-						 class="w-10 h-10 rounded-full object-cover match-image ring-1 ring-white/10">
+						<a href="/users/${match.leftPlayerUsername}">
+							<img src="${getProfilePictureUrlByUserId(match.leftPlayer.id)}"
+								alt="${match?.leftPlayerUsername ?? match.leftPlayer.username}'s avatar"
+								class="w-10 h-10 rounded-full object-cover match-image ring-1 ring-white/10">
+						</a>
 						<span>${match?.leftPlayerUsername ?? match.leftPlayer.username}</span>
 					</div>
 					<div class="text-lg font-bold">
@@ -294,10 +293,12 @@ export class PublicProfileController extends RouteController {
 						<span class="${!mySideIsLeft ? myResultClass : ''}">${match.rightPlayerScore}</span>
 					</div>
 					<div class="flex flex-col justify-center items-center gap-1 text-sm">
-						<img src="${getProfilePictureUrlByUserId(match.rightPlayer.id)}"
-						 alt="${match?.rightPlayerUsername ?? match.rightPlayer.username}"
-						 class="w-10 h-10 rounded-full object-cover match-image ring-1 ring-white/10">
-						 <span>${match?.rightPlayerUsername ?? match.rightPlayer.username}</span>
+						<a href="/users/${match.rightPlayerUsername}">
+							<img src="${getProfilePictureUrlByUserId(match.rightPlayer.id)}"
+								alt="${match?.rightPlayerUsername ?? match.rightPlayer.username}"
+								class="w-10 h-10 rounded-full object-cover match-image ring-1 ring-white/10">
+						</a>
+						<span>${match?.rightPlayerUsername ?? match.rightPlayer.username}</span>
 					</div>
 				</div>
 			</div>

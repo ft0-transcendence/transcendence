@@ -5,7 +5,6 @@ import { NotFoundController } from "./NotFoundController";
 import { BaseLayout } from "../layouts/BaseLayout";
 import { authManager } from "@tools/AuthManager";
 import toast from "@tools/Toast";
-import { TournamentsController } from "./TournamentsController";
 import { GameSelectorController } from "./play/GameSelectorController";
 import { SettingsController } from "./SettingsController";
 import { OnlineMatchmakingController } from "./play/online/1v1/OnlineMatchmakingController";
@@ -53,6 +52,7 @@ const routes: Route[] = [
 		path: '/users/:username',
 		newController: (params) => new PublicProfileController(params),
 		newLayout: () => new BaseLayout(),
+		authRequired: true,
 	},
 	{
 		path: '/play',
