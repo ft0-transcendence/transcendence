@@ -1,6 +1,7 @@
 import { cache } from "@backend/src/cache";
 import {protectedProcedure, publicProcedure, t} from "../trpc";
 import {z} from "zod";
+import { TRPCError } from "@trpc/server";
 
 export const gameRouter = t.router({
 
@@ -28,14 +29,25 @@ export const gameRouter = t.router({
 
 	lastNMatches: protectedProcedure
 		.input(z.object({
+			userId: z.string().optional(),
 			quantity: z.number().min(1).max(100).optional().default(20),
 		}))
 		.query(async ({ input, ctx }) => {
 			const { quantity } = input;
 
-			const user = ctx.session.user!;
+			const id = input.userId ?? ctx.user!.id;
 
-			const id = user.id;
+			const user = await ctx.db.user.findUnique({
+				where: { id: id },
+				select: {
+					id: true,
+				}
+			});
+			if (!user) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+			}
+
+
 
 			const matches = await ctx.db.game.findMany({
 				take: quantity,

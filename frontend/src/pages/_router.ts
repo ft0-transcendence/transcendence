@@ -15,6 +15,7 @@ import { LocalVersusPlayerGameController } from "./play/local/LocalVersusPlayerG
 import { TournamentsListController as OnlineTournamentsListController } from "./play/online/tournament/OnlineTournamentsListController";
 import { OnlineTournamentDetailsController } from "./play/online/tournament/OnlineTournamentDetailsController";
 import { OnlineTournamentGameController } from "./play/online/tournament/OnlineTournamentGameController";
+import { PublicProfileController } from "./users/PublicProfileController";
 
 export type Route = {
 	path: string;
@@ -46,6 +47,11 @@ const routes: Route[] = [
 	{
 		path: '/404',
 		newController: () => new NotFoundController(),
+		newLayout: () => new BaseLayout(),
+	},
+	{
+		path: '/users/:username',
+		newController: (params) => new PublicProfileController(params),
 		newLayout: () => new BaseLayout(),
 	},
 	{

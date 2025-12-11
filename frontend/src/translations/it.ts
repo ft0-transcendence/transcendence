@@ -96,6 +96,7 @@ export const it: TranslationSchema = {
 		game_not_found: "Partita non trovata",
 		game: "Partita",
 		seconds: "secondi",
+		user_profile: "Profilo utente",
 	},
 	tournament:{
 		bracket: "Programma",

@@ -97,6 +97,7 @@ export const ua: TranslationSchema = {
 		game_not_found: "Гра не знайдена",
 		game: "Гра",
 		seconds: "секунд",
+		user_profile: "Профіль користувача",
 	},
 	tournament:{
 		bracket: "Склад",

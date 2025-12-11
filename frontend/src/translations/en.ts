@@ -95,6 +95,7 @@ export const en = {
 		game_not_found: "Game not found",
 		game: "Game",
 		seconds: "seconds",
+		user_profile: "User profile",
 	},
 	tournament:{
 		bracket: "Bracket",

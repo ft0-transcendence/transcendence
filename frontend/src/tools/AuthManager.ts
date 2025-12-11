@@ -23,7 +23,7 @@ export class AuthManager {
 	// TODO: Remove this. Probably won't be ever used.
 	#config: AuthConfig;
 
-	#user: RouterOutputs['user']['getUser'] = null;
+	#user: RouterOutputs['user']['privateProfile'] = null;
 
 	#friendsList: SocketFriendInfo[] = [];
 
@@ -136,7 +136,7 @@ export class AuthManager {
 			clearTimeout(this.#userRefreshInterval);
 		}
 		try {
-			const newUserData = await api.user.getUser.query();
+			const newUserData = await api.user.privateProfile.query();
 			if (!this.#user && newUserData) {
 				console.debug('User logged in', newUserData);
 				setLanguage(newUserData.preferredLanguage as AppLanguage);

@@ -53,20 +53,51 @@ async function calculateUserStats(db: PrismaClient, userId: string) {
 }
 
 export const userRouter = t.router({
-	getUser: protectedProcedure
+
+	privateProfile: protectedProcedure
 		.query(async ({ctx}) => {
 			const user = await ctx.db.user.findFirst({
 				where: {
 					id: ctx.user!.id,
 				},
-				select: {
-					username: true,
-					id: true,
-					preferredLanguage: true,
-					email: true,
-					createdAt: true,
+				// select: {
+				// 	username: true,
+				// 	id: true,
+				// 	preferredLanguage: true,
+				// 	email: true,
+				// 	createdAt: true,
+
+				// },
+				omit: {
+					imageBlob: true,
+					imageUrl: true,
+					imageBlobMimeType: true
 				}
 			});
+
+			return user;
+		}),
+
+	publicProfileByUsername: protectedProcedure
+		.input(z.object({
+			username: z.string()
+		}))
+		.query(async ({ ctx, input }) => {
+			const user = await ctx.db.user.findFirst({
+				where: { username: input.username },
+				select: {
+					id: true,
+					username: true,
+					preferredLanguage: true,
+					createdAt: true,
+					tournamentsWon: true,
+					totalLosses: true,
+					totalWins: true,
+				}
+			});
+			if (!user) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+			}
 			return user;
 		}),
 
@@ -165,9 +196,13 @@ export const userRouter = t.router({
 		}),
 
 	getUserStats: protectedProcedure
-		.query(async ({ ctx }) => {
+		.input(z.object({
+			id: z.string().optional()
+		}).optional())
+		.query(async ({ ctx, input }) => {
+			const id = input?.id ?? ctx.user!.id;
 			const user = await ctx.db.user.findUnique({
-				where: { id: ctx.user!.id },
+				where: { id: id },
 				select: {
 					username: true,
 					tournamentsWon: true
@@ -178,7 +213,7 @@ export const userRouter = t.router({
 				throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
 			}
 
-			const stats = await calculateUserStats(ctx.db, ctx.user!.id);
+			const stats = await calculateUserStats(ctx.db, id);
 
 			return {
 				username: user.username,
