@@ -102,7 +102,7 @@ model Game {
     id                  String           @id @default(cuid())
     type                GameType
     tournamentRound     TournamentRound?
-    startDate           DateTime
+    startDate           DateTime?
     updatedAt           DateTime         @default(now()) @updatedAt
     endDate             DateTime?
     abortDate           DateTime?

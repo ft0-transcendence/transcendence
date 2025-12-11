@@ -21,7 +21,7 @@ pino;
 
 const BODY_LIMIT_MB = 10;
 
-export const fastify = Fastify({
+export const app = Fastify({
 	logger: {
 		level: "debug",
 		transport: {
@@ -41,20 +41,20 @@ export const fastify = Fastify({
 });
 
 
-fastify.register(corsPlugin);
-fastify.register(fastifyFormbody);
-fastify.register(prismaPlugin);
+app.register(corsPlugin);
+app.register(fastifyFormbody);
+app.register(prismaPlugin);
 
 
 
 // API ENDPOINTS
-fastify.register(publicRoutes, { prefix: "/api" });
-fastify.register(trpcConfiguredPlugin);
+app.register(publicRoutes, { prefix: "/api" });
+app.register(trpcConfiguredPlugin);
 
-fastify.register(sessionPlugin);
+app.register(sessionPlugin);
 
 // Socket.IO Plugin
-fastify.register(fastifySocketIO, {
+app.register(fastifySocketIO, {
 	cors: {
 		origin: "*",
 		methods: ["GET", "POST"],
@@ -63,12 +63,12 @@ fastify.register(fastifySocketIO, {
 })
 const START_TIME = Symbol("startTime");
 
-fastify.addHook("onRequest", (request, reply, done) => {
+app.addHook("onRequest", (request, reply, done) => {
   (request as any)[START_TIME] = process.hrtime.bigint();
   done();
 });
 
-fastify.addHook("onResponse", (request, reply, done) => {
+app.addHook("onResponse", (request, reply, done) => {
   const start = (request as any)[START_TIME];
   const ip = request.ip; // 👈 Fastify sets this for you
   if (start) {
@@ -85,21 +85,21 @@ fastify.addHook("onResponse", (request, reply, done) => {
   done();
 });
 
-fastify.register(socketAuthSessionPlugin);
-fastify.register(passportPlugin);
+app.register(socketAuthSessionPlugin);
+app.register(passportPlugin);
 
 const pathToFrontend = path.join(__dirname, "..", "frontend");
 console.log(`Checking if frontend exists at ${pathToFrontend}`);
 if (fs.existsSync(pathToFrontend)) {
 	console.log("✅  Serving static files from " + pathToFrontend);
 
-	fastify.register(fastifyStatic, {
+	app.register(fastifyStatic, {
 		root: pathToFrontend,
 		prefix: '/', // serve frontend from root
 		index: 'index.html',
 	});
 
-	fastify.setNotFoundHandler((req, reply) => {
+	app.setNotFoundHandler((req, reply) => {
 		if (req.raw.url?.startsWith('/api')) {
 			reply.code(404).send({ error: 'API route not found' });
 		} else {
@@ -113,7 +113,7 @@ if (fs.existsSync(pathToFrontend)) {
 async function checkAndStartTournaments() {
 	try {
 		const now = new Date();
-		const tournaments = await fastify.prisma.tournament.findMany({
+		const tournaments = await app.prisma.tournament.findMany({
 			where: {
 				status: 'WAITING_PLAYERS',
 				startDate: {
@@ -128,30 +128,30 @@ async function checkAndStartTournaments() {
 
 		for (const tournament of tournaments) {
 			try {
-				fastify.log.info(`Auto-starting tournament ${tournament.id} (${tournament.name})`);
-				await autoStartTournament(fastify.prisma, tournament.id);
-				fastify.log.info(`Successfully auto-started tournament ${tournament.id}`);
+				app.log.info(`Auto-starting tournament ${tournament.id} (${tournament.name})`);
+				await autoStartTournament(app.prisma, tournament.id);
+				app.log.info(`Successfully auto-started tournament ${tournament.id}`);
 			} catch (error) {
-				fastify.log.error(`Failed to auto-start tournament ${tournament.id}:`, error);
+				app.log.error(`Failed to auto-start tournament ${tournament.id}:`, error);
 			}
 		}
 	} catch (error) {
-		fastify.log.error('Error checking tournaments for auto-start:', error);
+		app.log.error('Error checking tournaments for auto-start:', error);
 	}
 }
 
-fastify.ready().then(() => {
+app.ready().then(() => {
 	console.log('Fastify is ready');
 	// Make socket.io instance globally accessible for notifications
-	(global as any).io = fastify.io;
-	setupSocketHandlers(fastify.io);
-	loadActiveGamesIntoCache(fastify.prisma, fastify);
-	
+	(global as any).io = app.io;
+	setupSocketHandlers(app.io);
+	loadActiveGamesIntoCache(app.prisma, app);
+
 	// Check for tournaments to auto-start every 30 seconds
 	setInterval(() => {
 		checkAndStartTournaments();
 	}, 30000); // 30 seconds
-	
+
 	// Also check immediately on startup
 	checkAndStartTournaments();
 });
@@ -159,11 +159,12 @@ fastify.ready().then(() => {
 const start = async () => {
 	try {
 		const port = parseInt(env.PORT || "4200", 10);
-		await fastify.listen({ port, host: "0.0.0.0" });
+		await app.listen({ port, host: "0.0.0.0" });
 	} catch (err) {
-		fastify.log.error(err);
+		app.log.error(err);
 		process.exit(1);
 	}
 };
 
 start();
+

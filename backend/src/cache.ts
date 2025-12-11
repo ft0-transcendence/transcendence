@@ -4,7 +4,7 @@ import { TournamentGame } from "../game/tournamentGame";
 import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
 import { db } from "./trpc/db";
-import { fastify } from "../main";
+import { app } from "../main";
 import { updateGameStats } from "./utils/statsUtils";
 import { GameStatus } from "../game/game";
 
@@ -56,7 +56,7 @@ async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstanc
 	}
 
 	cache.active_1v1_games.delete(gameId);
-	fastify.log.info("VS Game %s persisted and removed from cache.", gameId);
+	app.log.info("VS Game %s persisted and removed from cache.", gameId);
 }
 
 
@@ -281,7 +281,7 @@ export function removeUserFromOnlineCache(userId: User['id'], socket: TypedSocke
 		userSockets.delete(socket);
 
 		if (userSockets.size === 0) {
-			fastify.log.debug("User %s fully disconnected, removing from online users cache", userId);
+			app.log.debug("User %s fully disconnected, removing from online users cache", userId);
 			cache.onlineUsers.delete(userId);
 			cache.userSockets.delete(userId);
 			notifyFriendsUserOffline(userId);
@@ -347,7 +347,7 @@ async function notifyFriendsUserOnline(userId: User['id']) {
 		});
 
 		if (!user) {
-			fastify.log.warn('User %s not found', userId);
+			app.log.warn('User %s not found', userId);
 			return;
 		};
 
@@ -368,9 +368,9 @@ async function notifyFriendsUserOnline(userId: User['id']) {
 			}
 		}
 
-		fastify.log.debug('Notified %s friends that user %s went online', user.friends.length, userId);
+		app.log.debug('Notified %s friends that user %s went online', user.friends.length, userId);
 	} catch (error) {
-		fastify.log.error('Error notifying friends of user online:', error);
+		app.log.error('Error notifying friends of user online:', error);
 	}
 }
 
@@ -408,8 +408,8 @@ async function notifyFriendsUserOffline(userId: User['id']) {
 			}
 		}
 
-		fastify.log.debug('Notified friends that user %s went offline', userId);
+		app.log.debug('Notified friends that user %s went offline', userId);
 	} catch (error) {
-		fastify.log.error('Error notifying friends of user offline:', error);
+		app.log.error('Error notifying friends of user offline:', error);
 	}
 }

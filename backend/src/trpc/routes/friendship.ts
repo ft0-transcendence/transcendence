@@ -2,7 +2,7 @@ import {protectedProcedure, t} from "../trpc";
 import { z } from "zod";
 import { FriendState } from "@prisma/client";
 import { isUserOnline, cache } from "../../cache";
-import { fastify } from "../../../main";
+import { app } from "../../../main";
 import { TRPCError } from "@trpc/server";
 import { RouterOutputs } from "../root";
 
@@ -373,7 +373,7 @@ export const friendshipRouter = t.router({
 
 async function notifyFriendRequestReceived(recipientId: string, senderId: string, requestId: string) {
 	try {
-		const sender = await fastify.prisma.user.findFirst({
+		const sender = await app.prisma.user.findFirst({
 			where: { id: senderId },
 			select: {
 				id: true,
@@ -393,15 +393,15 @@ async function notifyFriendRequestReceived(recipientId: string, senderId: string
 			});
 		}
 
-		fastify.log.debug('Notified friend request received: %s -> %s', senderId, recipientId);
+		app.log.debug('Notified friend request received: %s -> %s', senderId, recipientId);
 	} catch (error) {
-		fastify.log.error('Error notifying friend request received:', error);
+		app.log.error('Error notifying friend request received:', error);
 	}
 }
 
 async function notifyFriendRequestSent(senderId: string, recipientId: string, requestId: string) {
 	try {
-		const recipient = await fastify.prisma.user.findFirst({
+		const recipient = await app.prisma.user.findFirst({
 			where: { id: recipientId },
 			select: {
 				id: true,
@@ -422,23 +422,23 @@ async function notifyFriendRequestSent(senderId: string, recipientId: string, re
 			});
 		}
 
-		fastify.log.debug('Notified friend request sent: %s -> %s', senderId, recipientId);
+		app.log.debug('Notified friend request sent: %s -> %s', senderId, recipientId);
 	} catch (error) {
-		fastify.log.error('Error notifying friend request sent:', error);
+		app.log.error('Error notifying friend request sent:', error);
 	}
 }
 
 async function notifyFriendshipAccepted(accepterId: string, requesterId: string, requestId: string) {
 	try {
 		const [accepter, requester] = await Promise.all([
-			fastify.prisma.user.findFirst({
+			app.prisma.user.findFirst({
 				where: { id: accepterId },
 				select: {
 					id: true,
 					username: true,
 				}
 			}),
-			fastify.prisma.user.findFirst({
+			app.prisma.user.findFirst({
 				where: { id: requesterId },
 				select: {
 					id: true,
@@ -479,23 +479,23 @@ async function notifyFriendshipAccepted(accepterId: string, requesterId: string,
 			requesterSocket.emit('friend-updated', accepterFriend);
 		}
 
-		fastify.log.debug('Notified friendship accepted between %s and %s', accepterId, requesterId);
+		app.log.debug('Notified friendship accepted between %s and %s', accepterId, requesterId);
 	} catch (error) {
-		fastify.log.error('Error notifying friendship accepted:', error);
+		app.log.error('Error notifying friendship accepted:', error);
 	}
 }
 
 async function notifyFriendRequestRejected(requesterId: string, rejecterId: string, requestId: string) {
 	try {
 		const [requester, rejecter] = await Promise.all([
-			fastify.prisma.user.findFirst({
+			app.prisma.user.findFirst({
 				where: { id: requesterId },
 				select: {
 					id: true,
 					username: true,
 				}
 			}),
-			fastify.prisma.user.findFirst({
+			app.prisma.user.findFirst({
 				where: { id: rejecterId },
 				select: {
 					id: true,
@@ -525,23 +525,23 @@ async function notifyFriendRequestRejected(requesterId: string, rejecterId: stri
 			});
 		}
 
-		fastify.log.debug('Notified friend request rejected: %s -> %s', requesterId, rejecterId);
+		app.log.debug('Notified friend request rejected: %s -> %s', requesterId, rejecterId);
 	} catch (error) {
-		fastify.log.error('Error notifying friend request rejected:', error);
+		app.log.error('Error notifying friend request rejected:', error);
 	}
 }
 
 async function notifyFriendshipRemoved(removerId: string, removedId: string) {
 	try {
 		const [remover, removed] = await Promise.all([
-			fastify.prisma.user.findFirst({
+			app.prisma.user.findFirst({
 				where: { id: removerId },
 				select: {
 					id: true,
 					username: true,
 				}
 			}),
-			fastify.prisma.user.findFirst({
+			app.prisma.user.findFirst({
 				where: { id: removedId },
 				select: {
 					id: true,
@@ -570,23 +570,23 @@ async function notifyFriendshipRemoved(removerId: string, removedId: string) {
 			});
 		}
 
-		fastify.log.debug('Notified friendship removed between %s and %s', removerId, removedId);
+		app.log.debug('Notified friendship removed between %s and %s', removerId, removedId);
 	} catch (error) {
-		fastify.log.error('Error notifying friendship removed:', error);
+		app.log.error('Error notifying friendship removed:', error);
 	}
 }
 
 async function notifyPendingFriendRemoved(removerId: string, removedId: string) {
 	try {
 		const [remover, removed] = await Promise.all([
-			fastify.prisma.user.findFirst({
+			app.prisma.user.findFirst({
 				where: { id: removerId },
 				select: {
 					id: true,
 					username: true,
 				}
 			}),
-			fastify.prisma.user.findFirst({
+			app.prisma.user.findFirst({
 				where: { id: removedId },
 				select: {
 					id: true,
@@ -615,8 +615,8 @@ async function notifyPendingFriendRemoved(removerId: string, removedId: string) 
 			});
 		}
 
-		fastify.log.debug('Notified pending friend request removed between %s and %s', removerId, removedId);
+		app.log.debug('Notified pending friend request removed between %s and %s', removerId, removedId);
 	} catch (error) {
-		fastify.log.error('Error notifying pending friend request removed:', error);
+		app.log.error('Error notifying pending friend request removed:', error);
 	}
 }

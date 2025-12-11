@@ -174,37 +174,6 @@ export class OnlineTournamentDetailsController extends RouteController {
 						</div>
 					</div>
 
-					<!-- Games -->
-					<!-- <div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md mb-6">
-						<h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
-							<i class="fa fa-gamepad"></i>
-							<span data-i18n="${k('generic.games')}">Games</span>
-						</h2>
-						${tDto.games.length > 0
-							? /*html*/`
-								<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-									${tDto.games.map((g) => /*html*/ `
-										<div data-gameId="${g.id}" class="bg-neutral-700/50 p-3 rounded-md flex flex-col gap-2 text-sm">
-											<div class="flex justify-between">
-												<span class="font-semibold">${g.leftPlayer.username}</span>
-												<span class="text-stone-400" data-i18n="${k('generic.vs')}">vs</span>
-												<span class="font-semibold">${g.rightPlayer.username}</span>
-											</div>
-											<div class="flex justify-between text-xs text-stone-400">
-												<span><span data-i18n="${k('generic.score_goal')}">Score goal</span>: ${g.scoreGoal}</span>
-												<span>${new Date(g.startDate).toLocaleString()}</span>
-											</div>
-										</div>`
-									)
-									.join("")}
-								</div>
-							`
-							: /*html*/`
-								<div class="text-stone-400 text-sm italic" data-i18n="${k('generic.no_games_yet')}">No games yet</div>
-							`
-						}
-					</div> -->
-
 					${tDto.winner
 						? /*html*/ `
 							<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md">
@@ -382,7 +351,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 		const cb = async () => {
 			this.#loadingOverlays.root.show();
 			try {
-				await api.tournament.startTournament.mutate({ tournamentId: this.#tournamentId });
+				const tournamentData = await api.tournament.startTournament.mutate({ tournamentId: this.#tournamentId });
 				toast.success(t("generic.start_tournament"), t("generic.start_tournament_success") ?? "");
 				const oldClassName = this.#getTournamentStatusBadgeColorClass(this.#tournamentDto?.status ?? "WAITING_PLAYERS").split(' ');
 				await this.#fetchAndUpdateTournamentDetails();

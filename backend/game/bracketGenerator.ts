@@ -1,4 +1,4 @@
-import { PrismaClient, TournamentRound, Prisma, Game } from "@prisma/client";
+import { PrismaClient, TournamentRound, Prisma, Game, Tournament } from "@prisma/client";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 
 //TODO: Remove this shit
@@ -115,7 +115,7 @@ export class BracketGenerator {
     }
 
     async createBracketGames(
-        tournamentId: string,
+        tournament: Tournament,
         bracket: BracketNode[]
     ): Promise<void> {
         const executeTransaction = async (tx: Prisma.TransactionClient) => {
@@ -161,9 +161,9 @@ export class BracketGenerator {
                         id: node.gameId,
                         type: 'TOURNAMENT',
                         tournamentRound: tournamentRound,
-                        startDate: new Date(),
+                        startDate: null,
                         scoreGoal: 5,
-                        tournamentId,
+                        tournamentId: tournament.id,
                         leftPlayerId: node.leftPlayerId || placeholderUserId,
                         rightPlayerId: node.rightPlayerId || placeholderUserId,
                         leftPlayerUsername: leftPlayerUsername,
@@ -221,11 +221,11 @@ export class BracketGenerator {
     }
 
     async generateAndCreateBracket(
-        tournamentId: string,
+		tournament: Tournament,
         participants: string[] = []
     ): Promise<BracketNode[]> {
-        const bracket = await this.generateBracket(tournamentId, participants);
-        await this.createBracketGames(tournamentId, bracket);
+        const bracket = await this.generateBracket(tournament.id, participants);
+        await this.createBracketGames(tournament, bracket);
         return bracket;
     }
 

@@ -4,7 +4,7 @@ import { Signer } from '@fastify/cookie';
 import { env } from '../../env';
 import { TypedSocket } from '../socket-io';
 import { Namespace, Server } from 'socket.io';
-import { fastify } from '../../main';
+import { app } from '../../main';
 
 /**
  * This plugin adds a `user` property to the socket.io `socket` object and forces the socket to be authenticated.
@@ -30,7 +30,7 @@ export function applySocketAuth(ioOrNamespace: Server | Namespace) {
 			if (!unsigned.valid) return next(new Error('Invalid session cookie signature'));
 
 			const sessionId = unsigned.value;
-			const sessionStore = fastify.sessionStore;
+			const sessionStore = app.sessionStore;
 			if (!sessionStore) return next(new Error('Session store not found'));
 
 			sessionStore.get(sessionId, async (err, session) => {
@@ -38,7 +38,7 @@ export function applySocketAuth(ioOrNamespace: Server | Namespace) {
 				const userId = session.passport;
 				if (!userId) return next(new Error('Unauthorized'));
 
-				const user = await fastify.prisma.user.findFirst({ where: { id: userId } });
+				const user = await app.prisma.user.findFirst({ where: { id: userId } });
 				if (!user) return next(new Error('Unauthorized'));
 
 				socket.data.user = user;
