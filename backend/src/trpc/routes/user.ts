@@ -2,7 +2,6 @@ import { TRPCError } from "@trpc/server";
 import {protectedProcedure, publicProcedure, t} from "../trpc";
 import { z } from "zod";
 import { AppLanguage } from '../../../shared_exports';
-import sanitizeHtml from 'sanitize-html';
 import { PrismaClient } from "@prisma/client";
 
 const MAX_PROFILE_PICTURE_SIZE_MB = 2.5;

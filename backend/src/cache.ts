@@ -181,12 +181,17 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 
 	for (const game of activeTournamentGames) {
 		if (game.tournament?.status === 'COMPLETED') {
-			fastify.log.warn('Tournament Game %s is completed, skipping', game.id);
+			fastify.log.debug('Tournament Game %s is completed, skipping', game.id);
+			continue;
+		}
+		if (!game.startDate){
+			fastify.log.debug('Tournament Game %s has no start date, skipping', game.id);
 			continue;
 		}
 
 		const LEASE_TIME = 1000 * 60; // 1 min
 
+		// TODO: check for tournament FINALE after the AI progressed to the finale and the server restarted. It's being set to finished...
 		if (game.tournament?.status === 'IN_PROGRESS') {
 			const now = new Date();
 			const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);

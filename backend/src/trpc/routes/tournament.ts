@@ -1041,13 +1041,8 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 	});
 
 	const aiPlayerService = new AIPlayerService(db);
-	const io = (global as any).io;
-	if (!io) {
-		console.warn('Socket.io not available, skipping game instance creation');
-		return;
-	}
 
-	const tournamentNamespace = io.of("/tournament");
+	const tournamentNamespace = app.io.of("/tournament");
 	let humanGamesCreated = 0;
 	let aiGamesSkipped = 0;
 
@@ -1229,9 +1224,8 @@ export async function getTournamentDetails(tournamentId: string, requestedByUser
 
 		const result = await craftTournamentDetailsForUser(tournament, requestedByUser?.id);
 
-		console.log('[getTournamentDetails] Returning result with', result.games.length, 'games');
-		return result;
-
+		console.log('[getTournamentDetails] Returning result with', result.games?.length, 'games');
+		return result!;
 	} catch (error) {
 		console.error('[getTournamentDetails] Error occurred:', error);
 		handleTournamentError(error as Error, 'getTournamentDetails', tournamentId, requestedByUser?.id);
@@ -1241,45 +1235,12 @@ export async function getTournamentDetails(tournamentId: string, requestedByUser
 export async function craftTournamentDetailsForUser(tournamentData: Awaited<ReturnType<typeof getTournamentFullDetailsById>>, requestedByUserId?: User['id']) {
 
 	const isRegisteredToTournament = requestedByUserId
-		? tournamentData!.participants.some((p) => p.user.id === requestedByUserId)
+		? tournamentData!.participants.some((p) => p.id === requestedByUserId)
 		: false;
 
-	const aiPlayerService = new AIPlayerService(db);
 
 	const result = {
-		id: tournamentData!.id,
-		name: tournamentData!.name,
-		type: tournamentData!.type,
-		status: tournamentData!.status,
-		startDate: tournamentData!.startDate,
-		endDate: tournamentData!.endDate,
-		createdBy: tournamentData!.createdBy,
-		winner: tournamentData!.winner,
-		participants: tournamentData!.participants.map(p => p.user),
-		participantsCount: tournamentData!._count.participants,
-		maxParticipants: TOURNAMENT_SIZES[tournamentData!.type ?? TournamentType.EIGHT],
-		games: tournamentData!.games.map((g) => {
-			const previousGames = g.previousGames?.map(pg => pg.id) || [];
-			return {
-				id: g.id,
-				leftPlayer: g.leftPlayer,
-				rightPlayer: g.rightPlayer,
-				leftPlayerScore: g.leftPlayerScore,
-				rightPlayerScore: g.rightPlayerScore,
-				startDate: g.startDate,
-				endDate: g.endDate,
-				abortDate: g.abortDate,
-				scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
-				tournamentRound: g.tournamentRound,
-				leftPlayerUsername: g.leftPlayerUsername,
-				rightPlayerUsername: g.rightPlayerUsername,
-				isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-				leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
-				rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-				nextGameId: g.nextGameId,
-				previousGames
-			};
-		}),
+		...tournamentData,
 		isRegisteredToTournament
 	};
 	return result;
@@ -1349,12 +1310,66 @@ export async function getTournamentFullDetailsById(tournamentId: string, shouldE
 				message: 'Tournament not found'
 			});
 		}
-		return tournament;
+
+		const aiPlayerService = new AIPlayerService(db);
+
+		// TODO: sort the games in order per each type (QUARTI, SEMIFINALE, FINALE)
+		/*
+		[0,1,2,3,4,5,6] ->
+		Frontend will render from top to bottom like this (it's not required to SEMIFINALE being the first 4 matches, QUARTI to be the middle and FINALE to be the last, but the order per each type is important):
+		- 0(SEMIFINALE)
+		- 1(SEMIFINALE) - 4(QUARTI)
+							- 6(FINALE)
+		- 2(SEMIFINALE) - 5(QUARTI)
+		- 3(SEMIFINALE)
+		*/
+		const mappedGames = tournament.games.map((g) => {
+			const previousGames = g.previousGames?.map(pg => pg.id) || [];
+			return {
+				id: g.id,
+				leftPlayer: g.leftPlayer,
+				rightPlayer: g.rightPlayer,
+				leftPlayerScore: g.leftPlayerScore,
+				rightPlayerScore: g.rightPlayerScore,
+				startDate: g.startDate,
+				endDate: g.endDate,
+				abortDate: g.abortDate,
+				scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
+				tournamentRound: g.tournamentRound,
+				leftPlayerUsername: g.leftPlayerUsername,
+				rightPlayerUsername: g.rightPlayerUsername,
+				isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+				leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
+				rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+				nextGameId: g.nextGameId,
+				previousGames,
+			};
+		});
+
+		return {
+			id: tournament!.id,
+			name: tournament!.name,
+			type: tournament!.type,
+			status: tournament!.status,
+
+			startDate: tournament!.startDate,
+			endDate: tournament!.endDate,
+			createdBy: tournament!.createdBy,
+
+			winner: tournament!.winner,
+
+			participants: tournament!.participants.map(p => p.user),
+			participantsCount: tournament!._count.participants,
+			maxParticipants: TOURNAMENT_SIZES[tournament!.type ?? TournamentType.EIGHT],
+
+			games: mappedGames
+		};
 	} catch (error) {
 		app.log.warn(`[getTournamentDetails] Error occurred while fetching tournament #${tournamentId}:`, error);
 		if (shouldExpandThrownError) {
 			throw error;
+		} else {
+			return null;
 		}
-		return null;
 	}
 }

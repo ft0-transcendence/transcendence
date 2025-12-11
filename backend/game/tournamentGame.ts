@@ -4,8 +4,9 @@ import { db } from "../src/trpc/db";
 import { updateTournamentWinnerStats, updateGameStats } from "../src/utils/statsUtils";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 import { cache } from "../src/cache";
-import { broadcastTournamentStatusChange, TypedSocket, TypedSocketNamespace } from "../src/socket-io";
+import { TypedSocket, TypedSocketNamespace } from "../src/socket-io";
 import { checkAndCreateNextRoundInstances } from "../src/trpc/routes/tournament";
+import { tournamentBroadcastStatusChange } from "../src/socket/tournamentSocketNamespace";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
@@ -107,9 +108,15 @@ export class TournamentGame extends OnlineGame {
                         select: { username: true }
                     });
 
+					const needLastPlayerToStart = this.aiPlayerService.isAIPlayer(nextGame.leftPlayerUsername) || this.aiPlayerService.isAIPlayer(nextGame.rightPlayerUsername)
+						|| !!nextGame.leftPlayerId || !!nextGame.rightPlayerId;
+
+
+					const commonData = needLastPlayerToStart ? { startDate: new Date() } : {};
+
                     const data = isLeft
-                        ? { leftPlayerId: winnerId, leftPlayerUsername: winnerUser?.username || null }
-                        : { rightPlayerId: winnerId, rightPlayerUsername: winnerUser?.username || null };
+                        ? { leftPlayerId: winnerId, leftPlayerUsername: winnerUser?.username || null, ...commonData }
+                        : { rightPlayerId: winnerId, rightPlayerUsername: winnerUser?.username || null, ...commonData };
 
                     await db.game.update({
                         where: { id: currentGame.nextGameId },
@@ -177,7 +184,7 @@ export class TournamentGame extends OnlineGame {
                         }
                     });
 
-                    broadcastTournamentStatusChange(
+                    tournamentBroadcastStatusChange(
                         this.tournamentId,
                         'COMPLETED',
                         'system',

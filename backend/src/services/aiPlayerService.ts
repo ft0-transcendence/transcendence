@@ -52,7 +52,15 @@ export class AIPlayerService {
                         await this.saveAIMatchResult(gameId, leftScore, rightScore);
 
                         resolve();
-                    }
+                    } else {
+						await this.db.game.update({
+							where: { id: gameId },
+							data: {
+								leftPlayerScore: leftScore,
+								rightPlayerScore: rightScore
+							}
+						});
+					}
                 } catch (error) {
                     clearInterval(simulationInterval);
                     console.error(`❌ Error during AI match simulation for game ${gameId}:`, error);
@@ -137,7 +145,9 @@ export class AIPlayerService {
             where: { id: nextGameId },
             select: {
                 leftPlayerUsername: true,
-                rightPlayerUsername: true
+                rightPlayerUsername: true,
+				leftPlayerId: true,
+				rightPlayerId: true,
             }
         });
 
@@ -145,9 +155,14 @@ export class AIPlayerService {
             throw new Error(`Next game ${nextGameId} not found`);
         }
 
+		const needLastPlayerToStart = this.isAIPlayer(nextGame.leftPlayerUsername) || this.isAIPlayer(nextGame.rightPlayerUsername)
+			|| !!nextGame.leftPlayerId || !!nextGame.rightPlayerId;
+
         let slotFilled = false;
         let leftSlotIsAI = this.isAIPlayer(nextGame.leftPlayerUsername);
         let rightSlotIsAI = this.isAIPlayer(nextGame.rightPlayerUsername);
+
+		const commonUpdateData = needLastPlayerToStart ? { startDate: new Date() } : {};
 
         if (nextGame.leftPlayerUsername === EMPTY_SLOT || nextGame.leftPlayerUsername === undefined) {
             const updateResult = await tx.game.updateMany({
@@ -158,7 +173,7 @@ export class AIPlayerService {
                         { leftPlayerUsername: undefined }
                     ]
                 },
-                data: { leftPlayerUsername: null }
+                data: { leftPlayerUsername: null, ...commonUpdateData.startDate }
             });
 
             if (updateResult.count > 0) {
@@ -177,7 +192,7 @@ export class AIPlayerService {
                         { rightPlayerUsername: undefined }
                     ]
                 },
-                data: { rightPlayerUsername: null }
+                data: { rightPlayerUsername: null, ...commonUpdateData }
             });
 
             if (updateResult.count > 0) {

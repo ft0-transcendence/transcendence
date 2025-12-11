@@ -17,10 +17,7 @@ import { socketAuthSessionPlugin } from "./src/plugins/socketAuthSession";
 import { loadActiveGamesIntoCache } from "./src/cache";
 import { autoStartTournament } from "./src/trpc/routes/tournament";
 
-pino;
-
 const BODY_LIMIT_MB = 10;
-
 export const app = Fastify({
 	logger: {
 		level: "debug",
@@ -32,6 +29,7 @@ export const app = Fastify({
 				translateTime: "yyyy-mm-dd HH:MM:ss",
 			},
 		},
+		base: {}
 	},
 	ignoreTrailingSlash: true,
 	ignoreDuplicateSlashes: true,
@@ -64,25 +62,25 @@ app.register(fastifySocketIO, {
 const START_TIME = Symbol("startTime");
 
 app.addHook("onRequest", (request, reply, done) => {
-  (request as any)[START_TIME] = process.hrtime.bigint();
-  done();
+	(request as any)[START_TIME] = process.hrtime.bigint();
+	done();
 });
 
 app.addHook("onResponse", (request, reply, done) => {
-  const start = (request as any)[START_TIME];
-  const ip = request.ip; // 👈 Fastify sets this for you
-  if (start) {
-    const diff = process.hrtime.bigint() - start;
-    const ms = Number(diff / 1_000_000n);
-    request.log.info(
-      `${ip} - ${request.method} ${request.url} → ${reply.statusCode} (${ms}ms)`
-    );
-  } else {
-    request.log.info(
-      `${ip} - ${request.method} ${request.url} → ${reply.statusCode}`
-    );
-  }
-  done();
+	const start = (request as any)[START_TIME];
+	const ip = request.ip;
+	if (start) {
+		const diff = process.hrtime.bigint() - start;
+		const ms = Number(diff / 1_000_000n);
+		request.log.info(
+			`${ip} - ${request.method} ${request.url} → ${reply.statusCode} (${ms}ms)`
+		);
+	} else {
+		request.log.info(
+			`${ip} - ${request.method} ${request.url} → ${reply.statusCode}`
+		);
+	}
+	done();
 });
 
 app.register(socketAuthSessionPlugin);

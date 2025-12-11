@@ -135,7 +135,8 @@ export class TournamentValidator {
 							rightPlayerUsername: true,
 							leftPlayerId: true,
 							rightPlayerId: true,
-							type: true
+							type: true,
+							startDate: true
 						}
 					}
 				}
@@ -152,9 +153,10 @@ export class TournamentValidator {
 			const inconsistencies: string[] = [];
 
 			for (const game of tournament.games) {
+				if (!game.startDate) continue;
 				const leftIsAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
 				const rightIsAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
-				const hasAI = leftIsAI || rightIsAI;
+				const hasAI = leftIsAI && rightIsAI;
 
 				// Validate that AI games have the correct type
 				if (hasAI && game.type !== 'AI') {
