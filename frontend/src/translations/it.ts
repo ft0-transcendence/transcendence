@@ -98,6 +98,8 @@ export const it: TranslationSchema = {
 		seconds: "secondi",
 		user_profile: "Profilo utente",
 		user_not_found: "Utente non trovato",
+		in_progress: "In corso",
+		ai: "IA",
 	},
 	tournament:{
 		bracket: "Programma",

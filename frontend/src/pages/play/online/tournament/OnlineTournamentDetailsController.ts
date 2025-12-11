@@ -13,6 +13,8 @@ import { io, Socket } from "socket.io-client";
 import { ConfirmModal } from "@src/tools/ConfirmModal";
 import { showAndLogTrpcError } from "@src/utils/trpcResponseUtils";
 
+type TournamentGame = NonNullable<RouterOutputs["tournament"]["getTournamentDetails"]["games"]>[number];
+
 // TODO: it's a little messy, refactor this
 export class OnlineTournamentDetailsController extends RouteController {
 	#tournamentId: string = "";
@@ -44,7 +46,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 		this.registerChildComponent(this.#loadingOverlays.root);
 		console.debug('[TournamentDetails] Loading tournament with ID:', this.#tournamentId);
 		try {
-			this.#tournamentDto = await api.tournament.getTournamentDetails.query({tournamentId: this.#tournamentId});
+			this.#tournamentDto = await api.tournament.getTournamentDetails.query({ tournamentId: this.#tournamentId });
 			console.debug('[TournamentDetails] Tournament loaded successfully:', this.#tournamentDto);
 		} catch (err) {
 			console.error('[TournamentDetails] Failed to load tournament:', err);
@@ -86,16 +88,16 @@ export class OnlineTournamentDetailsController extends RouteController {
 		console.debug('Rendering tournament details page. Tournament: ', this.#tournamentDto);
 
 		const tDto = this.#tournamentDto;
-		const startDate = new Date(tDto.startDate).toLocaleString();
+		const startDate = tDto.startDate ? new Date(tDto.startDate).toLocaleString() : null;
 
-		const isCreator = authManager.user?.id === tDto.createdBy.id;
+		const isCreator = authManager.user?.id === tDto.createdBy?.id;
 		const canStart = isCreator && tDto.status === 'WAITING_PLAYERS';
 		const canDelete = isCreator && tDto.status !== 'COMPLETED';
 		const statusColor = this.#getTournamentStatusBadgeColorClass(tDto.status);
 
 		console.debug('Tournament button visibility:', {
 			currentUserId: authManager.user?.id,
-			creatorId: tDto.createdBy.id,
+			creatorId: tDto.createdBy?.id,
 			isCreator,
 			status: tDto.status,
 			canStart,
@@ -111,7 +113,6 @@ export class OnlineTournamentDetailsController extends RouteController {
 						<span data-i18n="${k("generic.back_to_list")}">Back to list</span>
 					</a>
 					<div class="grow"></div>
-					<div class="font-semibold text-xl">${he.escape(tDto.name)}</div>
 				</header>
 
 				<!-- Overview -->
@@ -119,18 +120,18 @@ export class OnlineTournamentDetailsController extends RouteController {
 					<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-lg mb-6">
 						<div class="flex flex-col sm:flex-row justify-between gap-4">
 							<div class="flex items-center gap-3">
-								<img src="${getProfilePictureUrlByUserId(tDto.createdBy.id)}"
-									alt="${tDto.createdBy.username}"
+								<img src="${getProfilePictureUrlByUserId(tDto.createdBy?.id ?? "unknown")}"
+									alt="${tDto.createdBy?.username}"
 									class="w-12 h-12 rounded-full object-cover ring-1 ring-white/10">
 								<div>
-									<div class="font-semibold text-lg">${he.escape(tDto.name)}</div>
-									<div class="text-sm text-stone-300" data-i18n="${k("generic.by_user")}" data-i18n-vars='${JSON.stringify({user: tDto.createdBy.username})}'>by ${tDto.createdBy.username}</div>
+									<div class="font-semibold text-lg">${he.escape(tDto.name ?? "")}</div>
+									<div class="text-sm text-stone-300" data-i18n="${k("generic.by_user")}" data-i18n-vars='${JSON.stringify({ user: tDto.createdBy?.username })}'>by ${tDto.createdBy?.username}</div>
 								</div>
 							</div>
 							<div class="flex flex-col sm:items-end justify-center text-sm text-white">
 								<div><i class="fa fa-clock-o mr-1"></i> ${startDate}</div>
 								<div id="${this.id}-status-badge" class="mt-1 text-xs px-2 py-1 w-fit rounded-full ${statusColor} font-semibold uppercase">
-									${tDto.status.replace("_", " ")}
+									${tDto.status?.replace("_", " ")}
 								</div>
 							</div>
 						</div>
@@ -176,18 +177,18 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 					${tDto.winner
 						? /*html*/ `
-							<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md">
-								<h2 class="text-lg font-semibold mb-3 flex items-center gap-2 text-amber-400">
-									<i class="fa fa-trophy"></i>
-									<span data-i18n="${k('generic.winner')}">Winner</span>
-								</h2>
-								<div class="flex items-center gap-3">
-									<img src="${getProfilePictureUrlByUserId(tDto.winner.id)}"
-										class="w-10 h-10 rounded-full ring-2 ring-amber-400">
-									<span class="text-lg font-bold text-amber-400">${tDto.winner.username}</span>
-								</div>
-							</div>
-						`
+									<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md">
+										<h2 class="text-lg font-semibold mb-3 flex items-center gap-2 text-amber-400">
+											<i class="fa fa-trophy"></i>
+											<span data-i18n="${k('generic.winner')}">Winner</span>
+										</h2>
+										<div class="flex items-center gap-3">
+											<img src="${getProfilePictureUrlByUserId(tDto.winner.id)}"
+												class="w-10 h-10 rounded-full ring-2 ring-amber-400">
+											<span class="text-lg font-bold text-amber-400">${tDto.winner.username}</span>
+										</div>
+									</div>
+								`
 						: ""
 					}
 
@@ -204,21 +205,21 @@ export class OnlineTournamentDetailsController extends RouteController {
 							<div id="${this.id}-bracket-round-1" class="flex flex-col items-center justify-center gap-8 md:gap-16 flex-1 w-full">
 								<h3 class="text-center text-sm font-bold text-stone-400 uppercase"
 									data-i18n="${k("tournament.quarterfinals")}">Quarterfinals</h3>
-								${this.#renderBracketRoundGames(tDto.games, "QUARTI")}
+								${this.#renderBracketRoundGames(tDto.games ?? [], "QUARTI")}
 							</div>
 
 							<!-- Round 2 -->
 							<div id="${this.id}-bracket-round-2" class="flex flex-col items-center justify-center gap-8 md:gap-16 flex-1 w-full">
 								<h3 class="text-center text-sm font-bold text-stone-400 uppercase"
 									data-i18n="${k("tournament.semifinals")}">Semifinals</h3>
-								${this.#renderBracketRoundGames(tDto.games, "SEMIFINALE")}
+								${this.#renderBracketRoundGames(tDto.games ?? [], "SEMIFINALE")}
 							</div>
 
 							<!-- Round 3 -->
 							<div id="${this.id}-bracket-round-3" class="flex flex-col items-center justify-center gap-8 md:gap-16 flex-1 w-full">
 								<h3 class="text-center text-sm font-bold text-stone-400 uppercase"
 									data-i18n="${k("tournament.final")}">Final</h3>
-								${this.#renderBracketRoundGames(tDto.games, "FINALE")}
+								${this.#renderBracketRoundGames(tDto.games ?? [], "FINALE")}
 							</div>
 
 						</div>
@@ -235,8 +236,8 @@ export class OnlineTournamentDetailsController extends RouteController {
 	async #fetchAndUpdateTournamentDetails() {
 		const tournament = await api.tournament.getTournamentDetails.query({ tournamentId: this.#tournamentId });
 		this.#tournamentDto = tournament;
-		tournament.games.forEach(g => this.#updateBracket(tournament.games));
-		this.#renderParticipantsList(tournament.participants);
+		tournament.games?.forEach(g => this.#updateBracket(tournament.games));
+		this.#renderParticipantsList(tournament.participants ?? []);
 		this.updateTitleSuffix();
 	}
 	async #pollTournamentDetails() {
@@ -255,7 +256,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 				console.error('Error polling tournament details:', err);
 			}
 		}
-		if (this.#bracketPollingTimeout){
+		if (this.#bracketPollingTimeout) {
 			clearTimeout(this.#bracketPollingTimeout);
 		};
 		this.#bracketPollingTimeout = setTimeout(() => this.#pollTournamentDetails(), this.#bracketPollingMs);
@@ -271,7 +272,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 		this.#pollTournamentDetails();
 
-		this.#renderParticipantsList(this.#tournamentDto.participants);
+		this.#renderParticipantsList(this.#tournamentDto.participants ?? []);
 
 		const joinBtn = document.querySelector(`#${this.id}-join-btn`) as HTMLButtonElement | null;
 		const leaveBtn = document.querySelector(`#${this.id}-leave-btn`) as HTMLButtonElement | null;
@@ -324,10 +325,10 @@ export class OnlineTournamentDetailsController extends RouteController {
 					toast.info(t("generic.leave_tournament"), t("generic.leave_tournament_success") ?? "");
 					joinBtn?.classList?.remove("hidden");
 					leaveBtn?.classList?.add("hidden");
-					if (result.tournamentDeleted){
+					if (result.tournamentDeleted) {
 						router.navigate('/play/online/tournaments');
 					}
-					const newList = this.#tournamentDto?.participants.filter(p => p.id !== authManager.user?.id) ?? [];
+					const newList = this.#tournamentDto?.participants?.filter(p => p.id !== authManager.user?.id) ?? [];
 					this.#renderParticipantsList(newList);
 				}
 			} catch (err) {
@@ -363,7 +364,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 				if (statusBadge) {
 					statusBadge.classList.remove(...oldClassName);
 					statusBadge.classList.add(...newClassName);
-					statusBadge.textContent = this.#tournamentDto?.status.replace("_", " ") ?? "";
+					statusBadge.textContent = this.#tournamentDto?.status?.replace("_", " ") ?? "";
 				}
 
 			} catch (err) {
@@ -418,7 +419,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 				}
 				this.#loadingOverlays.root.hide();
 			},
-			onCancel: () => {},
+			onCancel: () => { },
 			confirmButtonText: t("generic.confirm") ?? "Delete",
 			cancelButtonText: t("generic.cancel") ?? "Cancel",
 			invertConfirmAndCancelColors: true,
@@ -430,7 +431,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 		const bracketContainer = document.querySelector(`#${this.id}-bracket-container`);
 		if (!bracketContainer) return;
 
-		games.forEach((game, index)=>{
+		games?.forEach((game, index) => {
 			let gameEl = bracketContainer.querySelector(`[data-game-id="${game.id}"]`) as HTMLElement | null;
 			if (gameEl) {
 				this.#updateBracketGame(gameEl, game);
@@ -439,30 +440,32 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 	}
 
-	#getUserUsername(user: RouterOutputs["tournament"]["getTournamentDetails"]["games"][number]['leftPlayer'] | RouterOutputs["tournament"]["getTournamentDetails"]["games"][number]['rightPlayer']) {
-		return (user.id === 'placeholder-tournament-user')
-			? /*html*/`<p class="text-stone-400 font-thin" data-i18n="${k('generic.tbd')}">TBD</p>`
-			: user.username;
+	#getUserUsername(game: TournamentGame, givenId: string, givenUsername: string, isAI = false) {
+		return isAI || (givenId === "placeholder-tournament-user")
+			? !game.startDate
+				? /*html*/`<p class="text-stone-400 font-thin" data-i18n="${k('generic.tbd')}">TBD</p>`
+				: /*html*/`<p data-i18n="${k('generic.ai')}">AI</p>`
+			: givenUsername;
 	}
 
-	#updateBracketGame(gameEl: HTMLElement, game: RouterOutputs["tournament"]["getTournamentDetails"]["games"][number]) {
-		gameEl.querySelector('.left-player-username')!.innerHTML = this.#getUserUsername(game.leftPlayer);
-		gameEl.querySelector('.right-player-username')!.innerHTML = this.#getUserUsername(game.rightPlayer);
+	#updateBracketGame(gameEl: HTMLElement, game: TournamentGame) {
+		gameEl.querySelector('.left-player-username')!.innerHTML = this.#getUserUsername(game, game.leftPlayer.id, game.leftPlayerUsername ?? game.leftPlayer?.username, game.leftPlayerIsAI);
+		gameEl.querySelector('.right-player-username')!.innerHTML = this.#getUserUsername(game, game.rightPlayer.id, game.rightPlayerUsername ?? game.rightPlayer?.username, game.rightPlayerIsAI);
 
 		gameEl.querySelector('.left-player-score')!.innerHTML = game.leftPlayerScore.toString();
 		gameEl.querySelector('.right-player-score')!.innerHTML = game.rightPlayerScore.toString();
 
 		const gameState = gameEl.querySelector('.state')
 		if (gameState) {
-			const key = game.endDate ? k('generic.finished') : game.abortDate ? k('generic.aborted') : k('generic.pending');
-			const value = game.endDate ? 'Finished' : game.abortDate ? 'Aborted' : 'Pending';
+			const key = this.#getGameStateKey(game);
+			const value = this.#getGameStateFallbackValue(game);
 			gameState.setAttribute('data-i18n', key);
 			gameState.innerHTML = value;
 		}
 		updateDOMTranslations(gameEl);
 	}
 
-	#renderBracketRoundGames(games: RouterOutputs["tournament"]["getTournamentDetails"]["games"], round: TournamentRoundType) {
+	#renderBracketRoundGames(games: NonNullable<RouterOutputs["tournament"]["getTournamentDetails"]["games"]>, round: TournamentRoundType) {
 		let filteredGames: typeof games = [];
 		filteredGames = games.filter(g => g.tournamentRound === round);
 
@@ -472,23 +475,23 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 		return filteredGames
 			.map((g, index) => /*html*/ `
-				<div id="${g.id}" class="bg-neutral-700/40 rounded-md p-3 flex flex-col items-center justify-center w-full md:w-44 relative">
+				<div data-game-id="${g.id}"  class="bg-neutral-700/40 rounded-md p-3 flex flex-col items-center justify-center w-full md:w-44 relative">
 					<p class="absolute bottom-2 left-2 text-sm uppercase text-stone-400 font-semibold font-mono">${index + 1}</p>
 					<div class="flex flex-col items-center text-sm text-center gap-1">
-						<span class="font-semibold">${this.#getUserUsername(g.leftPlayer)}</span>
+						<span class="font-semibold left-player-username">${this.#getUserUsername(g, g.leftPlayer.id, g.leftPlayerUsername ?? g.leftPlayer?.username, g.leftPlayerIsAI)}</span>
 						<span class="text-stone-400 text-xs">vs</span>
-						<span class="font-semibold">${this.#getUserUsername(g.rightPlayer)}</span>
+						<span class="font-semibold right-player-username">${this.#getUserUsername(g, g.rightPlayer.id, g.rightPlayerUsername ?? g.rightPlayer?.username, g.rightPlayerIsAI)}</span>
 					</div>
 					<div class="text-xs text-orange-600 mt-2">
 						<div class="flex gap-1 items-center">
-							<span>${g.leftPlayerScore}</span>
+							<span class="left-player-score">${g.leftPlayerScore}</span>
 							<span>:</span>
-							<span>${g.rightPlayerScore}</span>
+							<span class="right-player-score">${g.rightPlayerScore}</span>
 						</div>
 					</div>
 					<div class="text-xs text-stone-400 mt-2">
-						<p class="uppercase font-bold" data-i18n="${g.endDate != null ? k('generic.finished') : g.abortDate ? k('generic.aborted') : k('generic.pending')}">
-							${g.endDate != null ? 'Finished' : g.abortDate ? 'Aborted' : 'Pending'}
+						<p class="uppercase font-bold state" data-i18n="${this.#getGameStateKey(g)}">
+							${this.#getGameStateFallbackValue(g)}
 						</p>
 					</div>
 				</div>
@@ -497,7 +500,15 @@ export class OnlineTournamentDetailsController extends RouteController {
 			.join("");
 	}
 
-	#renderParticipantsList(participants: RouterOutputs["tournament"]["getTournamentDetails"]["participants"]) {
+	#getGameStateKey(game: TournamentGame) {
+		return game.endDate ? k('generic.finished') : game.abortDate ? k('generic.aborted') : game?.startDate ? k('generic.in_progress') : k('generic.pending');
+	}
+
+	#getGameStateFallbackValue(game: TournamentGame) {
+		return game.endDate ? 'Finished' : game.abortDate ? 'Aborted' : game?.startDate ? "In Progress" : "Pending";
+	}
+
+	#renderParticipantsList(participants: NonNullable<RouterOutputs["tournament"]["getTournamentDetails"]["participants"]>) {
 		const container = document.querySelector(`#${this.id}-participants-list`);
 		if (!container) {
 			console.debug('Participants list not found. Page may be navigating away.');
@@ -510,7 +521,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 			const item = document.createElement('div');
 
 			item.className = `flex items-center gap-2 bg-neutral-700/50 p-2 rounded-md`;
-			item.id=`tournament-participant-${p.id}`;
+			item.id = `tournament-participant-${p.id}`;
 			item.innerHTML = /*html*/`
 				<img src="${getProfilePictureUrlByUserId(p.id)}"
 					alt="${p.username}"

@@ -32,13 +32,13 @@ export class TournamentsListController extends RouteController {
 	protected async render() {
 		return /*html*/`
 		<div class="flex flex-col relative grow bg-neutral-900">
-			<header class="sticky top-0 right-0 z-10 bg-black/50 flex items-center py-3 px-6 w-full">
-				<h1 class="text-2xl font-bold" data-i18n="${k('generic.tournaments')}">Tournaments</h1>
+			<header class="sticky top-0 right-0 z-10 bg-black/50 flex items-center py-3 px-6 w-full gap-2">
+				<h1 class="text-xl md:text-2xl font-bold" data-i18n="${k('generic.tournaments')}">Tournaments</h1>
 
 				<div class="grow"></div>
 				<div class="flex justify-end">
 					<button id="${this.id}-create-tournament-btn"
-							class="px-4 py-2 rounded-md bg-stone-600 hover:bg-stone-500 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
+							class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-xl rounded-md bg-stone-600 hover:bg-stone-500 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
 							aria-label="Create Tournament" title="Create Tournament">
 						<i class="fa fa-plus"></i>
 						<span class="flex" data-i18n="${k('generic.create_tournament')}">Create Tournament</span>

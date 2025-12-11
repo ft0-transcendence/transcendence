@@ -99,6 +99,8 @@ export const ua: TranslationSchema = {
 		seconds: "секунд",
 		user_profile: "Профіль користувача",
 		user_not_found: "Користувач не знайдений",
+		in_progress: "В процесі",
+		ai: "AI",
 	},
 	tournament:{
 		bracket: "Склад",

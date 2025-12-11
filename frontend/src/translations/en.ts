@@ -97,6 +97,8 @@ export const en = {
 		seconds: "seconds",
 		user_profile: "User profile",
 		user_not_found: "User not found",
+		in_progress: "In progress",
+		ai: "AI",
 	},
 	tournament:{
 		bracket: "Bracket",
