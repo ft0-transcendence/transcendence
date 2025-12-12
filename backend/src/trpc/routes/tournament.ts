@@ -5,7 +5,7 @@ import { TournamentType, GameType, TournamentStatus, PrismaClient, Tournament, T
 import sanitizeHtml from 'sanitize-html';
 import { BracketGenerator } from "../../../game/bracketGenerator";
 import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, TournamentCacheEntry } from "../../cache";
-import { tournamentBroadcastBracketUpdate, tournamentBroadcastAIPlayersAdded, tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastStatusChange, tournamentBroadcastTournamentDeleted } from "../../socket/tournamentSocketNamespace";
+import { tournamentBroadcastBracketUpdate, tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastStatusChange, tournamentBroadcastTournamentDeleted } from "../../socket/tournamentSocketNamespace";
 import { AIPlayerService } from "../../services/aiPlayerService";
 import {
 	TournamentValidator,
@@ -24,271 +24,6 @@ const TOURNAMENT_SIZES: { [key in TournamentType]: number } = {
 
 
 export const tournamentRouter = t.router({
-
-	getAvailableTournaments: publicProcedure
-		.query(async ({ ctx }) => {
-			const tournaments = await ctx.db.tournament.findMany({
-				where: {
-					status: {
-						in: ['WAITING_PLAYERS', 'IN_PROGRESS']
-					}
-				},
-				include: {
-					createdBy: {
-						select: {
-							id: true,
-							username: true
-						}
-					},
-					participants: {
-						include: {
-							user: {
-								select: {
-									id: true,
-									username: true
-								}
-							}
-						}
-					},
-					_count: {
-						select: {
-							participants: true
-						}
-					}
-				},
-				orderBy: {
-					startDate: 'asc'
-				}
-			});
-
-			return tournaments.map(tournament => {
-				const hasUserJoined = ctx.user?.id
-					? tournament.participants.some(p => p.user.id === ctx.user!.id)
-					: false;
-
-				const participants = tournament.participants.map(p => ({
-					id: p.user.id,
-					username: p.user.username
-				}));
-
-				const isStarted = tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED';
-
-				return {
-					id: tournament.id,
-					name: tournament.name,
-					type: tournament.type,
-					status: tournament.status,
-					startDate: tournament.startDate,
-					createdBy: tournament.createdBy,
-					participantsCount: tournament._count.participants,
-					maxParticipants: 8,
-					hasUserJoined,
-					participants,
-					isStarted
-				};
-			});
-		}),
-
-	getTournamentDetails: publicProcedure
-		.input(z.object({
-			tournamentId: z.string()
-		}))
-		.query(async ({ ctx, input }) => {
-			return await getTournamentDetails(input.tournamentId, ctx.user);
-		}),
-
-
-
-	// TODO: unused, remove this
-	getTournamentParticipants: publicProcedure
-		.input(z.object({
-			tournamentId: z.string()
-		}))
-		.query(async ({ ctx, input }) => {
-			const tournament = await ctx.db.tournament.findUnique({
-				where: { id: input.tournamentId },
-				include: {
-					participants: {
-						include: {
-							user: {
-								select: {
-									id: true,
-									username: true
-								}
-							}
-						}
-					}
-				}
-			});
-
-			if (!tournament) {
-				throw new TRPCError({ code: "NOT_FOUND", message: "Tournament not found" });
-			}
-
-			return tournament.participants.map(p => ({
-				id: p.user.id,
-				username: p.user.username
-			}));
-		}),
-
-	// TODO: unused, remove this
-	getBracket: publicProcedure
-		.input(z.object({
-			tournamentId: z.string()
-		}))
-		.query(async ({ ctx, input }) => {
-			const t = await ctx.db.tournament.findUnique({
-				where: { id: input.tournamentId },
-				include: {
-					games: {
-						include: {
-							leftPlayer: true,
-							rightPlayer: true,
-							previousGames: { select: { id: true, nextGameId: true } }
-						},
-						select: {
-							id: true,
-							leftPlayer: true,
-							rightPlayer: true,
-							leftPlayerScore: true,
-							rightPlayerScore: true,
-							nextGameId: true,
-							endDate: true,
-							scoreGoal: true,
-							tournamentRound: true,
-							startDate: true,
-							leftPlayerUsername: true,
-							rightPlayerUsername: true,
-							previousGames: { select: { id: true, nextGameId: true } }
-						}
-					},
-					participants: { include: { user: true } }
-				}
-			});
-
-			if (!t) {
-				throw new TRPCError({ code: "NOT_FOUND", message: "Tournament not found" });
-			}
-
-			const size = TOURNAMENT_SIZES[t.type ?? TournamentType.EIGHT];
-			const gamesById = new Map(t.games.map(g => [g.id, g]));
-			const firstRound = t.games.filter(g => g.previousGames.length === 0);
-			// TODO: ?
-			const rounds = [] as any[][];
-
-			if (firstRound.length === size / 2) {
-				rounds.push(firstRound);
-				let current = firstRound;
-				while (current.length > 1) {
-					const nextIds = Array.from(new Set(current.map(g => g.nextGameId).filter(Boolean))) as string[];
-					const nextRound = nextIds.map(id => gamesById.get(id)!).filter(Boolean);
-					rounds.push(nextRound);
-					current = nextRound;
-				}
-			} else {
-				const estimatedRounds = Math.log2(size);
-				const sorted = [...t.games].sort((a, b) => (a.startDate?.getTime() ?? 0) - (b.startDate?.getTime() ?? 0));
-				let idx = 0;
-				for (let r = 0; r < estimatedRounds; r++) {
-					const gamesInRound = size / 2 ** (r + 1);
-					rounds.push(sorted.slice(idx, idx + gamesInRound));
-					idx += gamesInRound;
-				}
-			}
-
-			const aiPlayerService = new AIPlayerService(ctx.db);
-			const simplify = (g: typeof t.games[number]) => ({
-				id: g.id,
-				leftPlayer: g.leftPlayer ? { id: g.leftPlayer.id, username: g.leftPlayer.username } : null,
-				rightPlayer: g.rightPlayer ? { id: g.rightPlayer.id, username: g.rightPlayer.username } : null,
-				leftPlayerScore: g.leftPlayerScore,
-				rightPlayerScore: g.rightPlayerScore,
-				nextGameId: g.nextGameId,
-				endDate: g.endDate,
-				scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
-				tournamentRound: (g as any).tournamentRound,
-				leftPlayerUsername: (g as any).leftPlayerUsername,
-				rightPlayerUsername: (g as any).rightPlayerUsername,
-				leftPlayerIsAI: aiPlayerService.isAIPlayer((g as any).leftPlayerUsername),
-				rightPlayerIsAI: aiPlayerService.isAIPlayer((g as any).rightPlayerUsername),
-				isAIGame: aiPlayerService.isAIPlayer((g as any).leftPlayerUsername) || aiPlayerService.isAIPlayer((g as any).rightPlayerUsername)
-			});
-
-			return {
-				tournament: {
-					id: t.id,
-					name: t.name,
-					type: t.type,
-					startDate: t.startDate,
-					endDate: t.endDate,
-					participants: t.participants.map(p => ({ id: p.user.id, username: p.user.username }))
-				},
-				rounds: rounds.map(round => round.map(simplify))
-			};
-		}),
-
-
-	//user vede la sua history dei tornei
-	// TODO: unused, remove this
-	getTournamentHistory: protectedProcedure
-		.input(z.object({
-			limit: z.number().min(1).max(100).default(20),
-			cursor: z.string().nullish()
-		}))
-		.query(async ({ ctx, input }) => {
-			const tournaments = await ctx.db.tournament.findMany({
-				take: input.limit + 1,
-				cursor: input.cursor ? { id: input.cursor } : undefined,
-				where: {
-					status: 'COMPLETED',
-					participants: {
-						some: {
-							userId: ctx.user!.id
-						}
-					}
-				},
-				orderBy: { endDate: 'desc' },
-				include: {
-					createdBy: {
-						select: {
-							id: true,
-							username: true
-						}
-					},
-					winner: {
-						select: {
-							id: true,
-							username: true
-						}
-					},
-					participants: {
-						include: {
-							user: {
-								select: {
-									id: true,
-									username: true
-								}
-							}
-						}
-					}
-				}
-			});
-
-			let nextCursor: typeof input.cursor | undefined = undefined;
-			if (tournaments.length > input.limit) {
-				const nextItem = tournaments.pop();
-				nextCursor = nextItem!.id;
-			}
-
-			return {
-				tournaments: tournaments.map(t => ({
-					...t,
-					userWon: t.winnerId === ctx.user!.id,
-					userPosition: t.winnerId === ctx.user!.id ? 1 : null
-				})),
-				nextCursor
-			};
-		}),
 
 	joinTournamentGame: protectedProcedure
 		.input(z.object({
@@ -370,26 +105,6 @@ export const tournamentRouter = t.router({
 			} catch (error) {
 				handleTournamentError(error as Error, 'joinTournamentGame', undefined, ctx.user!.id);
 			}
-		}),
-	// TODO: unused, remove this
-	getTournamentsStats: protectedProcedure
-		.query(async ({ ctx }) => {
-			const userId = ctx.user!.id;
-
-			const [tournamentsWon, tournamentsPlayed] = await Promise.all([
-				ctx.db.tournament.count({
-					where: { winnerId: userId }
-				}),
-				ctx.db.tournamentParticipant.count({
-					where: { userId }
-				}),
-			]);
-
-			return {
-				tournamentsWon,
-				tournamentsPlayed,
-				winRate: tournamentsPlayed > 0 ? Math.round((tournamentsWon / tournamentsPlayed) * 100) : 0
-			};
 		}),
 
 	joinTournament: protectedProcedure
@@ -1186,7 +901,6 @@ async function executeTournamentStart(db: PrismaClient, tournament: Tournament, 
 				.filter(([_, playerId]) => createdAIPlayers.includes(playerId || ''))
 				.map(([slotIndex, _]) => slotIndex);
 
-			tournamentBroadcastAIPlayersAdded(tournament.id, createdAIPlayers, filledSlots);
 		}
 
 		tournamentBroadcastBracketUpdate(tournament.id, participantSlots, cachedTournament.aiPlayers);
@@ -1312,17 +1026,7 @@ export async function getTournamentFullDetailsById(tournamentId: string, shouldE
 		}
 
 		const aiPlayerService = new AIPlayerService(db);
-
-		// TODO: sort the games in order per each type (QUARTI, SEMIFINALE, FINALE)
-		/*
-		[0,1,2,3,4,5,6] ->
-		Frontend will render from top to bottom like this (it's not required to SEMIFINALE being the first 4 matches, QUARTI to be the middle and FINALE to be the last, but the order per each type is important):
-		- 0(SEMIFINALE)
-		- 1(SEMIFINALE) - 4(QUARTI)
-							- 6(FINALE)
-		- 2(SEMIFINALE) - 5(QUARTI)
-		- 3(SEMIFINALE)
-		*/
+		
 		const mappedGames = tournament.games.map((g) => {
 			const previousGames = g.previousGames?.map(pg => pg.id) || [];
 			return {

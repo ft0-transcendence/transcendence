@@ -151,91 +151,7 @@ export function setupTournamentNamespace(io: Server) {
 			}
 		});
 
-		// TODO: unused, remove this (already handled by `disconnect` event)
-		socket.on("leave-tournament-lobby", async (tournamentId: string) => {
-			try {
-				// Remove user from tournament lobby
-				const lobby = cache.tournaments.tournamentLobbies.get(tournamentId);
-				if (lobby) {
-					lobby.delete(user.id);
-					if (lobby.size === 0) {
-						cache.tournaments.tournamentLobbies.delete(tournamentId);
-					}
-				}
-
-				// Remove user from tournament cache
-				const tournamentInfo = cache.tournaments.active.get(tournamentId);
-				if (tournamentInfo) {
-					tournamentInfo.connectedUsers.delete(user.id);
-				}
-
-				await socket.leave(tournamentId);
-
-				// Notify other participants about user leaving lobby
-				socket.to(tournamentId).emit('user-left-tournament-lobby', {
-					userId: user.id,
-					username: user.username,
-					connectedUsersCount: tournamentInfo?.connectedUsers.size || 0
-				});
-
-				app.log.info('User %s left tournament lobby %s', user.username, tournamentId);
-
-			} catch (error) {
-				app.log.error('Error leaving tournament lobby:', error);
-			}
-		});
-
-		// New event for real-time bracket updates
-		///TODO: the server should send the bracket update to the client, not the other way around. Remove this
-		socket.on("request-bracket-update", async (tournamentId: string) => {
-			try {
-				const tournamentInfo = cache.tournaments.active.get(tournamentId);
-				if (!tournamentInfo) {
-					socket.emit('error', 'Tournament not found in cache');
-					return;
-				}
-
-				// Send current bracket state
-				socket.emit('bracket-updated', {
-					tournamentId,
-					participantSlots: Array.from(tournamentInfo.participantSlots.entries()),
-					aiPlayers: Array.from(tournamentInfo.aiPlayers),
-					lastUpdate: tournamentInfo.lastBracketUpdate
-				});
-
-			} catch (error) {
-				app.log.error('Error sending bracket update:', error);
-				socket.emit('error', 'Failed to get bracket update');
-			}
-		});
-
-		// TODO: remove this
-		// Tournament start is now handled via tRPC with creator control
-		socket.on("tournament-start-notification", async (data: { tournamentId: string, startedBy: string }) => {
-			try {
-				const tournamentInfo = cache.tournaments.active.get(data.tournamentId);
-				if (!tournamentInfo) {
-					return;
-				}
-
-				// Update cache status
-				tournamentInfo.status = 'IN_PROGRESS';
-
-				// Broadcast tournament started notification to all lobby participants
-				tournamentNamespace.to(data.tournamentId).emit('tournament-started-notification', {
-					tournamentId: data.tournamentId,
-					startedBy: data.startedBy,
-					startDate: new Date(),
-					message: `Tournament "${tournamentInfo.name}" has been started by ${data.startedBy}`
-				});
-
-				app.log.info('Tournament %s start notification broadcasted', data.tournamentId);
-
-			} catch (error) {
-				app.log.error('Error broadcasting tournament start notification:', error);
-			}
-		});
-
+		
 		socket.on("disconnect", async (reason) => {
 			app.log.info("Tournament socket disconnected %s, reason: %s", socket.id, reason);
 
@@ -478,19 +394,6 @@ export function tournamentBroadcastStatusChange(
 	}
 
 	tournamentNamespace.to(tournamentId).emit('tournament-status-changed', eventData);
-}
-/**
- * @deprecated Not used on the frontend. //TODO: remove this
- */
-export function tournamentBroadcastAIPlayersAdded(tournamentId: string, aiPlayerIds: string[], filledSlots: number[]) {
-	const tournamentNamespace = app.io.of("/tournament");
-	tournamentNamespace.to(tournamentId).emit('ai-players-added', {
-		tournamentId,
-		aiPlayerIds,
-		filledSlots,
-		message: `${aiPlayerIds.length} AI players added to fill empty slots`,
-		timestamp: new Date()
-	});
 }
 
 export function tournamentBroadcastTournamentDeleted(tournamentId: string, tournamentName: string, deletedBy: string) {
