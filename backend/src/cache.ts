@@ -1,4 +1,4 @@
-import { Game, PrismaClient, User } from "@prisma/client";
+import { Game, PrismaClient, TournamentStatus, TournamentType, User } from "@prisma/client";
 import { OnlineGame } from "../game/onlineGame";
 import { TournamentGame } from "../game/tournamentGame";
 import { TypedSocket } from "./socket-io";
@@ -56,15 +56,15 @@ async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstanc
 	}
 
 	cache.active_1v1_games.delete(gameId);
-	app.log.info("VS Game %s persisted and removed from cache.", gameId);
+	app.log.info("VS Game #%s persisted and removed from cache.", gameId);
 }
 
 
 export type TournamentCacheEntry = {
 	id: string;
 	name: string;
-	type: 'EIGHT';
-	status: 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED';
+	type: TournamentType | null;
+	status: TournamentStatus | null;
 	participants: Set<User['id']>;
 	connectedUsers: Set<User['id']>;
 	creatorId: string;
@@ -106,6 +106,8 @@ export const cache: Cache = {
 
 
 export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: FastifyInstance) {
+	app.log.info('Loading active games from database into cache...');
+
 	// Carica partite VS nel DB
 	const activeVSGames = await db.game.findMany({
 		where: {
@@ -123,7 +125,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		const now = new Date();
 		const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);
 		if (now > limitDate) {
-			fastify.log.warn('VS Game %s is expired (last updated: %s), removing from cache', game.id, game.updatedAt.toISOString());
+			fastify.log.warn('VS Game #%s is expired (last updated: %s), removing from cache', game.id, game.updatedAt.toISOString());
 			await db.game.update({
 				where: { id: game.id },
 				data: {
@@ -181,11 +183,11 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 
 	for (const game of activeTournamentGames) {
 		if (game.tournament?.status === 'COMPLETED') {
-			fastify.log.debug('Tournament Game %s is completed, skipping', game.id);
+			fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s is completed, skipping`, game.id);
 			continue;
 		}
 		if (!game.startDate){
-			fastify.log.debug('Tournament Game %s has no start date, skipping', game.id);
+			fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s has no start date, skipping`, game.id);
 			continue;
 		}
 
@@ -196,7 +198,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 			const now = new Date();
 			const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);
 			if (now > limitDate) {
-				fastify.log.warn('Tournament Game %s is expired (last updated: %s), removing from cache', game.id, game.updatedAt.toISOString());
+				fastify.log.warn(`Tournament's (#${game.tournamentId}) Game #%s is expired (last updated: %s), removing from cache`, game.id, game.updatedAt.toISOString());
 				await db.game.update({
 					where: { id: game.id },
 					data: {
@@ -210,7 +212,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 
 
 		if (!game.tournamentId) {
-			fastify.log.warn('Tournament Game %s has no tournamentId, skipping', game.id);
+			fastify.log.warn(`Tournament's (#${game.tournamentId}) Game #%s has no tournamentId, skipping`, game.id);
 			continue;
 		}
 
@@ -244,7 +246,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 					data: updateData,
 				});
 				cache.tournaments.activeTournamentGames.delete(gameId);
-				fastify.log.info("Tournament Game %s persisted and removed from cache.", gameId);
+				fastify.log.info("Tournament (Game #%s persisted and removed from cache.", gameId);
 			},
 			async () => {
 				await db.game.update({
@@ -265,7 +267,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
 	}
 
-	fastify.log.info(`Loaded ${activeVSGames.length} VS games and ${activeTournamentGames.length} tournament games into cache`);
+	fastify.log.info(`Loaded [VS: ${activeVSGames.length}] and [Tournament: ${activeTournamentGames.length}] games from database into cache`);
 }
 
 export function addUserToOnlineCache(userId: User['id'], socket: TypedSocket) {

@@ -8,4 +8,5 @@ declare global {
 		authManager: AuthManager,
 		toast: Toast,
 	}
+	LeaderLine: any;
 }

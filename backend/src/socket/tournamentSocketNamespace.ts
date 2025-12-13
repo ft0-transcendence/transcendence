@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import { applySocketAuth } from "../plugins/socketAuthSession";
-import { TypedSocket } from "../socket-io";
+import { TypedSocket, TypedSocketNamespace } from "../socket-io";
 import { app } from "../../main";
 import { db } from "../trpc/db";
 import { cache } from "../cache";
@@ -96,23 +96,7 @@ export function setupTournamentNamespace(io: Server) {
 				await socket.join(tournamentId);
 
 				// Send comprehensive tournament state including bracket info
-				socket.emit('tournament-lobby-joined', {
-					tournamentId: tournament.id,
-					name: tournament.name,
-					type: tournament.type || 'EIGHT',
-					status: tournament.status,
-					creatorId: tournament.createdById,
-					isCreator: tournament.createdById === user.id,
-					participants: tournament.participants.map(p => ({
-						id: p.userId,
-						username: p.user.username
-					})),
-					connectedUsers: Array.from(tournamentInfo.connectedUsers),
-					bracketCreated: tournamentInfo.bracketCreated,
-					participantSlots: Array.from(tournamentInfo.participantSlots.entries()),
-					aiPlayers: Array.from(tournamentInfo.aiPlayers),
-					lastBracketUpdate: tournamentInfo.lastBracketUpdate
-				});
+				await tournamentSendBracketUpdateForUser(tournamentId, user.id);
 
 				// Check if player has an active match ready to play
 				if (tournament.status === 'IN_PROGRESS') {
@@ -339,12 +323,13 @@ export function setupTournamentNamespace(io: Server) {
 		});
 	});
 
-	notifyInterval = setInterval(()=>{
-		const tournamentIds = Array.from(cache.tournaments.tournamentLobbies.keys());
-		for (const tournamentId of tournamentIds) {
-			tournamentBroadcastBracketUpdateById(tournamentId);
-		}
-	}, notifyIntervalMs);
+	// Not actually needed, because at each bracket update the lobby should be programmatically notified already
+	// notifyInterval = setInterval(()=>{
+	// 	const tournamentIds = Array.from(cache.tournaments.tournamentLobbies.keys());
+	// 	for (const tournamentId of tournamentIds) {
+	// 		tournamentBroadcastBracketUpdateById(tournamentId);
+	// 	}
+	// }, notifyIntervalMs);
 }
 
 
@@ -355,9 +340,7 @@ export async function tournamentBroadcastBracketUpdate(tournamentId: string, par
 	const tournamentData = await getTournamentFullDetailsById(tournamentId, false);
 	for (const [slotIndex, playerId] of participantSlots.entries()) {
 		if (!playerId) continue;
-		const dto = await craftTournamentDetailsForUser(tournamentData, playerId);
-		// README: SOCKET-EVENT
-		tournamentSocket.to(`${tournamentId}:${playerId}`).emit('bracket-updated', dto);
+		await sendBracketUpdateToUser(tournamentSocket, tournamentId, playerId, tournamentData);
 	}
 }
 export async function tournamentBroadcastBracketUpdateById(tournamentId: string) {
@@ -367,11 +350,27 @@ export async function tournamentBroadcastBracketUpdateById(tournamentId: string)
 
 	const tournamentData = await getTournamentFullDetailsById(tournamentId, false);
 	for (const playerId of users) {
-		const dto = await craftTournamentDetailsForUser(tournamentData, playerId);
-		// README: SOCKET-EVENT
-		tournamentSocket.to(`${tournamentId}:${playerId}`).emit('bracket-updated', dto);
+		await sendBracketUpdateToUser(tournamentSocket, tournamentId, playerId, tournamentData);
 	}
 }
+
+
+export async function tournamentSendBracketUpdateForUser(tournamentId: string, playerId: User['id']) {
+	const tournamentSocket = app.io.of("/tournament");
+	const users = cache.tournaments.tournamentLobbies.get(tournamentId);
+	if (!users || !users.has(playerId)) return;
+
+	const tournamentData = await getTournamentFullDetailsById(tournamentId, false);
+
+	await sendBracketUpdateToUser(tournamentSocket, tournamentId, playerId, tournamentData);
+}
+
+async function sendBracketUpdateToUser(tournamentSocket: TypedSocketNamespace, tournamentId: string, playerId: User['id'], tournamentDetails: Awaited<ReturnType<typeof getTournamentFullDetailsById>>) {
+	const dto = await craftTournamentDetailsForUser(tournamentDetails, playerId);
+	// README: SOCKET-EVENT
+	tournamentSocket.to(`${tournamentId}:${playerId}`).emit('bracket-updated', dto);
+}
+
 
 
 export function tournamentBroadcastParticipantJoined(tournamentId: string, participant: { id: string, username: string }, slotPosition: number) {

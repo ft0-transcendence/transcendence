@@ -37,7 +37,7 @@ export class TournamentGame extends OnlineGame {
         if (this.finished) return;
         this.finished = true;
 
-        console.log(`Tournament Game ${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
+        console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
 
         for (const interval of this.aiIntervals.values()) {
             clearInterval(interval);
@@ -61,11 +61,11 @@ export class TournamentGame extends OnlineGame {
 
         if (this.onTournamentFinish) {
             try {
-                console.log(`Tournament Game ${this.gameId} calling onTournamentFinish callback`);
+                console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} calling onTournamentFinish callback`);
                 await this.onTournamentFinish(state, this.tournamentId, this.gameId);
-                console.log(`Tournament Game ${this.gameId} onTournamentFinish callback completed`);
+                console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} onTournamentFinish callback completed`);
             } catch (error) {
-                console.error(`Tournament Game ${this.gameId} onTournamentFinish callback failed:`, error);
+                console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId} onTournamentFinish callback failed:`, error);
             }
         }
     }
@@ -76,15 +76,15 @@ export class TournamentGame extends OnlineGame {
             const loserId = this.scores.left > this.scores.right ? this.rightPlayer?.id : this.leftPlayer?.id;
 
             if (!winnerId || !loserId) {
-                console.error(`Tournament Game ${this.gameId}: No winner/loser determined`);
+                console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: No winner/loser determined`);
                 return;
             }
 
             if (this.scores.left !== this.scores.right) {
-                console.log(`📊 Tournament Game ${this.gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${this.wasForfeited}`);
+                console.log(`📊 Tournament's (#${this.tournamentId}) Game #${this.gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${this.wasForfeited}`);
                 await updateGameStats(db, winnerId, loserId);
             } else {
-                console.log(`⚠️ Tournament Game ${this.gameId} ended in a tie, skipping stats update`);
+                console.log(`⚠️ Tournament's (#${this.tournamentId}) Game #${this.gameId} ended in a tie, skipping stats update`);
             }
 
             const currentGame = await db.game.findUnique({
@@ -123,7 +123,7 @@ export class TournamentGame extends OnlineGame {
                         data
                     });
 
-                    console.log(`Tournament Game ${this.gameId}: Winner ${winnerId} advanced to next game ${currentGame.nextGameId}`);
+                    console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: Winner ${winnerId} advanced to next game #${currentGame.nextGameId}`);
 
                     if (this.socketNamespace) {
                         this.socketNamespace.to(this.tournamentId).emit('tournament-game-completed', {
@@ -195,7 +195,7 @@ export class TournamentGame extends OnlineGame {
             }
 
         } catch (error) {
-            console.error(`Tournament Game ${this.gameId} advancement failed:`, error);
+            console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId} advancement failed:`, error);
         }
     }
 
@@ -229,12 +229,12 @@ export class TournamentGame extends OnlineGame {
             }
 
         } catch (error) {
-            console.error(`Failed to initialize AI for game ${this.gameId}:`, error);
+            console.error(`Failed to initialize AI for game #${this.gameId}:`, error);
         }
     }
 
     private startAI(playerId: string, side: 'left' | 'right') {
-        console.log(`Starting AI for player ${playerId} on ${side} side in game ${this.gameId}`);
+        console.log(`Starting AI for player ${playerId} on ${side} side in game #${this.gameId}`);
 
         const aiLogic = () => {
             try {

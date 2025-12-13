@@ -5,7 +5,7 @@ import { TournamentType, GameType, TournamentStatus, PrismaClient, Tournament, T
 import sanitizeHtml from 'sanitize-html';
 import { BracketGenerator } from "../../../game/bracketGenerator";
 import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, TournamentCacheEntry } from "../../cache";
-import { tournamentBroadcastBracketUpdate, tournamentBroadcastAIPlayersAdded, tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastStatusChange, tournamentBroadcastTournamentDeleted } from "../../socket/tournamentSocketNamespace";
+import { tournamentBroadcastBracketUpdate, tournamentBroadcastAIPlayersAdded, tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastStatusChange, tournamentBroadcastTournamentDeleted, tournamentBroadcastBracketUpdateById } from "../../socket/tournamentSocketNamespace";
 import { AIPlayerService } from "../../services/aiPlayerService";
 import {
 	TournamentValidator,
@@ -264,6 +264,8 @@ export const tournamentRouter = t.router({
 				});
 			}
 
+			tournamentBroadcastBracketUpdateById(input.tournamentId);
+
 			return result.updatedTournament.participants.map(p => ({
 				id: p.user.id,
 				username: p.user.username
@@ -317,16 +319,7 @@ export const tournamentRouter = t.router({
 						return { tournamentDeleted: true };
 					}
 
-					const updatedTournament = await tx.tournament.findUnique({
-						where: { id: input.tournamentId },
-						include: {
-							participants: {
-								include: { user: { select: { id: true, username: true } } }
-							}
-						}
-					});
-
-					return { updatedTournament };
+					return { tournamentDeleted: false };
 				});
 
 				if (isLastParticipant) {
@@ -359,8 +352,8 @@ export const tournamentRouter = t.router({
 						id: ctx.user!.id,
 						username: ctx.user!.username
 					}, slotPosition);
-					tournamentBroadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
 				}
+				tournamentBroadcastBracketUpdateById(input.tournamentId);
 
 				return { success: true, tournamentDeleted: false };
 			} catch (error) {
@@ -391,51 +384,7 @@ export const tournamentRouter = t.router({
 
 				await executeTournamentStart(ctx.db, tournament!, ctx.user!.username);
 
-				const tournamentResult = await ctx.db.tournament.findUnique({
-					where: { id: input.tournamentId },
-					select: {
-						id: true,
-						name: true,
-						type: true,
-						status: true,
-						startDate: true,
-						participants: {
-							select: {
-								user: { select: { id: true, username: true } }
-							}
-						},
-						games: {
-							select: {
-								id: true,
-								leftPlayer: { select: { id: true, username: true } },
-								rightPlayer: { select: { id: true, username: true } },
-								leftPlayerScore: true,
-								rightPlayerScore: true,
-								startDate: true,
-								endDate: true,
-								tournamentRound: true,
-								leftPlayerUsername: true,
-								rightPlayerUsername: true
-							},
-							orderBy: { startDate: 'asc' }
-						}
-					}
-				});
-
-				if (tournamentResult) {
-					const aiPlayerService = new AIPlayerService(ctx.db);
-					return {
-						...tournamentResult,
-						games: tournamentResult.games.map(game => ({
-							...game,
-							leftPlayerIsAI: aiPlayerService.isAIPlayer(game.leftPlayerUsername),
-							rightPlayerIsAI: aiPlayerService.isAIPlayer(game.rightPlayerUsername),
-							isAIGame: aiPlayerService.isAIPlayer(game.leftPlayerUsername) || aiPlayerService.isAIPlayer(game.rightPlayerUsername)
-						}))
-					};
-				}
-
-				return tournamentResult;
+				return getTournamentDetails(input.tournamentId, ctx.user);
 
 			} catch (error) {
 				handleTournamentError(error as Error, 'startTournament', input.tournamentId, ctx.user!.id);
@@ -563,8 +512,8 @@ export const tournamentRouter = t.router({
 				const tournamentCacheEntry: TournamentCacheEntry = {
 					id: result.id,
 					name: result.name,
-					type: result.type as 'EIGHT',
-					status: result.status as 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED',
+					type: result.type,
+					status: result.status,
 					participants: new Set([ctx.user!.id]),
 					connectedUsers: new Set(),
 					creatorId: ctx.user!.id,
@@ -973,7 +922,7 @@ async function executeTournamentStart(db: PrismaClient, tournament: Tournament, 
 			tournamentBroadcastAIPlayersAdded(tournament.id, createdAIPlayers, filledSlots);
 		}
 
-		tournamentBroadcastBracketUpdate(tournament.id, participantSlots, cachedTournament.aiPlayers);
+		tournamentBroadcastBracketUpdateById(tournament.id);
 	}
 
 	// NEW: Create TournamentGame instances for non-AI-vs-AI games
@@ -1028,10 +977,8 @@ export async function craftTournamentDetailsForUser(tournamentData: Awaited<Retu
 	return result;
 }
 
-
-export async function getTournamentFullDetailsById(tournamentId: string, shouldExpandThrownError = false) {
-	try {
-		const tournament = await db.tournament.findUnique({
+async function fetchTournamentWithFullDetails(tournamentId: string) {
+	const tournament = await db.tournament.findUnique({
 			where: { id: tournamentId },
 			include: {
 				createdBy: {
@@ -1085,6 +1032,13 @@ export async function getTournamentFullDetailsById(tournamentId: string, shouldE
 				}
 			}
 		});
+	return tournament;
+}
+
+export async function getTournamentFullDetailsById(tournamentId: string, shouldExpandThrownError = false) {
+	try {
+		const tournament = await fetchTournamentWithFullDetails(tournamentId);
+
 		if (!tournament) {
 			throw new TRPCError({
 				code: 'NOT_FOUND',
@@ -1092,40 +1046,8 @@ export async function getTournamentFullDetailsById(tournamentId: string, shouldE
 			});
 		}
 
-		const aiPlayerService = new AIPlayerService(db);
 
-		// TODO: sort the games in order per each type (QUARTI, SEMIFINALE, FINALE)
-		/*
-		[0,1,2,3,4,5,6] ->
-		Frontend will render from top to bottom like this (it's not required to SEMIFINALE being the first 4 matches, QUARTI to be the middle and FINALE to be the last, but the order per each type is important):
-		- 0(SEMIFINALE)
-		- 1(SEMIFINALE) - 4(QUARTI)
-							- 6(FINALE)
-		- 2(SEMIFINALE) - 5(QUARTI)
-		- 3(SEMIFINALE)
-		*/
-		const mappedGames = tournament.games.map((g) => {
-			const previousGames = g.previousGames?.map(pg => pg.id) || [];
-			return {
-				id: g.id,
-				leftPlayer: g.leftPlayer,
-				rightPlayer: g.rightPlayer,
-				leftPlayerScore: g.leftPlayerScore,
-				rightPlayerScore: g.rightPlayerScore,
-				startDate: g.startDate,
-				endDate: g.endDate,
-				abortDate: g.abortDate,
-				scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
-				tournamentRound: g.tournamentRound,
-				leftPlayerUsername: g.leftPlayerUsername,
-				rightPlayerUsername: g.rightPlayerUsername,
-				isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-				leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
-				rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-				nextGameId: g.nextGameId,
-				previousGames,
-			};
-		});
+		const mappedGames = mapTournamentGamesToDTO(tournament);
 
 		return {
 			id: tournament!.id,
@@ -1153,4 +1075,89 @@ export async function getTournamentFullDetailsById(tournamentId: string, shouldE
 			return null;
 		}
 	}
+}
+
+function mapTournamentGamesToDTO(tournament: NonNullable<Awaited<ReturnType<typeof fetchTournamentWithFullDetails>>>) {
+	const aiPlayerService = new AIPlayerService(db);
+
+	const mappedGames = tournament.games.map((g) => {
+		const previousGames = g.previousGames?.map(pg => pg.id) || [];
+		return {
+			id: g.id,
+			leftPlayer: g.leftPlayer,
+			rightPlayer: g.rightPlayer,
+			leftPlayerScore: g.leftPlayerScore,
+			rightPlayerScore: g.rightPlayerScore,
+			startDate: g.startDate,
+			endDate: g.endDate,
+			abortDate: g.abortDate,
+			scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
+			tournamentRound: g.tournamentRound,
+			leftPlayerUsername: g.leftPlayerUsername,
+			rightPlayerUsername: g.rightPlayerUsername,
+			isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+			leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
+			rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+			nextGameId: g.nextGameId,
+			previousGames,
+		};
+	});
+
+	const games = mappedGames.filter(g => g.tournamentRound);
+		// TODO: sort the games in order per each type (QUARTI, SEMIFINALE, FINALE)
+		/*
+		[0,1,2,3,4,5,6] ->
+		Frontend will render from top to bottom like this (it's not required to SEMIFINALE being the first 4 matches, QUARTI to be the middle and FINALE to be the last, but the order per each type is important):
+		- 0(SEMIFINALE)
+		- 1(SEMIFINALE) - 4(QUARTI)
+							- 6(FINALE)
+		- 2(SEMIFINALE) - 5(QUARTI)
+		- 3(SEMIFINALE)
+		*/
+	const byId = new Map(games.map(g => [g.id, g]));
+	const byRound: Record<string, typeof games> = {};
+	games.forEach(g => (byRound[g.tournamentRound!] ??= []).push(g));
+
+	// Build children map
+	const children = new Map<string, string[]>();
+	games.forEach(g => {
+		g.previousGames?.forEach(pid => {
+			(children.get(g.id) ?? children.set(g.id, []).get(g.id)!).push(pid);
+		});
+	});
+
+	// DFS order (top → bottom)
+	const order: string[] = [];
+
+	function dfs(id: string) {
+	const kids = children.get(id) ?? [];
+	if (!kids.length) {
+		order.push(id);
+		return;
+	}
+
+	kids.forEach(dfs);
+	order.push(id);
+	}
+
+	// Start from roots (finals)
+	games.filter(g => !g.nextGameId).forEach(g => dfs(g.id));
+
+	// Index lookup
+	const index = new Map(order.map((id, i) => [id, i]));
+
+	// Sort each round using traversal order
+	const sortedGamesByRound = Object.fromEntries(
+		Object.entries(byRound).map(([round, gs]) => [
+			round,
+			gs.slice().sort((a, b) => index.get(a.id)! - index.get(b.id)!),
+		])
+	);
+
+	const result = [
+		...sortedGamesByRound.QUARTI,
+		...sortedGamesByRound.SEMIFINALE,
+		...sortedGamesByRound.FINALE,
+	]
+	return result;
 }

@@ -52,15 +52,6 @@ export class OnlineTournamentDetailsController extends RouteController {
 		} catch (err) {
 			console.error('[TournamentDetails] Failed to load tournament:', err);
 			showAndLogTrpcError(err, 'generic.tournament');
-			if (err instanceof TRPCClientError) {
-				if (err.data?.httpStatus === 404 || err.message.includes('not found')) {
-					setTimeout(() => {
-						router.navigate('/play/online/tournaments');
-					}, 2000);
-				}
-			} else {
-				toast.error(t("generic.tournament"), t("error.generic_server_error") ?? "");
-			}
 		}
 		this.updateTitleSuffix();
 	}
@@ -177,7 +168,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 					</div>
 
 					${tDto.winner
-						? /*html*/ `
+				? /*html*/ `
 									<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md">
 										<h2 class="text-lg font-semibold mb-3 flex items-center gap-2 text-amber-400">
 											<i class="fa fa-trophy"></i>
@@ -190,8 +181,8 @@ export class OnlineTournamentDetailsController extends RouteController {
 										</div>
 									</div>
 								`
-						: ``
-					}
+				: ``
+			}
 
 					<!-- Bracket -->
 					<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md mb-6 overflow-x-auto md:overflow-x-visible">
@@ -232,13 +223,10 @@ export class OnlineTournamentDetailsController extends RouteController {
 		`;
 	}
 
-
-	// TODO: ideally it should be a websocket event, but for now it's a polling
-	async #fetchAndUpdateTournamentDetails() {
-		const tournament = await api.tournament.getTournamentDetails.query({ tournamentId: this.#tournamentId });
-		this.#tournamentDto = tournament;
-		tournament.games?.forEach(g => this.#updateBracket(tournament.games));
-		this.#renderParticipantsList(tournament.participants ?? []);
+	async #renderTournamentDTODetails(dto: TournamentDTO) {
+		this.#tournamentDto = dto;
+		this.#updateBracket(dto.games);
+		this.#renderParticipantsList(dto.participants ?? []);
 		this.updateTitleSuffix();
 	}
 
@@ -248,13 +236,13 @@ export class OnlineTournamentDetailsController extends RouteController {
 		this.#tournamentNamespace = io("/tournament");
 
 
-		this.#tournamentNamespace.on('connect', ()=>{
+		this.#tournamentNamespace.on('connect', () => {
 			const socket = this.#tournamentNamespace!;
 
 			socket.emit('join-tournament-lobby', this.#tournamentId);
 
 			// TODO: tournament events
-			socket.on('tournament-deleted', (data: {tournamentName: string}) => {
+			socket.on('tournament-deleted', (data: { tournamentName: string }) => {
 				if (this.#isDeletingTournament) return;
 				toast.warn(t('generic.tournament'), t('tournament.tournament_has_been_deleted', data) ?? `The tournament "${data.tournamentName}" has been deleted by the creator.`);
 				router.navigate('/play/online/tournaments');
@@ -262,10 +250,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 			socket.on('bracket-updated', (tournament: TournamentDTO) => {
 				console.debug('Bracket updated: ', tournament);
-				this.#tournamentDto = tournament;
-				tournament.games?.forEach(g => this.#updateBracket(tournament.games));
-				this.#renderParticipantsList(tournament.participants ?? []);
-				this.updateTitleSuffix();
+				this.#renderTournamentDTODetails(tournament);
 			});
 		})
 
@@ -354,10 +339,10 @@ export class OnlineTournamentDetailsController extends RouteController {
 		const cb = async () => {
 			this.#loadingOverlays.root.show();
 			try {
-				const tournamentData = await api.tournament.startTournament.mutate({ tournamentId: this.#tournamentId });
-				toast.success(t("generic.start_tournament"), t("generic.start_tournament_success") ?? "");
 				const oldClassName = this.#getTournamentStatusBadgeColorClass(this.#tournamentDto?.status ?? "WAITING_PLAYERS").split(' ');
-				await this.#fetchAndUpdateTournamentDetails();
+				const tournamentDTO = await api.tournament.startTournament.mutate({ tournamentId: this.#tournamentId });
+				toast.success(t("generic.start_tournament"), t("generic.start_tournament_success") ?? "");
+				await this.#renderTournamentDTODetails(tournamentDTO);
 				const newClassName = this.#getTournamentStatusBadgeColorClass(this.#tournamentDto?.status ?? "WAITING_PLAYERS").split(' ');
 
 				startButton?.remove();
@@ -436,6 +421,12 @@ export class OnlineTournamentDetailsController extends RouteController {
 			}
 		})
 
+		games?.forEach((game, index) => {
+			let gameEl = bracketContainer.querySelector(`[data-game-id="${game.id}"]`) as HTMLElement | null;
+			const nextGameEl = bracketContainer.querySelector(`[data-game-id="${game.nextGameId}"]`) as HTMLElement | null;
+			// if (gameEl && nextGameEl) {}
+		});
+
 	}
 
 	#getUserUsername(game: TournamentGame, givenId: string, givenUsername: string, isAI = false) {
@@ -473,18 +464,17 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 		return filteredGames
 			.map((g, index) => /*html*/ `
-				<div data-game-id="${g.id}"  class="bg-neutral-700/40 rounded-md p-3 flex flex-col items-center justify-center w-full md:w-44 relative">
+				<div data-game-id="${g.id}"  class="bg-neutral-700/40 rounded-md p-2 md:px-5 py-4 flex flex-col items-center justify-center w-full md:min-w-44 relative">
 					<p class="absolute bottom-2 left-2 text-sm uppercase text-stone-400 font-semibold font-mono">${index + 1}</p>
-					<div class="flex flex-col items-center text-sm text-center gap-1">
-						<span class="font-semibold left-player-username">${this.#getUserUsername(g, g.leftPlayer.id, g.leftPlayerUsername ?? g.leftPlayer?.username, g.leftPlayerIsAI)}</span>
-						<span class="text-stone-400 text-xs">vs</span>
-						<span class="font-semibold right-player-username">${this.#getUserUsername(g, g.rightPlayer.id, g.rightPlayerUsername ?? g.rightPlayer?.username, g.rightPlayerIsAI)}</span>
-					</div>
-					<div class="text-xs text-orange-600 mt-2">
-						<div class="flex gap-1 items-center">
-							<span class="left-player-score">${g.leftPlayerScore}</span>
-							<span>:</span>
-							<span class="right-player-score">${g.rightPlayerScore}</span>
+					<div class=" items-center text-sm text-center gap-1 grid grid-flow-row grid-cols-3">
+						<div class="flex flex-col justify-center items-center gap-1">
+							<div class="font-semibold left-player-username md:px-2">${this.#getUserUsername(g, g.leftPlayer.id, g.leftPlayerUsername ?? g.leftPlayer?.username, g.leftPlayerIsAI)}</div>
+							<p class="left-player-score">${g.leftPlayerScore}</p>
+						</div>
+						<span class="text-stone-400 text-xs" data-i18n="${k('generic.vs')}">vs</span>
+						<div class="flex flex-col justify-center items-center gap-1">
+							<div class="font-semibold right-player-username md:px-2">${this.#getUserUsername(g, g.rightPlayer.id, g.rightPlayerUsername ?? g.rightPlayer?.username, g.rightPlayerIsAI)}</div>
+							<p class="right-player-score">${g.rightPlayerScore}</p>
 						</div>
 					</div>
 					<div class="text-xs text-stone-400 mt-2">
