@@ -105,6 +105,7 @@ export const en = {
 		quarterfinals: "Quarterfinals",
 		semifinals: "Semifinals",
 		final: "Final",
+		tournament_has_been_deleted: "The tournament \"{{tournamentName}}\" has been deleted by the creator.",
 	},
 
 	error: {

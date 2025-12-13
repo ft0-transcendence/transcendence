@@ -24,6 +24,8 @@ export class OnlineTournamentDetailsController extends RouteController {
 	#bracketPollingTimeout: NodeJS.Timeout | null = null;
 	#bracketPollingMs = 5000;
 
+	#isDeletingTournament = false;
+
 	#loadingOverlays = {
 		root: new LoadingOverlay(),
 	}
@@ -269,6 +271,11 @@ export class OnlineTournamentDetailsController extends RouteController {
 		this.#tournamentNamespace.emit('join-tournament-lobby', this.#tournamentId);
 
 		// TODO: tournament events
+		this.#tournamentNamespace.on('tournament-deleted', (data: {tournamentName: string}) => {
+			if (this.#isDeletingTournament) return;
+			toast.warn(t('generic.tournament'), t('tournament.tournament_has_been_deleted', data) ?? `The tournament "${data.tournamentName}" has been deleted by the creator.`);
+			router.navigate('/play/online/tournaments');
+		})
 
 		this.#pollTournamentDetails();
 
@@ -295,7 +302,13 @@ export class OnlineTournamentDetailsController extends RouteController {
 		document.querySelector(`#${this.id}-leave-btn`)?.removeEventListener('click', this.onLeaveTournamentClick);
 
 		if (this.#tournamentNamespace) {
-			this.#tournamentNamespace.off('tournament-lobby-joined');
+			const socketEventsToRemove = [
+				'tournament-lobby-joined',
+				'tournament-deleted'
+			]
+			for (const event of socketEventsToRemove) {
+				this.#tournamentNamespace.off(event);
+			}
 			this.#tournamentNamespace.close();
 		}
 		if (this.#bracketPollingTimeout) {
@@ -401,6 +414,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 				this.#loadingOverlays.root.show();
 				try {
+					this.#isDeletingTournament = true;
 					await api.tournament.deleteTournament.mutate({ tournamentId: this.#tournamentId });
 					toast.success(t("generic.delete_tournament"), t("generic.delete_tournament_success") ?? "");
 					router.navigate('/play/online/tournaments');
@@ -416,6 +430,8 @@ export class OnlineTournamentDetailsController extends RouteController {
 					if (!this.#bracketPollingTimeout) {
 						this.#bracketPollingTimeout = setTimeout(() => this.#pollTournamentDetails(), this.#bracketPollingMs);
 					}
+				} finally {
+					this.#isDeletingTournament = false;
 				}
 				this.#loadingOverlays.root.hide();
 			},

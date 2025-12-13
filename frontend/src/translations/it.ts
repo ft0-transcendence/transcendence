@@ -106,6 +106,7 @@ export const it: TranslationSchema = {
 		quarterfinals: "Quarti di finale",
 		semifinals: "Semifinali",
 		final: "Finale",
+		tournament_has_been_deleted: "Il torneo \"{{tournamentName}}\" è stato cancellato dal creatore.",
 	},
 
 	error: {

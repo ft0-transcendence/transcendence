@@ -107,6 +107,7 @@ export const ua: TranslationSchema = {
 		quarterfinals: "Чвертя фіналів",
 		semifinals: "Полуфінал",
 		final: "Фінал",
+		tournament_has_been_deleted: "Турнір \"{{tournamentName}}\" був видалений автором.",
 	},
 
 	error: {
