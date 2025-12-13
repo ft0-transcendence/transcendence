@@ -10,6 +10,9 @@ import { OnlineGame } from "../../game/onlineGame";
 import { MovePaddleAction } from "../../game/game";
 import { craftTournamentDetailsForUser, getTournamentFullDetailsById } from "../trpc/routes/tournament";
 
+const notifyIntervalMs = 1000 * 10;
+let notifyInterval: NodeJS.Timeout | null = null;
+
 export function setupTournamentNamespace(io: Server) {
 	const tournamentNamespace = io.of("/tournament");
 	applySocketAuth(tournamentNamespace);
@@ -89,6 +92,7 @@ export function setupTournamentNamespace(io: Server) {
 				const tournamentInfo = cache.tournaments.active.get(tournamentId)!;
 				tournamentInfo.connectedUsers.add(user.id);
 
+				await socket.join(`${tournamentId}:${user.id}`);
 				await socket.join(tournamentId);
 
 				// Send comprehensive tournament state including bracket info
@@ -151,30 +155,6 @@ export function setupTournamentNamespace(io: Server) {
 			}
 		});
 
-		// New event for real-time bracket updates
-		///TODO: the server should send the bracket update to the client, not the other way around. Remove this
-		socket.on("request-bracket-update", async (tournamentId: string) => {
-			try {
-				const tournamentInfo = cache.tournaments.active.get(tournamentId);
-				if (!tournamentInfo) {
-					socket.emit('error', 'Tournament not found in cache');
-					return;
-				}
-
-				// Send current bracket state
-				socket.emit('bracket-updated', {
-					tournamentId,
-					participantSlots: Array.from(tournamentInfo.participantSlots.entries()),
-					aiPlayers: Array.from(tournamentInfo.aiPlayers),
-					lastUpdate: tournamentInfo.lastBracketUpdate
-				});
-
-			} catch (error) {
-				app.log.error('Error sending bracket update:', error);
-				socket.emit('error', 'Failed to get bracket update');
-			}
-		});
-
 		socket.on("disconnect", async (reason) => {
 			app.log.info("Tournament socket disconnected %s, reason: %s", socket.id, reason);
 
@@ -226,6 +206,7 @@ export function setupTournamentNamespace(io: Server) {
 				game.addConnectedUser(gameUserInfo);
 
 				// join alla room della partita
+				await socket.join(`${gameId}:${user.id}`);
 				await socket.join(gameId);
 
 				// set giocatore come ready
@@ -357,21 +338,41 @@ export function setupTournamentNamespace(io: Server) {
 			});
 		});
 	});
+
+	notifyInterval = setInterval(()=>{
+		const tournamentIds = Array.from(cache.tournaments.tournamentLobbies.keys());
+		for (const tournamentId of tournamentIds) {
+			tournamentBroadcastBracketUpdateById(tournamentId);
+		}
+	}, notifyIntervalMs);
 }
 
 
 
 // Helper functions for tournament notifications
 export async function tournamentBroadcastBracketUpdate(tournamentId: string, participantSlots: Map<number, User['id'] | null>, aiPlayers: Set<string>) {
+	const tournamentSocket = app.io.of("/tournament");
 	const tournamentData = await getTournamentFullDetailsById(tournamentId, false);
 	for (const [slotIndex, playerId] of participantSlots.entries()) {
 		if (!playerId) continue;
-		const playerSockets = cache.userSockets.get(playerId);
-		const dto = craftTournamentDetailsForUser(tournamentData, playerId);
+		const dto = await craftTournamentDetailsForUser(tournamentData, playerId);
 		// README: SOCKET-EVENT
-		playerSockets?.forEach(socket => socket.emit('bracket-updated', dto));
+		tournamentSocket.to(`${tournamentId}:${playerId}`).emit('bracket-updated', dto);
 	}
 }
+export async function tournamentBroadcastBracketUpdateById(tournamentId: string) {
+	const tournamentSocket = app.io.of("/tournament");
+	const users = cache.tournaments.tournamentLobbies.get(tournamentId);
+	if (!users) return;
+
+	const tournamentData = await getTournamentFullDetailsById(tournamentId, false);
+	for (const playerId of users) {
+		const dto = await craftTournamentDetailsForUser(tournamentData, playerId);
+		// README: SOCKET-EVENT
+		tournamentSocket.to(`${tournamentId}:${playerId}`).emit('bracket-updated', dto);
+	}
+}
+
 
 export function tournamentBroadcastParticipantJoined(tournamentId: string, participant: { id: string, username: string }, slotPosition: number) {
 	const tournamentNamespace = app.io.of("/tournament");

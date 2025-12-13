@@ -164,7 +164,6 @@ export class AppRouter {
 		else {
 			this.#route();
 		}
-
 	}
 
 

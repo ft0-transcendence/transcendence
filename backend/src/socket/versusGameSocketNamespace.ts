@@ -82,6 +82,7 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 
 			// Create and join a "label" (not a real room, just a way to group sockets) to which we can broadcast the game state
 			await socket.join(gameId);
+			await socket.join(`${gameId}:${user.id}`);
 			game.playerReady({ id: user.id, username: user.username });
 			// After joining, if both players are ready the game may have just started; emit fresh state to this socket too
 			socket.emit('game-state', game.getState());

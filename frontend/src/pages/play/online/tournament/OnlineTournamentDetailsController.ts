@@ -13,7 +13,8 @@ import { io, Socket } from "socket.io-client";
 import { ConfirmModal } from "@src/tools/ConfirmModal";
 import { showAndLogTrpcError } from "@src/utils/trpcResponseUtils";
 
-type TournamentGame = NonNullable<RouterOutputs["tournament"]["getTournamentDetails"]["games"]>[number];
+type TournamentDTO = NonNullable<RouterOutputs["tournament"]["getTournamentDetails"]>;
+type TournamentGame = NonNullable<TournamentDTO["games"]>[number];
 
 // TODO: it's a little messy, refactor this
 export class OnlineTournamentDetailsController extends RouteController {
@@ -21,8 +22,6 @@ export class OnlineTournamentDetailsController extends RouteController {
 	#tournamentDto: RouterOutputs["tournament"]["getTournamentDetails"] | null = null;
 
 	#tournamentNamespace: Socket | null = null;
-	#bracketPollingTimeout: NodeJS.Timeout | null = null;
-	#bracketPollingMs = 5000;
 
 	#isDeletingTournament = false;
 
@@ -191,7 +190,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 										</div>
 									</div>
 								`
-						: ""
+						: ``
 					}
 
 					<!-- Bracket -->
@@ -242,42 +241,34 @@ export class OnlineTournamentDetailsController extends RouteController {
 		this.#renderParticipantsList(tournament.participants ?? []);
 		this.updateTitleSuffix();
 	}
-	async #pollTournamentDetails() {
-		if (!this.#tournamentDto) return;
-		try {
-			this.#fetchAndUpdateTournamentDetails();
-		} catch (err) {
-			if (err instanceof TRPCClientError && err.data?.httpStatus === 404) {
-				console.debug('Tournament not found during polling, stopping polling...');
-				if (this.#bracketPollingTimeout) {
-					clearTimeout(this.#bracketPollingTimeout);
-					this.#bracketPollingTimeout = null;
-				}
-				return; // Exit early, don't schedule another poll
-			} else {
-				console.error('Error polling tournament details:', err);
-			}
-		}
-		if (this.#bracketPollingTimeout) {
-			clearTimeout(this.#bracketPollingTimeout);
-		};
-		this.#bracketPollingTimeout = setTimeout(() => this.#pollTournamentDetails(), this.#bracketPollingMs);
-	}
 
 	protected async postRender() {
 		if (!this.#tournamentDto) return;
 
 		this.#tournamentNamespace = io("/tournament");
-		this.#tournamentNamespace.emit('join-tournament-lobby', this.#tournamentId);
 
-		// TODO: tournament events
-		this.#tournamentNamespace.on('tournament-deleted', (data: {tournamentName: string}) => {
-			if (this.#isDeletingTournament) return;
-			toast.warn(t('generic.tournament'), t('tournament.tournament_has_been_deleted', data) ?? `The tournament "${data.tournamentName}" has been deleted by the creator.`);
-			router.navigate('/play/online/tournaments');
+
+		this.#tournamentNamespace.on('connect', ()=>{
+			const socket = this.#tournamentNamespace!;
+
+			socket.emit('join-tournament-lobby', this.#tournamentId);
+
+			// TODO: tournament events
+			socket.on('tournament-deleted', (data: {tournamentName: string}) => {
+				if (this.#isDeletingTournament) return;
+				toast.warn(t('generic.tournament'), t('tournament.tournament_has_been_deleted', data) ?? `The tournament "${data.tournamentName}" has been deleted by the creator.`);
+				router.navigate('/play/online/tournaments');
+			});
+
+			socket.on('bracket-updated', (tournament: TournamentDTO) => {
+				console.debug('Bracket updated: ', tournament);
+				this.#tournamentDto = tournament;
+				tournament.games?.forEach(g => this.#updateBracket(tournament.games));
+				this.#renderParticipantsList(tournament.participants ?? []);
+				this.updateTitleSuffix();
+			});
 		})
 
-		this.#pollTournamentDetails();
 
 		this.#renderParticipantsList(this.#tournamentDto.participants ?? []);
 
@@ -311,9 +302,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 			}
 			this.#tournamentNamespace.close();
 		}
-		if (this.#bracketPollingTimeout) {
-			clearTimeout(this.#bracketPollingTimeout);
-		}
+
 		super.destroy();
 
 	}
@@ -407,10 +396,6 @@ export class OnlineTournamentDetailsController extends RouteController {
 			`,
 			message: t("generic.delete_tournament_confirm") ?? "Are you sure you want to delete this tournament? This action cannot be undone.",
 			onConfirm: async () => {
-				if (this.#bracketPollingTimeout) {
-					clearTimeout(this.#bracketPollingTimeout);
-					this.#bracketPollingTimeout = null;
-				}
 
 				this.#loadingOverlays.root.show();
 				try {
@@ -426,9 +411,6 @@ export class OnlineTournamentDetailsController extends RouteController {
 					} else {
 						toast.error(t("generic.delete_tournament"), t("error.generic_server_error") ?? "");
 						console.error(err);
-					}
-					if (!this.#bracketPollingTimeout) {
-						this.#bracketPollingTimeout = setTimeout(() => this.#pollTournamentDetails(), this.#bracketPollingMs);
 					}
 				} finally {
 					this.#isDeletingTournament = false;
@@ -458,7 +440,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 	#getUserUsername(game: TournamentGame, givenId: string, givenUsername: string, isAI = false) {
 		return isAI || (givenId === "placeholder-tournament-user")
-			? !game.startDate
+			? (!isAI && !game.startDate)
 				? /*html*/`<p class="text-stone-400 font-thin" data-i18n="${k('generic.tbd')}">TBD</p>`
 				: /*html*/`<p data-i18n="${k('generic.ai')}">AI</p>`
 			: givenUsername;

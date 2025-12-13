@@ -60,6 +60,7 @@ export class AIPlayerService {
 								rightPlayerScore: rightScore
 							}
 						});
+
 					}
                 } catch (error) {
                     clearInterval(simulationInterval);

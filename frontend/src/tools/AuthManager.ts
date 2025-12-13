@@ -20,9 +20,6 @@ export type AuthConfig = typeof AUTH_DOM_IDS;
 
 
 export class AuthManager {
-	// TODO: Remove this. Probably won't be ever used.
-	#config: AuthConfig;
-
 	#user: RouterOutputs['user']['privateProfile'] = null;
 
 	#friendsList: SocketFriendInfo[] = [];
@@ -34,16 +31,7 @@ export class AuthManager {
 
 	#baseSocketConnection: Socket | null = null;
 
-	constructor(config?: Partial<AuthConfig>) {
-		this.#config = {
-			userMenuContainer: AUTH_DOM_IDS.userMenuContainer,
-			userMenuButton: AUTH_DOM_IDS.userMenuButton,
-			loggedInUsername: AUTH_DOM_IDS.loggedInUsername,
-			loggedInImageUrl: AUTH_DOM_IDS.loggedInImageUrl,
-			loggedInContainer: AUTH_DOM_IDS.loggedInContainer,
-			loggedOutContainer: AUTH_DOM_IDS.loggedOutContainer,
-			...config,
-		};
+	constructor() {
 	}
 	async init() {
 		this.#lastCall = this.refreshUser();
