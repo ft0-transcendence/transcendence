@@ -1,5 +1,6 @@
 import { PrismaClient, TournamentRound, Prisma, Game, Tournament } from "@prisma/client";
 import { AIPlayerService } from "../src/services/aiPlayerService";
+import { app } from "../main";
 
 //TODO: Remove this shit
 const EMPTY_SLOT_USERNAME = 'Empty slot';
@@ -206,7 +207,7 @@ export class BracketGenerator {
                         where: { id: game.id },
                         data: { type: 'AI' }
                     });
-                    console.log(`Game ${game.id} updated to AI type (left: ${isLeftAI}, right: ${isRightAI})`);
+                    app.log.debug(`Game ${game.id} updated to AI type (left: ${isLeftAI}, right: ${isRightAI})`);
                 }
             }
         };
@@ -238,20 +239,20 @@ export class BracketGenerator {
             rounds.get(node.round)!.push(node);
         }
 
-        console.log('\n=== BRACKET ===\n');
+        app.log.debug('\n=== BRACKET ===\n');
 
         for (const round of Array.from(rounds.keys()).sort()) {
             const games = rounds.get(round)!.sort((a, b) => a.position - b.position);
-            console.log(`ROUND ${round}:`);
+            app.log.debug(`ROUND ${round}:`);
 
             for (const game of games) {
                 const left = game.leftPlayerId ? `P${game.leftPlayerId.slice(-4)}` : 'TBD';
                 const right = game.rightPlayerId ? `P${game.rightPlayerId.slice(-4)}` : 'TBD';
                 const roundType = game.tournamentRound ? `[${game.tournamentRound}]` : '';
                 const next = game.nextGameId ? ` → Next` : ' [FINALE]';
-                console.log(`  Game ${game.position + 1} ${roundType}: ${left} vs ${right}${next}`);
+                app.log.debug(`  Game ${game.position + 1} ${roundType}: ${left} vs ${right}${next}`);
             }
-            console.log('');
+            app.log.debug('');
         }
     }
 
@@ -419,7 +420,7 @@ export class BracketGenerator {
             const placeholderUserId = await this.ensurePlaceholderUser(tx);
             const availableSlots: { gameId: string, position: 'left' | 'right' }[] = [];
 
-            console.log('Quarter final games found:', quarterFinalGames.length);
+            app.log.debug('Quarter final games found:', quarterFinalGames.length);
 
             const isSlotEmpty = (playerId: string | null, username: string | null | undefined, placeholderId: string): boolean => {
                 if (!playerId) return true;
@@ -578,9 +579,9 @@ export class BracketGenerator {
                 const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
 
                 if (isLeftAI && isRightAI) {
-                    console.log(`🤖 Starting AI vs AI match simulation in background: ${game.id} (${game.tournamentRound})`);
+                    app.log.debug(`🤖 Starting AI vs AI match simulation in background: ${game.id} (${game.tournamentRound})`);
                     aiPlayerServiceForAsync.handleAIvsAIMatch(game.id).catch((error) => {
-                        console.error(`❌ AI vs AI match ${game.id} simulation failed:`, error);
+                        app.log.warn(`❌ AI vs AI match ${game.id} simulation failed:`, error);
                     });
                 }
             }

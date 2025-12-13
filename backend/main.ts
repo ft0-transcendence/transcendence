@@ -87,9 +87,9 @@ app.register(socketAuthSessionPlugin);
 app.register(passportPlugin);
 
 const pathToFrontend = path.join(__dirname, "..", "frontend");
-console.log(`Checking if frontend exists at ${pathToFrontend}`);
+app.log.info(`Checking if frontend exists at ${pathToFrontend}`);
 if (fs.existsSync(pathToFrontend)) {
-	console.log("✅  Serving static files from " + pathToFrontend);
+	app.log.info("✅  Serving static files from " + pathToFrontend);
 
 	app.register(fastifyStatic, {
 		root: pathToFrontend,
@@ -140,8 +140,6 @@ async function checkAndStartTournaments() {
 
 app.ready().then(() => {
 	console.log('Fastify is ready');
-	// Make socket.io instance globally accessible for notifications
-	(global as any).io = app.io;
 	setupSocketHandlers(app.io);
 	loadActiveGamesIntoCache(app.prisma, app);
 

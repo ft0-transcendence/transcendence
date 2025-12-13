@@ -1,6 +1,7 @@
 import { env } from "../../env";
 import { FastifyRequest } from "fastify/types/request";
 import { Request } from "express";
+import { app } from "../../main";
 
 const allowedRedirectOrigins = [
 	env.FRONTEND_URL,
@@ -14,7 +15,7 @@ export const getRequestOrigin = (req: FastifyRequest | Request, type: "frontend"
 	const protocol = req.protocol || req.headers["x-forwarded-proto"] || "http";
 	const host = req.headers.host;
 	const origin = `${protocol}://${host}`;
-	console.log(`Requesting from ${origin}. Type: ${type}`);
+	app.log.debug(`Requesting from ${origin}. Type: ${type}`);
 	if (ALLOW_ANY_ORIGIN || allowedRedirectOrigins.includes(origin)) {
 		return origin;
 	}

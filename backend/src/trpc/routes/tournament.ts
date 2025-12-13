@@ -364,7 +364,7 @@ export const tournamentRouter = t.router({
 
 				return { success: true, tournamentDeleted: false };
 			} catch (error) {
-				console.error('Error leaving tournament:', error);
+				app.log.warn('Error leaving tournament:', error);
 				throw new TRPCError({
 					code: 'INTERNAL_SERVER_ERROR',
 					message: 'Failed to leave tournament',
@@ -585,14 +585,9 @@ export const tournamentRouter = t.router({
 });
 
 async function createTournamentGameInstances(db: PrismaClient, tournamentId: string): Promise<void> {
-	console.log(`🎮 Creating TournamentGame instances for tournament ${tournamentId} (quarter finals only)`);
+	app.log.info(`🎮 Creating TournamentGame instances for tournament ${tournamentId} (quarter finals only)`);
 
-	const io = (global as any).io;
-	if (!io) {
-		console.warn('Socket.io not available, skipping TournamentGame instance creation');
-		return;
-	}
-	const tournamentNamespace = io.of("/tournament");
+	const tournamentNamespace = app.io.of("/tournament");
 
 	// Only create instances for QUARTER FINALS initially
 	const allGames = await db.game.findMany({
@@ -624,12 +619,12 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 		const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
 
 		if (isLeftAI && isRightAI) {
-			console.log(`⏭️ Skipping AI vs AI game ${game.id} - already handled by simulation`);
+			app.log.debug(`⏭️ Skipping AI vs AI game ${game.id} - already handled by simulation`);
 			aiGamesSkipped++;
 			continue;
 		}
 
-		console.log(`🆕 Creating TournamentGame instance for game ${game.id} (round: ${game.tournamentRound})`);
+		app.log.info(`🆕 Creating TournamentGame instance for game ${game.id} (round: ${game.tournamentRound})`);
 
 		const gameInstance = new TournamentGame(
 			game.id,
@@ -639,7 +634,7 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 			async (state: any, _tid: string, gid: string) => {
 				const isAborted = gameInstance.wasForfeited;
 
-				console.log(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
+				app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
 
 				await db.game.update({
 					where: { id: gid },
@@ -652,7 +647,7 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 				});
 
 				cache.tournaments.activeTournamentGames.delete(gid);
-				console.log(`🗑️ Tournament Game ${gid} removed from cache`);
+				app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
 			},
 			async () => {
 				await db.game.update({
@@ -671,17 +666,17 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
 		humanGamesCreated++;
 
-		console.log(`✅ TournamentGame instance created for ${game.id} - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
+		app.log.info(`✅ TournamentGame instance created for ${game.id} - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
 	}
 
-	console.log(`🎮 Tournament ${tournamentId}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
+	app.log.info(`🎮 Tournament ${tournamentId}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
 }
 
 export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId: string, gameId: string): Promise<boolean> {
 
 	const existingInstance = cache.tournaments.activeTournamentGames.get(gameId);
 	if (existingInstance) {
-		console.log(`🔄 Game instance ${gameId} already exists, skipping creation`);
+		app.log.debug(`🔄 Game instance ${gameId} already exists, skipping creation`);
 		return false;
 	}
 
@@ -702,7 +697,7 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 	});
 
 	if (!game || game.endDate) {
-		console.log(`⚠️ Game ${gameId} not found or already ended`);
+		app.log.debug(`⚠️ Game ${gameId} not found or already ended`);
 		return false;
 	}
 
@@ -712,16 +707,16 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 
 	// Don't create instance if both are AI
 	if (isLeftAI && isRightAI) {
-		console.log(`⏭️ Game ${gameId} is AI vs AI, no instance needed`);
+		app.log.debug(`⏭️ Game ${gameId} is AI vs AI, no instance needed`);
 		return false;
 	}
 
 	if (!game.leftPlayerUsername || !game.rightPlayerUsername) {
-		console.log(`⏭️ Game ${gameId} has empty slots, waiting for players`);
+		app.log.debug(`⏭️ Game ${gameId} has empty slots, waiting for players`);
 		return false;
 	}
 
-	console.log(`🆕 Creating on-demand game instance for ${gameId} (${game.tournamentRound})`);
+	app.log.info(`🆕 Creating on-demand game instance for ${gameId} (${game.tournamentRound})`);
 
 	const tournamentNamespace = app.io.of("/tournament");
 	const gameInstance = new TournamentGame(
@@ -731,7 +726,7 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 		{ maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
 		async (state: any, _tid: string, gid: string) => {
 			const isAborted = gameInstance.wasForfeited;
-			console.log(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
+			app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
 
 			await db.game.update({
 				where: { id: gid },
@@ -744,7 +739,7 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 			});
 
 			cache.tournaments.activeTournamentGames.delete(gid);
-			console.log(`🗑️ Tournament Game ${gid} removed from cache`);
+			app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
 		},
 		async () => {
 			await db.game.update({
@@ -762,18 +757,18 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 	if (game.leftPlayerScore > 0 || game.rightPlayerScore > 0) {
 		gameInstance.scores.left = game.leftPlayerScore;
 		gameInstance.scores.right = game.rightPlayerScore;
-		console.log(`📊 Restored scores for game ${game.id}: ${game.leftPlayerScore}-${game.rightPlayerScore}`);
+		app.log.info(`📊 Restored scores for game ${game.id}: ${game.leftPlayerScore}-${game.rightPlayerScore}`);
 	}
 
 	cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
-	console.log(`✅ On-demand game instance created for ${game.id} - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
+	app.log.info(`✅ On-demand game instance created for ${game.id} - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
 
 	return true;
 }
 
 //Only creates instances for games with at least one human player
 export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournamentId: string, currentRound: 'QUARTI' | 'SEMIFINALE' | 'FINALE'): Promise<void> {
-	console.log(`🔍 Checking if round ${currentRound} is complete for tournament ${tournamentId}`);
+	app.log.debug(`🔍 Checking if round ${currentRound} is complete for tournament ${tournamentId}`);
 
 	const currentRoundGames = await db.game.findMany({
 		where: {
@@ -791,11 +786,11 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 	const allGamesFinished = currentRoundGames.every(game => game.endDate !== null);
 
 	if (!allGamesFinished) {
-		console.log(`⏳ Round ${currentRound} not yet complete - waiting for all games to finish`);
+		app.log.debug(`⏳ Round ${currentRound} not yet complete - waiting for all games to finish`);
 		return;
 	}
 
-	console.log(`✅ Round ${currentRound} is complete! Checking for next round games...`);
+	app.log.debug(`✅ Round ${currentRound} is complete! Checking for next round games...`);
 
 	let nextRound: 'SEMIFINALE' | 'FINALE' | null = null;
 	if (currentRound === 'QUARTI') {
@@ -805,7 +800,7 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 	}
 
 	if (!nextRound) {
-		console.log(`🏆 Tournament ${tournamentId} is complete (FINALE finished)`);
+		app.log.debug(`🏆 Tournament ${tournamentId} is complete (FINALE finished)`);
 		return;
 	}
 
@@ -837,7 +832,7 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 
 	for (const game of nextRoundGames) {
 		if (cache.tournaments.activeTournamentGames.has(game.id)) {
-			console.log(`⏭️ Game instance ${game.id} already exists, skipping`);
+			app.log.debug(`⏭️ Game instance ${game.id} already exists, skipping`);
 			continue;
 		}
 
@@ -846,7 +841,7 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 
 		// Skip AI vs AI games (they are handled by simulation)
 		if (isLeftAI && isRightAI) {
-			console.log(`⏭️ Skipping AI vs AI game ${game.id} (${nextRound}) - handled by simulation`);
+			app.log.debug(`⏭️ Skipping AI vs AI game ${game.id} (${nextRound}) - handled by simulation`);
 			aiGamesSkipped++;
 			continue;
 		}
@@ -854,11 +849,11 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 		const EMPTY_SLOT = 'Empty slot';
 		if (game.leftPlayerUsername === EMPTY_SLOT || game.rightPlayerUsername === EMPTY_SLOT ||
 			game.leftPlayerUsername === undefined || game.rightPlayerUsername === undefined) {
-			console.log(`⏭️ Game ${game.id} has empty slots, waiting for players`);
+			app.log.debug(`⏭️ Game ${game.id} has empty slots, waiting for players`);
 			continue;
 		}
 
-		console.log(`🆕 Creating TournamentGame instance for ${nextRound} game ${game.id}`);
+		app.log.info(`🆕 Creating TournamentGame instance for ${nextRound} game ${game.id}`);
 
 		const gameInstance = new TournamentGame(
 			game.id,
@@ -868,7 +863,7 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 			async (state: any, _tid: string, gid: string) => {
 				const isAborted = gameInstance.wasForfeited;
 
-				console.log(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
+				app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
 
 				await db.game.update({
 					where: { id: gid },
@@ -881,7 +876,7 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 				});
 
 				cache.tournaments.activeTournamentGames.delete(gid);
-				console.log(`🗑️ Tournament Game ${gid} removed from cache`);
+				app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
 			},
 			async () => {
 				await db.game.update({
@@ -899,10 +894,10 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
 		humanGamesCreated++;
 
-		console.log(`✅ TournamentGame instance created for ${game.id} (${nextRound}) - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
+		app.log.info(`✅ TournamentGame instance created for ${game.id} (${nextRound}) - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
 	}
 
-	console.log(`🎮 Next round ${nextRound}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
+	app.log.info(`🎮 Next round ${nextRound}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
 }
 
 async function executeTournamentStart(db: PrismaClient, tournament: Tournament, startedByUsername: string) {

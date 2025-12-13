@@ -4,6 +4,7 @@ import { CustomGoogleStrategy } from "../utils/CustomGoogleStrategy";
 import { env } from "../../env";
 import { User } from "@prisma/client";
 import { db } from "../trpc/db";
+import { app } from "../../main";
 
 export const passportPlugin = fp(async (fastify) => {
 	const googleCallbackUrl = env.BACKEND_URL + "/api/auth/google/callback";
@@ -39,7 +40,7 @@ export const passportPlugin = fp(async (fastify) => {
 						blobMimeType = blob.type;
 						imageBlob = new Uint8Array(await blob.arrayBuffer());
 					} catch (err) {
-						console.error('Error fetching image', err);
+						app.log.error('Error fetching image', err);
 					}
 				}
 

@@ -1,6 +1,5 @@
 import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState, STANDARD_GAME_CONFIG, GameConfig } from "./game";
-import { db } from '../src/trpc/db';
-import { GameType, Prisma, PrismaClient, Game as PrismaGame } from "@prisma/client";
+import { Game as PrismaGame } from "@prisma/client";
 import { TypedSocketNamespace } from "../src/socket-io";
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;

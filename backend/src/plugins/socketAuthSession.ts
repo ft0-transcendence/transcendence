@@ -5,6 +5,7 @@ import { env } from '../../env';
 import { TypedSocket } from '../socket-io';
 import { Namespace, Server } from 'socket.io';
 import { app } from '../../main';
+import { TRPCError } from '@trpc/server';
 
 /**
  * This plugin adds a `user` property to the socket.io `socket` object and forces the socket to be authenticated.
@@ -20,33 +21,33 @@ export function applySocketAuth(ioOrNamespace: Server | Namespace) {
 	ioOrNamespace.use(async (socket: TypedSocket, next) => {
 		try {
 			const rawCookieHeader = socket.handshake.headers.cookie;
-			if (!rawCookieHeader) return next(new Error('Missing cookie header'));
+			if (!rawCookieHeader) return next(new TRPCError({code:"UNAUTHORIZED", message: "Missing cookie header"}));
 
 			const cookies = parseCookie(rawCookieHeader);
 			const sessionCookie = cookies['sessionId'];
-			if (!sessionCookie) return next(new Error('Missing session cookie'));
+			if (!sessionCookie) return next(new TRPCError({code:"UNAUTHORIZED", message: "Missing session cookie"}));
 
 			const unsigned = signer.unsign(sessionCookie);
-			if (!unsigned.valid) return next(new Error('Invalid session cookie signature'));
+			if (!unsigned.valid) return next(new TRPCError({code:"UNAUTHORIZED", message: "Invalid session cookie signature"}));
 
 			const sessionId = unsigned.value;
 			const sessionStore = app.sessionStore;
-			if (!sessionStore) return next(new Error('Session store not found'));
+			if (!sessionStore) return next(new TRPCError({code:"UNAUTHORIZED", message: "Session store not found"}));
 
 			sessionStore.get(sessionId, async (err, session) => {
-				if (err || !session) return next(new Error('Unauthorized'));
+				if (err || !session) return next(new TRPCError({code:"UNAUTHORIZED", message: "No session found"}));
 				const userId = session.passport;
-				if (!userId) return next(new Error('Unauthorized'));
+				if (!userId) return next(new TRPCError({code:"UNAUTHORIZED", message: "No session user found"}));
 
 				const user = await app.prisma.user.findFirst({ where: { id: userId } });
-				if (!user) return next(new Error('Unauthorized'));
+				if (!user) return next(new TRPCError({code:"UNAUTHORIZED", message: "No DB user found"}));
 
 				socket.data.user = user;
 				next();
 			});
 		} catch (err) {
-			console.error('Socket.IO session auth error:', err);
-			next(new Error('Unauthorized'));
+			app.log.error('Error authenticating socket: %s', err);
+			next(new TRPCError({code:"UNAUTHORIZED", message: "Unknown error"}));
 		}
 	});
 }

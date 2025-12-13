@@ -3,6 +3,7 @@ import {protectedProcedure, publicProcedure, t} from "../trpc";
 import { z } from "zod";
 import { AppLanguage } from '../../../shared_exports';
 import { PrismaClient } from "@prisma/client";
+import { app } from "../../../main";
 
 const MAX_PROFILE_PICTURE_SIZE_MB = 2.5;
 const MAX_PROFILE_PICTURE_SIZE_BYTES = MAX_PROFILE_PICTURE_SIZE_MB * 1024 * 1024;
@@ -139,7 +140,7 @@ export const userRouter = t.router({
 				const buffer = Buffer.from(base64, "base64");
 
 				const sizeBytes = buffer.length;
-				console.log("Uploading avatar. Size:", sizeBytes, "bytes");
+				app.log.info("Uploading avatar. Size:", sizeBytes, "bytes");
 				if (sizeBytes > MAX_PROFILE_PICTURE_SIZE_BYTES) {
 					throw new TRPCError({ code: "BAD_REQUEST", message: `File too large. Max ${MAX_PROFILE_PICTURE_SIZE_MB}MB` });
 				}

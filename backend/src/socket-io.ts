@@ -55,6 +55,6 @@ export function setupSocketHandlers(io: Server) {
 	});
 
 	io.on("error", (err) => {
-		console.error("Socket error", err);
+		app.log.error("Socket.IO error: %s", err);
 	});
 }

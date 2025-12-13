@@ -75,7 +75,7 @@ export const publicProcedure = t.procedure;
  */
 export const protectedProcedure = t.procedure.use(({ctx, next}) => {
 	if (!ctx.user) {
-		throw new TRPCError({ code: "UNAUTHORIZED" });
+		throw new TRPCError({ code: "UNAUTHORIZED", message: "User not logged in" });
 	}
 	return next({
 		ctx: {

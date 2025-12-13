@@ -1,6 +1,7 @@
 import { STANDARD_GAME_CONFIG } from "../../shared_exports";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { checkAndCreateNextRoundInstances } from "../trpc/routes/tournament";
+import { app } from "../../main";
 
 export class AIPlayerService {
     private db: PrismaClient | Prisma.TransactionClient;
@@ -21,7 +22,7 @@ export class AIPlayerService {
     }
 
     async handleAIvsAIMatch(gameId: string): Promise<void> {
-        console.log(`🤖 Starting AI vs AI simulation for game ${gameId}`);
+        app.log.debug(`🤖 Starting AI vs AI simulation for game ${gameId}`);
 
         // Avvia simulazione con Promise
         return new Promise((resolve, reject) => {
@@ -29,7 +30,7 @@ export class AIPlayerService {
             let rightScore = 0;
             const maxScore = STANDARD_GAME_CONFIG.maxScore || 5;
 
-            console.log(`🎮 AI Match ${gameId} - Target score: ${maxScore}`);
+            app.log.debug(`🎮 AI Match ${gameId} - Target score: ${maxScore}`);
 
             // Ogni 5 secondi un AI casuale segna
             const simulationInterval = setInterval(async () => {
@@ -38,16 +39,16 @@ export class AIPlayerService {
 
                     if (leftScores) {
                         leftScore++;
-                        console.log(`🎯 Game ${gameId} - Left AI scored! Score: ${leftScore}-${rightScore}`);
+                        app.log.debug(`🎯 Game ${gameId} - Left AI scored! Score: ${leftScore}-${rightScore}`);
                     } else {
                         rightScore++;
-                        console.log(`🎯 Game ${gameId} - Right AI scored! Score: ${leftScore}-${rightScore}`);
+                        app.log.debug(`🎯 Game ${gameId} - Right AI scored! Score: ${leftScore}-${rightScore}`);
                     }
 
                     if (leftScore >= maxScore || rightScore >= maxScore) {
                         clearInterval(simulationInterval);
 
-                        console.log(`✅ AI Match ${gameId} completed: ${leftScore}-${rightScore}`);
+                        app.log.debug(`✅ AI Match ${gameId} completed: ${leftScore}-${rightScore}`);
 
                         await this.saveAIMatchResult(gameId, leftScore, rightScore);
 
@@ -64,7 +65,7 @@ export class AIPlayerService {
 					}
                 } catch (error) {
                     clearInterval(simulationInterval);
-                    console.error(`❌ Error during AI match simulation for game ${gameId}:`, error);
+                    app.log.error(`❌ Error during AI match simulation for game ${gameId}:`, error);
                     reject(error);
                 }
             }, 5000);
@@ -93,7 +94,7 @@ export class AIPlayerService {
                 throw new Error(`Game ${gameId} not found when saving result`);
             }
 
-            console.log(`💾 Saving AI match result for game ${gameId}: ${leftScore}-${rightScore}`);
+            app.log.debug(`💾 Saving AI match result for game ${gameId}: ${leftScore}-${rightScore}`);
 
             await tx.game.update({
                 where: { id: gameId },
@@ -105,20 +106,20 @@ export class AIPlayerService {
             });
 
             if (game.nextGameId) {
-                console.log(`➡️ Advancing AI winner to next game ${game.nextGameId}`);
+                app.log.debug(`➡️ Advancing AI winner to next game ${game.nextGameId}`);
                 const nextGameBecameAIvsAI = await this.advanceAIWinnerToNextGame(tx, game.nextGameId);
 
                 if (nextGameBecameAIvsAI) {
-                    console.log(`🎮 Next game ${game.nextGameId} is now AI vs AI, starting simulation`);
+                    app.log.debug(`🎮 Next game ${game.nextGameId} is now AI vs AI, starting simulation`);
                     setTimeout(() => {
                         this.handleAIvsAIMatch(game.nextGameId!).catch((error) => {
-                            console.error(`❌ Failed to start AI vs AI simulation for game ${game.nextGameId}:`, error);
+                            app.log.debug(`❌ Failed to start AI vs AI simulation for game ${game.nextGameId}:`, error);
                         });
                     }, 100);
                 }
             }
 
-            console.log(`✅ AI match ${gameId} saved successfully`);
+            app.log.debug(`✅ AI match ${gameId} saved successfully`);
         };
 
         if ('$transaction' in this.db) {
@@ -178,7 +179,7 @@ export class AIPlayerService {
             });
 
             if (updateResult.count > 0) {
-                console.log(`✅ AI winner advanced to next game ${nextGameId} (left slot)`);
+                app.log.debug(`✅ AI winner advanced to next game ${nextGameId} (left slot)`);
                 leftSlotIsAI = true;
                 slotFilled = true;
             }
@@ -197,14 +198,14 @@ export class AIPlayerService {
             });
 
             if (updateResult.count > 0) {
-                console.log(`✅ AI winner advanced to next game ${nextGameId} (right slot)`);
+                app.log.debug(`✅ AI winner advanced to next game ${nextGameId} (right slot)`);
                 rightSlotIsAI = true;
                 slotFilled = true;
             }
         }
 
         if (!slotFilled) {
-            console.warn(`⚠️ Next game ${nextGameId} is already full, skipping advancement`);
+            app.log.debug(`⚠️ Next game ${nextGameId} is already full, skipping advancement`);
             return false;
         }
 

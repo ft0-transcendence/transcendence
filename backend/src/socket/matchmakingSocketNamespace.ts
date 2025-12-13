@@ -35,7 +35,7 @@ export function setupMatchmakingNamespace(io: Server) {
 
 		const userInCache = cache.matchmaking.connectedUsers.has(user.id);
 		if (userInCache) {
-			console.warn('User already in matchmaking cache, ignoring connection');
+			app.log.warn('User already in matchmaking cache, ignoring connection');
 			socket.emit('error', 'You can only join one matchmaking queue at a time');
 			return;
 		}
@@ -165,7 +165,7 @@ export function setupMatchmakingNamespace(io: Server) {
 									}
 								});
 							} catch (error) {
-								console.log(`Game ${gameId} not yet in DB, skipping update`);
+								app.log.warn(`Game ${gameId} not yet in DB, skipping update`);
 							}
 						}
 					);
@@ -186,8 +186,8 @@ export function setupMatchmakingNamespace(io: Server) {
 
 
 export async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
-	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
-	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
+	app.log.debug(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
+	app.log.debug(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
 
 	try {
 		await finalizeVsGameResult(db, {
@@ -198,9 +198,9 @@ export async function handleVSGameFinish(gameId: string, state: GameStatus, game
 			isForfeited: gameInstance.wasForfeited,
 			finishedAt: new Date(),
 		});
-		console.log(`✅ VS Game ${gameId} successfully persisted`);
+		app.log.debug(`✅ VS Game ${gameId} successfully persisted`);
 	} catch (error) {
-		console.error(`❌ VS Game ${gameId} failed to finalize:`, error);
+		app.log.error(`❌ VS Game ${gameId} failed to finalize: %s`, error);
 	}
 
 	cache.active_1v1_games.delete(gameId);
