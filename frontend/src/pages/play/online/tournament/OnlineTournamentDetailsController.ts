@@ -421,23 +421,24 @@ export class OnlineTournamentDetailsController extends RouteController {
 			}
 		})
 
-		const lines = [];
-		games?.forEach((game, index) => {
-			let gameEl = bracketContainer.querySelector(`[data-game-id="${game.id}"]`) as HTMLElement | null;
-			const nextGameEl = bracketContainer.querySelector(`[data-game-id="${game.nextGameId}"]`) as HTMLElement | null;
-			if (gameEl && nextGameEl) {
-				const line = new LeaderLine(
-					gameEl,
-					nextGameEl,
-					{
+		// const lines: any[] = [];
+		// games?.forEach((game, index) => {
+		// 	let gameEl = bracketContainer.querySelector(`[data-game-id="${game.id}"]`) as HTMLElement | null;
+		// 	const nextGameEl = bracketContainer.querySelector(`[data-game-id="${game.nextGameId}"]`) as HTMLElement | null;
+		// 	if (gameEl && nextGameEl) {
+		// 		const line = new LeaderLine(
+		// 			gameEl,
+		// 			nextGameEl,
+		// 			{
 
-					}
-				);
-				lines.push(line);
-			}
-		});
-		window.addEventListener('scroll', ()=>{
-		})
+		// 			}
+		// 		);
+		// 		lines.push(line);
+		// 	}
+		// });
+		// window.addEventListener('scroll', ()=>{
+		// 	lines.forEach(line => line.position());
+		// })
 
 	}
 
