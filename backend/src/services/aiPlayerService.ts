@@ -2,10 +2,9 @@ import { STANDARD_GAME_CONFIG } from "../../shared_exports";
 import { Game, Prisma, PrismaClient } from "@prisma/client";
 import { checkAndCreateNextRoundInstances } from "../trpc/routes/tournament";
 import { app } from "../../main";
-import { tournamentBroadcastBracketUpdate, tournamentBroadcastBracketUpdateById } from "../socket/tournamentSocketNamespace";
+import { tournamentBroadcastBracketUpdateById } from "../socket/tournamentSocketNamespace";
 import { db } from "../trpc/db";
 import { BracketGenerator } from '../../game/bracketGenerator';
-import { ua } from '../../../frontend/src/translations/ua';
 
 export class AIPlayerService {
 	private db: PrismaClient | Prisma.TransactionClient;

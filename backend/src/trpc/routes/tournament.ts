@@ -5,7 +5,7 @@ import { TournamentType, GameType, TournamentStatus, PrismaClient, Tournament, T
 import sanitizeHtml from 'sanitize-html';
 import { BracketGenerator } from "../../../game/bracketGenerator";
 import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, TournamentCacheEntry } from "../../cache";
-import { tournamentBroadcastBracketUpdate, tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastStatusChange, tournamentBroadcastTournamentDeleted, tournamentBroadcastBracketUpdateById } from "../../socket/tournamentSocketNamespace";
+import { tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastStatusChange, tournamentBroadcastTournamentDeleted, tournamentBroadcastBracketUpdateById } from "../../socket/tournamentSocketNamespace";
 import { AIPlayerService } from "../../services/aiPlayerService";
 import {
 	TournamentValidator,
@@ -17,7 +17,6 @@ import { STANDARD_GAME_CONFIG } from "../../../shared_exports";
 import { app } from "../../../main";
 import { db } from "../db";
 import { TournamentGame } from "../../../game/tournamentGame";
-import { env } from "../../../env";
 
 const TOURNAMENT_SIZES: { [key in TournamentType]: number } = {
 	EIGHT: 8
@@ -953,7 +952,7 @@ export async function autoStartTournament(db: PrismaClient, tournamentId: string
 
 	if (!tournament
 		//  || tournament.status !== 'WAITING_PLAYERS'
-		) {
+	) {
 		return;
 	}
 

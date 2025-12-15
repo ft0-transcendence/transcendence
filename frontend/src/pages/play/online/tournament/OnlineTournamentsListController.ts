@@ -114,34 +114,35 @@ export class TournamentsListController extends RouteController {
 		this.#fetchAndShowTournaments();
 		this.#bindOnCreateTournamentModalOpen();
 
-		document.querySelector(`#${this.id}-clear-tournaments-btn`)?.addEventListener('click', async () => {
-			try {
-				const res = await api.tournament.clearAllTournaments.mutate();
-				toast.success(t('generic.tournament'), t('generic.delete_tournament_success') ?? "");
-				this.#fetchAndShowTournaments();
-			} catch (err) {
-				showAndLogTrpcError(err, 'generic.tournament');
-			}
-		});
+		// TODO: remove this after testing
+		// document.querySelector(`#${this.id}-clear-tournaments-btn`)?.addEventListener('click', async () => {
+		// 	try {
+		// 		const res = await api.tournament.clearAllTournaments.mutate();
+		// 		toast.success(t('generic.tournament'), t('generic.delete_tournament_success') ?? "");
+		// 		this.#fetchAndShowTournaments();
+		// 	} catch (err) {
+		// 		showAndLogTrpcError(err, 'generic.tournament');
+		// 	}
+		// });
 
-		document.querySelector(`#${this.id}-gen-random-tournament`)?.addEventListener('click', async () => {
-			try {
-				const randomFutureDate = new Date();
-				randomFutureDate.setDate(randomFutureDate.getDate() + Math.floor(Math.random() * 100));
-				const randomDate = new Date(randomFutureDate.getTime() + Math.random() * 1000 * 60 * 60 * 24 * 365);
+		// document.querySelector(`#${this.id}-gen-random-tournament`)?.addEventListener('click', async () => {
+		// 	try {
+		// 		const randomFutureDate = new Date();
+		// 		randomFutureDate.setDate(randomFutureDate.getDate() + Math.floor(Math.random() * 100));
+		// 		const randomDate = new Date(randomFutureDate.getTime() + Math.random() * 1000 * 60 * 60 * 24 * 365);
 
-				const randomName = `tournament: ${randomDate.toISOString().replace(/T/, ' ')}`;
-				const res = await api.tournament.createTournament.mutate({
-					name: randomName,
-					type: "EIGHT",
-					startDate: randomDate.toISOString()
-				});
-				toast.success(t('generic.tournament'), t('generic.delete_tournament_success') ?? "");
-				this.#fetchAndShowTournaments();
-			} catch (err) {
-				showAndLogTrpcError(err, 'generic.tournament');
-			}
-		});
+		// 		const randomName = `tournament: ${randomDate.toISOString().replace(/T/, ' ')}`;
+		// 		const res = await api.tournament.createTournament.mutate({
+		// 			name: randomName,
+		// 			type: "EIGHT",
+		// 			startDate: randomDate.toISOString()
+		// 		});
+		// 		toast.success(t('generic.tournament'), t('generic.delete_tournament_success') ?? "");
+		// 		this.#fetchAndShowTournaments();
+		// 	} catch (err) {
+		// 		showAndLogTrpcError(err, 'generic.tournament');
+		// 	}
+		// });
 	}
 
 	async #fetchAndShowTournaments() {
