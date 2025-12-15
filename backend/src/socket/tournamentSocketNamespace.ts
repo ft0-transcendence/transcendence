@@ -438,20 +438,6 @@ export function tournamentBroadcastStatusChange(
 	tournamentNamespace.to(tournamentId).emit('tournament-status-changed', eventData);
 }
 
-/**
- * @deprecated Not used on the frontend. //TODO: remove this
- */
-export function tournamentBroadcastAIPlayersAdded(tournamentId: string, aiPlayerIds: string[], filledSlots: number[]) {
-	const tournamentNamespace = app.io.of("/tournament");
-	tournamentNamespace.to(tournamentId).emit('ai-players-added', {
-		tournamentId,
-		aiPlayerIds,
-		filledSlots,
-		message: `${aiPlayerIds.length} AI players added to fill empty slots`,
-		timestamp: new Date()
-	});
-}
-
 export function tournamentBroadcastTournamentDeleted(tournamentId: string, tournamentName: string, deletedBy: string) {
 	const tournamentNamespace = app.io.of("/tournament");
 	tournamentNamespace.to(tournamentId).emit('tournament-deleted', {

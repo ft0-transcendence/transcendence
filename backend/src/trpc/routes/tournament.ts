@@ -5,7 +5,7 @@ import { TournamentType, GameType, TournamentStatus, PrismaClient, Tournament, T
 import sanitizeHtml from 'sanitize-html';
 import { BracketGenerator } from "../../../game/bracketGenerator";
 import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, TournamentCacheEntry } from "../../cache";
-import { tournamentBroadcastBracketUpdate, tournamentBroadcastAIPlayersAdded, tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastStatusChange, tournamentBroadcastTournamentDeleted, tournamentBroadcastBracketUpdateById } from "../../socket/tournamentSocketNamespace";
+import { tournamentBroadcastBracketUpdate, tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastStatusChange, tournamentBroadcastTournamentDeleted, tournamentBroadcastBracketUpdateById } from "../../socket/tournamentSocketNamespace";
 import { AIPlayerService } from "../../services/aiPlayerService";
 import {
 	TournamentValidator,
