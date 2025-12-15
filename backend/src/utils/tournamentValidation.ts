@@ -275,23 +275,6 @@ export function validateCacheConsistency(tournamentId: string, db: PrismaClient)
 					if (cachedTournament.participants.size !== dbTournament.participants.length) {
 						app.log.warn(`Participant count mismatch for tournament ${tournamentId}`);
 					}
-
-					// Validate AI player cache consistency
-					const aiPlayerService = new AIPlayerService(db);
-					const dbAIPlayerCount = dbTournament.games.filter((game) =>
-						aiPlayerService.isAIPlayer(game.leftPlayerUsername) ||
-						aiPlayerService.isAIPlayer(game.rightPlayerUsername)
-					).length;
-
-					// Check if cached AI players match database AI games
-					if (cachedTournament.aiPlayers.size > 0) {
-						app.log.info({
-							tournament_id: tournamentId,
-							cached_ai_players: cachedTournament.aiPlayers.size,
-							db_ai_games: dbAIPlayerCount
-						}, 'AI player cache validation');
-					}
-
 					// Validate bracket consistency with username system
 					await TournamentValidator.validateTournamentBracketConsistency(tournamentId, db);
 				}

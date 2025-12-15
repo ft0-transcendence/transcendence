@@ -69,6 +69,10 @@ app.addHook("onRequest", (request, reply, done) => {
 app.addHook("onResponse", (request, reply, done) => {
 	const start = (request as any)[START_TIME];
 	const ip = request.ip;
+	if (env.NODE_ENV === 'development' && request.url?.startsWith((`/api/trpc/user.privateProfile?`))){
+		done();
+		return;
+	}
 	if (start) {
 		const diff = process.hrtime.bigint() - start;
 		const ms = Number(diff / 1_000_000n);

@@ -1,7 +1,7 @@
 import {env} from "../../env";
 import {PrismaClient} from "@prisma/client";
 
-const prismaShowOnlyErrors = !!process.env.PRISMA_SHOW_ONLY_ERRORS;
+const prismaShowOnlyErrors = true;
 
 const createPrismaClient = () =>
 	new PrismaClient({

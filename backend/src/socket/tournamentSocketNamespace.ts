@@ -83,7 +83,6 @@ export function setupTournamentNamespace(io: Server) {
 						connectedUsers: new Set(),
 						creatorId: tournament.createdById,
 						bracketCreated: tournament.games.length > 0,
-						aiPlayers: new Set(),
 						lastBracketUpdate: new Date(),
 						participantSlots
 					});

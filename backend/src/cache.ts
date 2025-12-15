@@ -69,7 +69,6 @@ export type TournamentCacheEntry = {
 	connectedUsers: Set<User['id']>;
 	creatorId: string;
 	bracketCreated: boolean;
-	aiPlayers: Set<string>;
 	lastBracketUpdate: Date;
 	participantSlots: Map<number, User['id'] | null>; // Track participant positions in bracket
 };
@@ -168,6 +167,15 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 	}
 
 	// Carica partite TOURNAMENT e AI (per tornei) nel DB
+	await db.game.updateMany({
+		where: {
+			tournamentId: {not: null},
+			endDate: null,
+		},
+		data: {
+			updatedAt: new Date(),
+		}
+	})
 	const activeTournamentGames = await db.game.findMany({
 		where: {
 			endDate: null,

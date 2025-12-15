@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, t } from "../trpc";
 import { z } from "zod";
-import { TournamentType, GameType, TournamentStatus, PrismaClient, Tournament, TournamentRound, User } from "@prisma/client";
+import { TournamentType, GameType, TournamentStatus, PrismaClient, Tournament, TournamentRound, User, Game as PrismaGame } from "@prisma/client";
 import sanitizeHtml from 'sanitize-html';
 import { BracketGenerator } from "../../../game/bracketGenerator";
 import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, TournamentCacheEntry } from "../../cache";
@@ -14,9 +14,10 @@ import {
 	validateCacheConsistency
 } from "../../utils/tournamentValidation";
 import { STANDARD_GAME_CONFIG } from "../../../shared_exports";
-import { TournamentGame } from "../../../game/tournamentGame";
 import { app } from "../../../main";
 import { db } from "../db";
+import { TournamentGame } from "../../../game/tournamentGame";
+import { env } from "../../../env";
 
 const TOURNAMENT_SIZES: { [key in TournamentType]: number } = {
 	EIGHT: 8
@@ -254,7 +255,7 @@ export const tournamentRouter = t.router({
 					username: ctx.user!.username
 				}, slotPosition);
 
-				tournamentBroadcastBracketUpdate(input.tournamentId, participantSlots, cachedTournament.aiPlayers);
+				tournamentBroadcastBracketUpdateById(input.tournamentId);
 			}
 
 			if (!result.updatedTournament) {
@@ -382,7 +383,7 @@ export const tournamentRouter = t.router({
 				TournamentValidator.validateCreatorPermission(tournament!.createdById, ctx.user!.id, 'start tournament');
 				TournamentValidator.validateTournamentStatus(tournament!.status, ['WAITING_PLAYERS'], 'start');
 
-				await executeTournamentStart(ctx.db, tournament!, ctx.user!.username);
+				await executeTournamentStart(tournament!, ctx.user!.username);
 
 				return getTournamentDetails(input.tournamentId, ctx.user);
 
@@ -475,6 +476,7 @@ export const tournamentRouter = t.router({
 				defaultStartDate.setHours(defaultStartDate.getHours() + 1);
 
 				const result = await ctx.db.$transaction(async (tx) => {
+
 					const tournament = await tx.tournament.create({
 						data: {
 							name: sanitizeHtml(input.name),
@@ -492,14 +494,20 @@ export const tournamentRouter = t.router({
 						}
 					});
 
-					const bracketGenerator = new BracketGenerator(tx);
-					const bracket = await bracketGenerator.generateAndCreateBracket(tournament, []);
 
-					await tx.tournamentParticipant.create({
+					const creator = await tx.tournamentParticipant.create({
 						data: { tournamentId: tournament.id, userId: ctx.user!.id }
 					});
 
-					await bracketGenerator.assignParticipantToSlot(tournament.id, ctx.user!.id);
+					const participants = tournament.participants.map(p => p.userId);
+					participants.push(creator.userId);
+
+
+					const bracketGenerator = new BracketGenerator(tx);
+					const bracket = await bracketGenerator.generateAndCreateBracket(tournament, participants);
+
+
+					// await bracketGenerator.assignParticipantToSlot(tournament.id, ctx.user!.id);
 
 					return tournament;
 				});
@@ -518,7 +526,6 @@ export const tournamentRouter = t.router({
 					connectedUsers: new Set(),
 					creatorId: ctx.user!.id,
 					bracketCreated: true,
-					aiPlayers: new Set(),
 					lastBracketUpdate: new Date(),
 					participantSlots
 				};
@@ -531,6 +538,33 @@ export const tournamentRouter = t.router({
 				handleTournamentError(error as Error, 'createTournament', undefined, ctx.user!.id);
 			}
 		}),
+
+	// TODO: remove this after testing
+	// clearAllTournaments: protectedProcedure
+	// 	.mutation(async ({ ctx }) => {
+	// 		try {
+	// 			const user = ctx.user;
+	// 			if (env.NODE_ENV !== 'development' || user.username.toLocaleLowerCase() !== "sandoramix") {
+	// 				throw new TRPCError({
+	// 					code: 'FORBIDDEN',
+	// 					message: ''
+	// 				});
+	// 			}
+	// 			await db.game.deleteMany({
+	// 				where: {
+	// 					tournamentId: {
+	// 						not: null
+	// 					}
+	// 				}
+	// 			});
+	// 			await db.tournamentParticipant.deleteMany();
+	// 			await db.tournament.deleteMany();
+
+	// 			return { success: true };
+	// 		} catch (error) {
+	// 			handleTournamentError(error as Error, 'clearAllTournaments');
+	// 		}
+	// 	}),
 });
 
 async function createTournamentGameInstances(db: PrismaClient, tournamentId: string): Promise<void> {
@@ -568,7 +602,7 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 		const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
 
 		if (isLeftAI && isRightAI) {
-			app.log.debug(`⏭️ Skipping AI vs AI game ${game.id} - already handled by simulation`);
+			app.log.debug(`⏭️Skipping AI vs AI game ${game.id} - already handled by simulation`);
 			aiGamesSkipped++;
 			continue;
 		}
@@ -849,30 +883,28 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 	app.log.info(`🎮 Next round ${nextRound}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
 }
 
-async function executeTournamentStart(db: PrismaClient, tournament: Tournament, startedByUsername: string) {
-	const createdAIPlayers = await db.$transaction(async (tx) => {
-		app.log.info(`Starting tournament (${tournament.name}) #${tournament.id}`);
-		const bracketGenerator = new BracketGenerator(tx);
-		const occupiedSlots = await bracketGenerator.getOccupiedSlotsCount(tournament.id);
+async function executeTournamentStart(tournament: Tournament, startedByUsername: string) {
+	app.log.info(`Starting tournament (${tournament.name}) #${tournament.id}`);
+	const bracketGenerator = new BracketGenerator(db);
+	const occupiedSlots = await bracketGenerator.getOccupiedSlotsCount(tournament.id);
 
-		let createdAIPlayers: string[] = [];
-		if (occupiedSlots < TOURNAMENT_SIZES[tournament.type ?? TournamentType.EIGHT]) {
-			createdAIPlayers = await bracketGenerator.fillEmptySlotsWithAI(tournament.id, db);
-		}
-		app.log.info(`Created ${createdAIPlayers.length} AI players for tournament #${tournament.id}`);
+	if (occupiedSlots < TOURNAMENT_SIZES[tournament.type ?? TournamentType.EIGHT]) {
+		app.log.info(`Creating AI players and autocompleting AI vs AI games for tournament #${tournament.id}`);
+		await bracketGenerator.fillEmptySlotsWithAIAndProgressAutomatically(tournament.id);
+		app.log.info(`Finished creating AI players and autocompleting AI vs AI games for tournament #${tournament.id}`);
+	}
 
-		const startDate = new Date();
+	const startDate = new Date();
 
-		await tx.tournament.update({
+	const result = await db.$transaction(async (tx) => {
+		await db.tournament.update({
 			where: { id: tournament.id },
 			data: {
 				status: 'IN_PROGRESS' as TournamentStatus,
 				startDate: startDate
 			}
 		});
-
-
-		const result = await tx.game.updateMany({
+		const result = await db.game.updateMany({
 			where: {
 				tournamentId: tournament.id,
 				tournamentRound: TournamentRound.QUARTI
@@ -881,17 +913,14 @@ async function executeTournamentStart(db: PrismaClient, tournament: Tournament, 
 				startDate: startDate
 			}
 		});
-		app.log.debug(`Updated tournament #${tournament.id} startDate for the initial round=${TournamentRound.QUARTI} games (${result.count})`);
-
-		return createdAIPlayers;
+		return result;
 	});
+
+	app.log.debug(`Updated tournament #${tournament.id} startDate for the initial round=${TournamentRound.QUARTI} games (${result.count})`);
 
 	const cachedTournament = cache.tournaments.active.get(tournament.id);
 	if (cachedTournament) {
 		cachedTournament.status = 'IN_PROGRESS';
-		createdAIPlayers.forEach((aiPlayerId: string) => {
-			cachedTournament.aiPlayers.add(aiPlayerId);
-		});
 
 		const bracketGenerator = new BracketGenerator(db);
 		const occupiedSlots = await bracketGenerator.getOccupiedSlots(tournament.id);
@@ -907,28 +936,13 @@ async function executeTournamentStart(db: PrismaClient, tournament: Tournament, 
 
 		updateTournamentBracket(tournament.id, participantSlots);
 
-		const isAutoStart = startedByUsername === 'System';
-		const message = isAutoStart
-			? `Tournament started automatically with ${createdAIPlayers.length} AI players filling empty slots`
-			: `Tournament started with ${createdAIPlayers.length} AI players filling empty slots`;
-
-		tournamentBroadcastStatusChange(tournament.id, 'IN_PROGRESS', startedByUsername, message);
-
-		if (createdAIPlayers.length > 0) {
-			const filledSlots = Array.from(participantSlots.entries())
-				.filter(([_, playerId]) => createdAIPlayers.includes(playerId || ''))
-				.map(([slotIndex, _]) => slotIndex);
-
-			tournamentBroadcastAIPlayersAdded(tournament.id, createdAIPlayers, filledSlots);
-		}
+		tournamentBroadcastStatusChange(tournament.id, 'IN_PROGRESS', startedByUsername, `Tournament started`);
 
 		tournamentBroadcastBracketUpdateById(tournament.id);
 	}
 
 	// NEW: Create TournamentGame instances for non-AI-vs-AI games
 	await createTournamentGameInstances(db, tournament.id);
-
-	return createdAIPlayers;
 }
 
 export async function autoStartTournament(db: PrismaClient, tournamentId: string): Promise<void> {
@@ -937,11 +951,13 @@ export async function autoStartTournament(db: PrismaClient, tournamentId: string
 		include: { participants: { include: { user: true } }, games: true }
 	});
 
-	if (!tournament || tournament.status !== 'WAITING_PLAYERS') {
+	if (!tournament
+		//  || tournament.status !== 'WAITING_PLAYERS'
+		) {
 		return;
 	}
 
-	await executeTournamentStart(db, tournament, 'System');
+	await executeTournamentStart(tournament, 'System');
 }
 
 
@@ -979,59 +995,59 @@ export async function craftTournamentDetailsForUser(tournamentData: Awaited<Retu
 
 async function fetchTournamentWithFullDetails(tournamentId: string) {
 	const tournament = await db.tournament.findUnique({
-			where: { id: tournamentId },
-			include: {
-				createdBy: {
-					select: {
-						id: true,
-						username: true
-					}
-				},
-				winner: {
-					select: {
-						id: true,
-						username: true
-					}
-				},
-				participants: {
-					include: {
-						user: {
-							select: {
-								id: true,
-								username: true
-							}
+		where: { id: tournamentId },
+		include: {
+			createdBy: {
+				select: {
+					id: true,
+					username: true
+				}
+			},
+			winner: {
+				select: {
+					id: true,
+					username: true
+				}
+			},
+			participants: {
+				include: {
+					user: {
+						select: {
+							id: true,
+							username: true
 						}
-					}
-				},
-				games: {
-					include: {
-						leftPlayer: {
-							select: {
-								id: true,
-								username: true
-							}
-						},
-						rightPlayer: {
-							select: {
-								id: true,
-								username: true
-							}
-						},
-						previousGames: {
-							select: {
-								id: true
-							}
-						}
-					},
-					orderBy: { startDate: 'asc' }
-				},
-				_count: {
-					select: {
-						participants: true
 					}
 				}
+			},
+			games: {
+				include: {
+					leftPlayer: {
+						select: {
+							id: true,
+							username: true
+						}
+					},
+					rightPlayer: {
+						select: {
+							id: true,
+							username: true
+						}
+					},
+					previousGames: {
+						select: {
+							id: true
+						}
+					}
+				},
+				orderBy: { startDate: 'asc' }
+			},
+			_count: {
+				select: {
+					participants: true
+				}
 			}
-		});
+		}
+	});
 	return tournament;
 }
 
@@ -1047,7 +1063,7 @@ export async function getTournamentFullDetailsById(tournamentId: string, shouldE
 		}
 
 
-		const mappedGames = mapTournamentGamesToDTO(tournament);
+		const mappedGames = mapTournamentGamesToDTO(tournament.games);
 
 		return {
 			id: tournament!.id,
@@ -1077,10 +1093,22 @@ export async function getTournamentFullDetailsById(tournamentId: string, shouldE
 	}
 }
 
-function mapTournamentGamesToDTO(tournament: NonNullable<Awaited<ReturnType<typeof fetchTournamentWithFullDetails>>>) {
-	const aiPlayerService = new AIPlayerService(db);
+export type MapTournamentGamesDTO = {
+	leftPlayer: {
+		id: string;
+		username: string;
+	};
+	rightPlayer: {
+		id: string;
+		username: string;
+	};
+	previousGames: {
+		id: string;
+	}[];
+} & PrismaGame;
 
-	const mappedGames = tournament.games.map((g) => {
+export function mapTournamentGamesToDTO(rawGames: MapTournamentGamesDTO[]) {
+	const mappedGames = rawGames.map((g) => {
 		const previousGames = g.previousGames?.map(pg => pg.id) || [];
 		return {
 			id: g.id,
@@ -1095,25 +1123,25 @@ function mapTournamentGamesToDTO(tournament: NonNullable<Awaited<ReturnType<type
 			tournamentRound: g.tournamentRound,
 			leftPlayerUsername: g.leftPlayerUsername,
 			rightPlayerUsername: g.rightPlayerUsername,
-			isAIGame: aiPlayerService.isAIPlayer(g.leftPlayerUsername) || aiPlayerService.isAIPlayer(g.rightPlayerUsername),
-			leftPlayerIsAI: aiPlayerService.isAIPlayer(g.leftPlayerUsername),
-			rightPlayerIsAI: aiPlayerService.isAIPlayer(g.rightPlayerUsername),
+			isAIGame: AIPlayerService.isAIPlayer(g.leftPlayerUsername) || AIPlayerService.isAIPlayer(g.rightPlayerUsername),
+			leftPlayerIsAI: AIPlayerService.isAIPlayer(g.leftPlayerUsername),
+			rightPlayerIsAI: AIPlayerService.isAIPlayer(g.rightPlayerUsername),
 			nextGameId: g.nextGameId,
 			previousGames,
 		};
 	});
 
 	const games = mappedGames.filter(g => g.tournamentRound);
-		// TODO: sort the games in order per each type (QUARTI, SEMIFINALE, FINALE)
-		/*
-		[0,1,2,3,4,5,6] ->
-		Frontend will render from top to bottom like this (it's not required to SEMIFINALE being the first 4 matches, QUARTI to be the middle and FINALE to be the last, but the order per each type is important):
-		- 0(SEMIFINALE)
-		- 1(SEMIFINALE) - 4(QUARTI)
-							- 6(FINALE)
-		- 2(SEMIFINALE) - 5(QUARTI)
-		- 3(SEMIFINALE)
-		*/
+	// TODO: sort the games in order per each type (QUARTI, SEMIFINALE, FINALE)
+	/*
+	[0,1,2,3,4,5,6] ->
+	Frontend will render from top to bottom like this (it's not required to SEMIFINALE being the first 4 matches, QUARTI to be the middle and FINALE to be the last, but the order per each type is important):
+	- 0(SEMIFINALE)
+	- 1(SEMIFINALE) - 4(QUARTI)
+						- 6(FINALE)
+	- 2(SEMIFINALE) - 5(QUARTI)
+	- 3(SEMIFINALE)
+	*/
 	const byId = new Map(games.map(g => [g.id, g]));
 	const byRound: Record<string, typeof games> = {};
 	games.forEach(g => (byRound[g.tournamentRound!] ??= []).push(g));
@@ -1130,14 +1158,14 @@ function mapTournamentGamesToDTO(tournament: NonNullable<Awaited<ReturnType<type
 	const order: string[] = [];
 
 	function dfs(id: string) {
-	const kids = children.get(id) ?? [];
-	if (!kids.length) {
-		order.push(id);
-		return;
-	}
+		const kids = children.get(id) ?? [];
+		if (!kids.length) {
+			order.push(id);
+			return;
+		}
 
-	kids.forEach(dfs);
-	order.push(id);
+		kids.forEach(dfs);
+		order.push(id);
 	}
 
 	// Start from roots (finals)

@@ -159,7 +159,6 @@ export class TournamentGame extends OnlineGame {
                 const cachedTournament = cache.tournaments.active.get(this.tournamentId);
                 if (cachedTournament) {
                     cachedTournament.status = 'COMPLETED';
-                    cachedTournament.aiPlayers.clear();
                 }
 
                 if (this.socketNamespace) {

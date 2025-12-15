@@ -14,7 +14,7 @@ const envSchema = z.object({
 
 	SKIP_ENV_VALIDATION: z.boolean().optional(),
 
-	NODE_ENV: z.enum(["development", "production"]).optional().default("development"),
+	NODE_ENV: z.enum(["development", "production", "test"]).optional().default("development"),
 
 	FRONTEND_URL: z.string().default("http://localhost"),
 	BACKEND_URL: z.string().default("http://localhost:4200"),

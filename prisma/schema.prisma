@@ -72,6 +72,7 @@ model Tournament {
     winner       User?                   @relation("wonTournaments", fields: [winnerId], references: [id])
     createdById  String
     createdBy    User                    @relation("createdTournaments", fields: [createdById], references: [id])
+    createdAt    DateTime?                @default(now())
     participants TournamentParticipant[] @relation("participants")
     games        Game[]                  @relation("games")
 }
@@ -98,6 +99,7 @@ enum TournamentRound {
     FINALE
 }
 
+// TODO: ideally left and right player could be `null` if it's not yet assigned or is an AI
 model Game {
     id                  String           @id @default(cuid())
     type                GameType
