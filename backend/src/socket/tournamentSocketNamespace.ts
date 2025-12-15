@@ -334,6 +334,12 @@ export function setupTournamentNamespace(io: Server) {
 
 
 // Helper functions for tournament notifications
+/**
+ * @deprecated Use {@link tournamentBroadcastBracketUpdateById} instead
+ * @param tournamentId tournament id
+ * @param participantSlots participants Ids
+ * @param aiPlayers AI players Ids (not used)
+ */
 export async function tournamentBroadcastBracketUpdate(tournamentId: string, participantSlots: Map<number, User['id'] | null>, aiPlayers: Set<string>) {
 	const tournamentSocket = app.io.of("/tournament");
 	const tournamentData = await getTournamentFullDetailsById(tournamentId, false);
