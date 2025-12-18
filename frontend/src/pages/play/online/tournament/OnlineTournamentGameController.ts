@@ -9,7 +9,7 @@ import { RouteController } from "@src/tools/ViewController";
 import { TRPCClientError } from "@trpc/client";
 import { io, Socket } from "socket.io-client";
 
-// TODO: tournament games are fu**ed up and never ending.
+// TODO: tournament games are fu**ed up and never ending. Also the score is never updaed on DB. Fix it.
 export class OnlineTournamentGameController extends RouteController {
 
 	#gameId: string = "";
