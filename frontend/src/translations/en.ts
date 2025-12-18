@@ -74,6 +74,7 @@ export const en = {
 		},
 		leave_tournament_success: "You have successfully left the tournament",
 		start_tournament_success: "Tournament started successfully",
+		create_tournament_success: "Tournament created successfully",
 		delete_tournament_success: "Tournament deleted successfully",
 		delete_tournament_confirm: "Are you sure you want to delete this tournament? This action cannot be undone.",
 		create: "Create",
@@ -99,6 +100,9 @@ export const en = {
 		user_not_found: "User not found",
 		in_progress: "In progress",
 		ai: "AI",
+		match_is_ready: "Match is ready!",
+		returning_to_lobby_in: "Returning to lobby in {{seconds}} seconds...",
+		game_has_ended: "Game has ended",
 	},
 	tournament:{
 		bracket: "Bracket",
@@ -106,6 +110,9 @@ export const en = {
 		semifinals: "Semifinals",
 		final: "Final",
 		tournament_has_been_deleted: "The tournament \"{{tournamentName}}\" has been deleted by the creator.",
+		match_is_ready: "Your match against {{opponent}} is ready.<br/>Get ready!",
+		tournament_has_been_completed: "The tournament has been completed. <b>{{winner}}</b> has won!",
+		rejoin_game: `Join my game`,
 	},
 
 	error: {

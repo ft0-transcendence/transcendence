@@ -9,6 +9,7 @@ import { RouteController } from "@src/tools/ViewController";
 import { TRPCClientError } from "@trpc/client";
 import { io, Socket } from "socket.io-client";
 
+// TODO: tournament games are fu**ed up and never ending.
 export class OnlineTournamentGameController extends RouteController {
 
 	#gameId: string = "";
@@ -35,7 +36,6 @@ export class OnlineTournamentGameController extends RouteController {
 			console.debug('Game Socket connected to server');
 			this.#gameSocket.emit('join-tournament-game', this.#gameId);
 		});
-		this.#setupSocketEvents();
 
 		this.#gameComponent = new GameComponent({
 			gameId: this.#gameId,
@@ -56,7 +56,7 @@ export class OnlineTournamentGameController extends RouteController {
 
 		let gameFound = false;
 		try {
-			const game = await api.game.getTournamentGameDetails.query({tournamentId: this.#tournamentId, gameId: this.#gameId});
+			const game = await api.game.getTournamentGameDetails.query({ tournamentId: this.#tournamentId, gameId: this.#gameId });
 			this.#game = game;
 			gameFound = game != null;
 		} catch (err) {
@@ -67,6 +67,14 @@ export class OnlineTournamentGameController extends RouteController {
 			this.#gameComponent.showError(
 				/*html*/`
 					<h3 data-i18n="${k('generic.game_not_found')}">Game not found</h3>
+				`
+			);
+			this.#isGameValidated = true;
+		}
+		else if (this.#game?.endDate || this.#game?.abortDate) {
+			this.#gameComponent.showError(
+				/*html*/`
+					<h3 data-i18n="${k('generic.game_has_ended')}">Game has ended</h3>
 				`
 			);
 			this.#isGameValidated = true;
@@ -85,7 +93,7 @@ export class OnlineTournamentGameController extends RouteController {
 				<section class="flex flex-col grow sm:items-center sm:w-full max-w-2xl">
 					<div class="grow flex flex-col w-full">
 						<!-- GAME COMPONENT -->
-						${this.#game != null ? await this.#gameComponent!.render() : ''}
+						${await this.#gameComponent!.render()}
 					</div>
 				</section>
 				<section class="hidden sm:flex sm:min-w-32 sm:grow">
@@ -107,7 +115,9 @@ export class OnlineTournamentGameController extends RouteController {
 			const event = type === 'press' ? 'player-press' : 'player-release';
 			this.#gameSocket.emit(event, direction);
 		});
-
+		if (!this.#game?.endDate && !this.#game?.abortDate) {
+			this.#setupSocketEvents();
+		}
 	}
 	protected async destroy() {
 		if (this.#gameSocket.connected) {

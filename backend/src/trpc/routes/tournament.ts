@@ -5,7 +5,7 @@ import { TournamentType, GameType, TournamentStatus, PrismaClient, Tournament, T
 import sanitizeHtml from 'sanitize-html';
 import { BracketGenerator } from "../../../game/bracketGenerator";
 import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, TournamentCacheEntry } from "../../cache";
-import { tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastStatusChange, tournamentBroadcastTournamentDeleted, tournamentBroadcastBracketUpdateById } from "../../socket/tournamentSocketNamespace";
+import { tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastTournamentDeleted, tournamentBroadcastBracketUpdateById, notifyPlayersAboutNewTournamentGame } from "../../socket/tournamentSocketNamespace";
 import { AIPlayerService } from "../../services/aiPlayerService";
 import {
 	TournamentValidator,
@@ -17,6 +17,7 @@ import { STANDARD_GAME_CONFIG } from "../../../shared_exports";
 import { app } from "../../../main";
 import { db } from "../db";
 import { TournamentGame } from "../../../game/tournamentGame";
+import { env } from "../../../env";
 
 const TOURNAMENT_SIZES: { [key in TournamentType]: number } = {
 	EIGHT: 8
@@ -27,66 +28,7 @@ export const tournamentRouter = t.router({
 
 	getAvailableTournaments: publicProcedure
 		.query(async ({ ctx }) => {
-			const tournaments = await ctx.db.tournament.findMany({
-				where: {
-					status: {
-						in: ['WAITING_PLAYERS', 'IN_PROGRESS']
-					}
-				},
-				include: {
-					createdBy: {
-						select: {
-							id: true,
-							username: true
-						}
-					},
-					participants: {
-						include: {
-							user: {
-								select: {
-									id: true,
-									username: true
-								}
-							}
-						}
-					},
-					_count: {
-						select: {
-							participants: true
-						}
-					}
-				},
-				orderBy: {
-					startDate: 'asc'
-				}
-			});
-
-			return tournaments.map(tournament => {
-				const hasUserJoined = ctx.user?.id
-					? tournament.participants.some(p => p.user.id === ctx.user!.id)
-					: false;
-
-				const participants = tournament.participants.map(p => ({
-					id: p.user.id,
-					username: p.user.username
-				}));
-
-				const isStarted = tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED';
-
-				return {
-					id: tournament.id,
-					name: tournament.name,
-					type: tournament.type,
-					status: tournament.status,
-					startDate: tournament.startDate,
-					createdBy: tournament.createdBy,
-					participantsCount: tournament._count.participants,
-					maxParticipants: 8,
-					hasUserJoined,
-					participants,
-					isStarted
-				};
-			});
+			return await getAvailableTournamentListDTO();
 		}),
 
 	getTournamentDetails: publicProcedure
@@ -94,7 +36,7 @@ export const tournamentRouter = t.router({
 			tournamentId: z.string()
 		}))
 		.query(async ({ ctx, input }) => {
-			const result = await getTournamentDetails(input.tournamentId, ctx.user);
+			const result = await getTournamentDetailsById(input.tournamentId, ctx.user);
 			app.log.debug(`[getTournamentDetails] Returning result with ${result.games?.length} games`);
 			return result
 		}),
@@ -384,7 +326,7 @@ export const tournamentRouter = t.router({
 
 				await executeTournamentStart(tournament!, ctx.user!.username);
 
-				return getTournamentDetails(input.tournamentId, ctx.user);
+				return getTournamentDetailsById(input.tournamentId, ctx.user);
 
 			} catch (error) {
 				handleTournamentError(error as Error, 'startTournament', input.tournamentId, ctx.user!.id);
@@ -539,31 +481,31 @@ export const tournamentRouter = t.router({
 		}),
 
 	// TODO: remove this after testing
-	// clearAllTournaments: protectedProcedure
-	// 	.mutation(async ({ ctx }) => {
-	// 		try {
-	// 			const user = ctx.user;
-	// 			if (env.NODE_ENV !== 'development' || user.username.toLocaleLowerCase() !== "sandoramix") {
-	// 				throw new TRPCError({
-	// 					code: 'FORBIDDEN',
-	// 					message: ''
-	// 				});
-	// 			}
-	// 			await db.game.deleteMany({
-	// 				where: {
-	// 					tournamentId: {
-	// 						not: null
-	// 					}
-	// 				}
-	// 			});
-	// 			await db.tournamentParticipant.deleteMany();
-	// 			await db.tournament.deleteMany();
+	clearAllTournaments: protectedProcedure
+		.mutation(async ({ ctx }) => {
+			try {
+				const user = ctx.user;
+				if (env.NODE_ENV !== 'development' || user.username.toLocaleLowerCase() !== "sandoramix") {
+					throw new TRPCError({
+						code: 'FORBIDDEN',
+						message: ''
+					});
+				}
+				await db.game.deleteMany({
+					where: {
+						tournamentId: {
+							not: null
+						}
+					}
+				});
+				await db.tournamentParticipant.deleteMany();
+				await db.tournament.deleteMany();
 
-	// 			return { success: true };
-	// 		} catch (error) {
-	// 			handleTournamentError(error as Error, 'clearAllTournaments');
-	// 		}
-	// 	}),
+				return { success: true };
+			} catch (error) {
+				handleTournamentError(error as Error, 'clearAllTournaments');
+			}
+		}),
 });
 
 async function createTournamentGameInstances(db: PrismaClient, tournamentId: string): Promise<void> {
@@ -587,7 +529,8 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 			leftPlayer: { select: { id: true, username: true } },
 			rightPlayer: { select: { id: true, username: true } },
 			leftPlayerUsername: true,
-			rightPlayerUsername: true
+			rightPlayerUsername: true,
+			tournamentId: true
 		},
 		orderBy: { startDate: 'asc' }
 	});
@@ -640,15 +583,17 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 		);
 
 		gameInstance.setPlayers(
-			{ id: game.leftPlayer.id, username: game.leftPlayer.username, isPlayer: true },
-			{ id: game.rightPlayer.id, username: game.rightPlayer.username, isPlayer: true }
+			{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: game.leftPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID },
+			{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: game.rightPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID }
 		);
 
 		// Add to cache
 		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
 		humanGamesCreated++;
 
-		app.log.info(`✅ TournamentGame instance created for ${game.id} - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
+		app.log.info(`✅ TournamentGame instance created for ${game.id} - Left: ${game.leftPlayerUsername}, Right: ${game.rightPlayerUsername}`);
+
+		notifyPlayersAboutNewTournamentGame(game.tournamentId, game.id, game.leftPlayer.id, game.rightPlayer.id);
 	}
 
 	app.log.info(`🎮 Tournament ${tournamentId}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
@@ -732,8 +677,8 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 	);
 
 	gameInstance.setPlayers(
-		{ id: game.leftPlayer.id, username: game.leftPlayer.username, isPlayer: true },
-		{ id: game.rightPlayer.id, username: game.rightPlayer.username, isPlayer: true }
+		{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: game.leftPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID },
+		{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: game.rightPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID }
 	);
 
 	if (game.leftPlayerScore > 0 || game.rightPlayerScore > 0) {
@@ -743,7 +688,7 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 	}
 
 	cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
-	app.log.info(`✅ On-demand game instance created for ${game.id} - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
+	app.log.info(`✅ On-demand game instance created for ${game.id} - Left: ${game.leftPlayerUsername}, Right: ${game.rightPlayerUsername}`);
 
 	return true;
 }
@@ -869,14 +814,14 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 		);
 
 		gameInstance.setPlayers(
-			{ id: game.leftPlayer.id, username: game.leftPlayer.username, isPlayer: true },
-			{ id: game.rightPlayer.id, username: game.rightPlayer.username, isPlayer: true }
+			{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: game.leftPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID },
+			{ id: game.rightPlayer.id, username: game.leftPlayerUsername, isPlayer: game.rightPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID }
 		);
 
 		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
 		humanGamesCreated++;
 
-		app.log.info(`✅ TournamentGame instance created for ${game.id} (${nextRound}) - Left: ${game.leftPlayer.username}, Right: ${game.rightPlayer.username}`);
+		app.log.info(`✅ TournamentGame instance created for ${game.id} (${nextRound}) - Left: ${game.leftPlayerUsername}, Right: ${game.rightPlayerUsername}`);
 	}
 
 	app.log.info(`🎮 Next round ${nextRound}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
@@ -935,7 +880,7 @@ async function executeTournamentStart(tournament: Tournament, startedByUsername:
 
 		updateTournamentBracket(tournament.id, participantSlots);
 
-		tournamentBroadcastStatusChange(tournament.id, 'IN_PROGRESS', startedByUsername, `Tournament started`);
+		// tournamentBroadcastStatusChange(tournament.id, 'IN_PROGRESS', startedByUsername, `Tournament started`);
 
 		tournamentBroadcastBracketUpdateById(tournament.id);
 	}
@@ -951,7 +896,7 @@ export async function autoStartTournament(db: PrismaClient, tournamentId: string
 	});
 
 	if (!tournament
-		//  || tournament.status !== 'WAITING_PLAYERS'
+		 || tournament.status !== 'WAITING_PLAYERS'
 	) {
 		return;
 	}
@@ -960,7 +905,7 @@ export async function autoStartTournament(db: PrismaClient, tournamentId: string
 }
 
 
-export async function getTournamentDetails(tournamentId: string, requestedByUser?: User | null) {
+export async function getTournamentDetailsById(tournamentId: string, requestedByUser?: User | null) {
 	try {
 		const tournament = await getTournamentFullDetailsById(tournamentId, true);
 
@@ -969,7 +914,7 @@ export async function getTournamentDetails(tournamentId: string, requestedByUser
 			validateCacheConsistency(tournamentId, db);
 		}
 
-		const result = await craftTournamentDetailsForUser(tournament, requestedByUser?.id);
+		const result = await craftTournamentDTODetailsForUser(tournament, requestedByUser?.id);
 
 		return result!;
 	} catch (error) {
@@ -978,23 +923,48 @@ export async function getTournamentDetails(tournamentId: string, requestedByUser
 	}
 }
 
-export async function craftTournamentDetailsForUser(tournamentData: Awaited<ReturnType<typeof getTournamentFullDetailsById>>, requestedByUserId?: User['id']) {
+export function craftTournamentDTODetailsForUser(tournamentData: Awaited<ReturnType<typeof getTournamentFullDetailsById>>, requestedByUserId?: User['id']) {
 
-	const isRegisteredToTournament = requestedByUserId
-		? tournamentData!.participants.some((p) => p.id === requestedByUserId)
+	if (!tournamentData) {
+		return null;
+	}
+
+	const isUserRegistered = requestedByUserId
+		? tournamentData.participants.some((p) => p.id === requestedByUserId)
 		: false;
 
+	const isCreator = requestedByUserId
+		? tournamentData.createdBy.id === requestedByUserId
+		: false;
+
+	const isWaitingForPlayers = tournamentData.status === 'WAITING_PLAYERS';
+	const isStarted = tournamentData.status === 'IN_PROGRESS';
+	const isEnded = tournamentData.status === 'COMPLETED';
+
+	const canJoin = !isUserRegistered && isWaitingForPlayers && tournamentData.maxParticipants > tournamentData.participantsCount;
+	const canLeave = isUserRegistered && isWaitingForPlayers;
+	const canStart = isWaitingForPlayers && isCreator;
+	const canDelete = isCreator;
+
+	const myCurrentActiveGame = tournamentData.games.find(g => (g.leftPlayer.id === requestedByUserId || g.rightPlayer.id === requestedByUserId) && g.endDate == null && g.abortDate == null && g.startDate != null);
 
 	const result = {
 		...tournamentData,
-		isRegisteredToTournament
+		isUserRegistered,
+		canJoin,
+		canLeave,
+		canStart,
+		canDelete,
+		myCurrentActiveGame: myCurrentActiveGame?.id ?? null,
 	};
 	return result;
 }
 
-async function fetchTournamentWithFullDetails(tournamentId: string) {
-	const tournament = await db.tournament.findUnique({
-		where: { id: tournamentId },
+async function fetchTournamentsWithFullDetails(tournamentIds: string[]) {
+	const tournaments = await db.tournament.findMany({
+		where: {
+			id: { in: tournamentIds }
+		},
 		include: {
 			createdBy: {
 				select: {
@@ -1047,12 +1017,34 @@ async function fetchTournamentWithFullDetails(tournamentId: string) {
 			}
 		}
 	});
-	return tournament;
+	return tournaments;
 }
+
+
+export async function getAvailableTournamentListDTO(){
+	const notEndedTournaments = (await db.tournament.findMany({
+		where: {
+			status: {
+				not: 'COMPLETED'
+			},
+			endDate: null
+		},
+		select: {
+			id: true,
+		}
+	})).map(t => t.id);
+
+	const tournaments = await fetchTournamentsWithFullDetails(notEndedTournaments);
+	const craftedTournaments = craftTournamentDetailsDTO(tournaments);
+	return craftedTournaments.map(tournament=>craftTournamentDTODetailsForUser(tournament)!);
+}
+
+
 
 export async function getTournamentFullDetailsById(tournamentId: string, shouldExpandThrownError = false) {
 	try {
-		const tournament = await fetchTournamentWithFullDetails(tournamentId);
+		const tournaments = await fetchTournamentsWithFullDetails([tournamentId]);
+		const [tournament] = craftTournamentDetailsDTO(tournaments);
 
 		if (!tournament) {
 			throw new TRPCError({
@@ -1060,10 +1052,21 @@ export async function getTournamentFullDetailsById(tournamentId: string, shouldE
 				message: 'Tournament not found'
 			});
 		}
+		return tournament;
 
+	} catch (error) {
+		app.log.warn(`[getTournamentDetails] Error occurred while fetching tournament #${tournamentId}:`, error);
+		if (shouldExpandThrownError) {
+			throw error;
+		} else {
+			return null;
+		}
+	}
+}
 
+export function craftTournamentDetailsDTO(tournamentData: Awaited<ReturnType<typeof fetchTournamentsWithFullDetails>>) {
+	return tournamentData.map((tournament)=>{
 		const mappedGames = mapTournamentGamesToDTO(tournament.games);
-
 		return {
 			id: tournament!.id,
 			name: tournament!.name,
@@ -1081,15 +1084,8 @@ export async function getTournamentFullDetailsById(tournamentId: string, shouldE
 			maxParticipants: TOURNAMENT_SIZES[tournament!.type ?? TournamentType.EIGHT],
 
 			games: mappedGames
-		};
-	} catch (error) {
-		app.log.warn(`[getTournamentDetails] Error occurred while fetching tournament #${tournamentId}:`, error);
-		if (shouldExpandThrownError) {
-			throw error;
-		} else {
-			return null;
 		}
-	}
+	});
 }
 
 export type MapTournamentGamesDTO = {
@@ -1131,16 +1127,9 @@ export function mapTournamentGamesToDTO(rawGames: MapTournamentGamesDTO[]) {
 	});
 
 	const games = mappedGames.filter(g => g.tournamentRound);
-	// TODO: sort the games in order per each type (QUARTI, SEMIFINALE, FINALE)
-	/*
-	[0,1,2,3,4,5,6] ->
-	Frontend will render from top to bottom like this (it's not required to SEMIFINALE being the first 4 matches, QUARTI to be the middle and FINALE to be the last, but the order per each type is important):
-	- 0(SEMIFINALE)
-	- 1(SEMIFINALE) - 4(QUARTI)
-						- 6(FINALE)
-	- 2(SEMIFINALE) - 5(QUARTI)
-	- 3(SEMIFINALE)
-	*/
+
+	// TODO: revise the part below (check if it's persistent)
+
 	const byId = new Map(games.map(g => [g.id, g]));
 	const byRound: Record<string, typeof games> = {};
 	games.forEach(g => (byRound[g.tournamentRound!] ??= []).push(g));

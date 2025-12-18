@@ -76,6 +76,7 @@ export const ua: TranslationSchema = {
 		},
 		leave_tournament_success: "Ви успішно вийшли з турніру",
 		start_tournament_success: "Турнір успішно розпочато",
+		create_tournament_success: "Турнір успішно створено",
 		delete_tournament_success: "Турнір успішно видалено",
 		delete_tournament_confirm: "Ви впевнені, що хочете видалити цей турнір? Цю дію неможливо скасувати.",
 		create: "Створити",
@@ -101,6 +102,9 @@ export const ua: TranslationSchema = {
 		user_not_found: "Користувач не знайдений",
 		in_progress: "В процесі",
 		ai: "AI",
+		match_is_ready: "Матч готовий!",
+		returning_to_lobby_in: "Закриття сторінки через {{seconds}} секунд...",
+		game_has_ended: "Гра завершена",
 	},
 	tournament:{
 		bracket: "Склад",
@@ -108,6 +112,9 @@ export const ua: TranslationSchema = {
 		semifinals: "Полуфінал",
 		final: "Фінал",
 		tournament_has_been_deleted: "Турнір \"{{tournamentName}}\" був видалений автором.",
+		match_is_ready: "Твій матч против {{opponent}} знайдений.<br/>Готуйся!",
+		tournament_has_been_completed: "Турнір завершений. <b>{{winner}}</b> виграв!",
+		rejoin_game: `Перейти до мого матчу`,
 	},
 
 	error: {

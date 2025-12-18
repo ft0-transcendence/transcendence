@@ -75,6 +75,7 @@ export const it: TranslationSchema = {
 		},
 		leave_tournament_success: "Sei uscito dal torneo",
 		start_tournament_success: "Torneo iniziato con successo",
+		create_tournament_success: "Torneo creato con successo",
 		delete_tournament_success: "Torneo eliminato con successo",
 		delete_tournament_confirm: "Sei sicuro di voler eliminare questo torneo? Questa azione non può essere annullata.",
 		create: "Crea",
@@ -100,6 +101,9 @@ export const it: TranslationSchema = {
 		user_not_found: "Utente non trovato",
 		in_progress: "In corso",
 		ai: "IA",
+		match_is_ready: "La partita è pronta!",
+		returning_to_lobby_in: "Ritorno alla lista in {{seconds}} secondi...",
+		game_has_ended: "Partita finita",
 	},
 	tournament:{
 		bracket: "Programma",
@@ -107,6 +111,9 @@ export const it: TranslationSchema = {
 		semifinals: "Semifinali",
 		final: "Finale",
 		tournament_has_been_deleted: "Il torneo \"{{tournamentName}}\" è stato cancellato dal creatore.",
+		match_is_ready: "La tua partita contro {{opponent}} è pronta.<br/>Preparati!",
+		tournament_has_been_completed: "Il torneo è stato completato. <b>{{winner}}</b> ha vinto!",
+		rejoin_game: `Riprendi la partita`,
 	},
 
 	error: {

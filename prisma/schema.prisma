@@ -62,19 +62,20 @@ enum TournamentStatus {
 }
 
 model Tournament {
-    id           String                  @id @default(cuid())
-    type         TournamentType?         @default(EIGHT)
-    name         String
-    startDate    DateTime
-    endDate      DateTime?
-    status       TournamentStatus         @default(WAITING_PLAYERS)
-    winnerId     String?
-    winner       User?                   @relation("wonTournaments", fields: [winnerId], references: [id])
-    createdById  String
-    createdBy    User                    @relation("createdTournaments", fields: [createdById], references: [id])
-    createdAt    DateTime?                @default(now())
-    participants TournamentParticipant[] @relation("participants")
-    games        Game[]                  @relation("games")
+    id             String                  @id @default(cuid())
+    type           TournamentType?         @default(EIGHT)
+    name           String
+    startDate      DateTime
+    endDate        DateTime?
+    status         TournamentStatus        @default(WAITING_PLAYERS)
+    winnerId       String?
+    winner         User?                   @relation("wonTournaments", fields: [winnerId], references: [id])
+    winnerUsername String?
+    createdById    String
+    createdBy      User                    @relation("createdTournaments", fields: [createdById], references: [id])
+    createdAt      DateTime?               @default(now())
+    participants   TournamentParticipant[] @relation("participants")
+    games          Game[]                  @relation("games")
 }
 
 model TournamentParticipant {
@@ -83,6 +84,7 @@ model TournamentParticipant {
     userId       String
     tournament   Tournament @relation("participants", fields: [tournamentId], references: [id])
     user         User       @relation("joinedTournaments", fields: [userId], references: [id])
+    joinedAt     DateTime?  @default(now())
 
     @@unique([tournamentId, userId])
 }
@@ -104,6 +106,7 @@ model Game {
     id                  String           @id @default(cuid())
     type                GameType
     tournamentRound     TournamentRound?
+    createdAt           DateTime?        @default(now())
     startDate           DateTime?
     updatedAt           DateTime         @default(now()) @updatedAt
     endDate             DateTime?

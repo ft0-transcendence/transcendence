@@ -4,14 +4,13 @@ import { TypedSocket, TypedSocketNamespace } from "../socket-io";
 import { app } from "../../main";
 import { db } from "../trpc/db";
 import { cache } from "../cache";
-import { User } from "@prisma/client";
+import { User, Tournament, Game as PrismaGame } from '@prisma/client';
 import { GameUserInfo } from "../../shared_exports";
 import { OnlineGame } from "../../game/onlineGame";
-import { MovePaddleAction } from "../../game/game";
-import { craftTournamentDetailsForUser, getTournamentFullDetailsById } from "../trpc/routes/tournament";
+import { MovePaddleAction } from '../../game/game';
+import { craftTournamentDTODetailsForUser, getTournamentFullDetailsById } from "../trpc/routes/tournament";
+import { BracketGenerator } from "../../game/bracketGenerator";
 
-const notifyIntervalMs = 1000 * 10;
-let notifyInterval: NodeJS.Timeout | null = null;
 
 export function setupTournamentNamespace(io: Server) {
 	const tournamentNamespace = io.of("/tournament");
@@ -358,7 +357,7 @@ export async function tournamentSendBracketUpdateForUser(tournamentId: string, p
 }
 
 async function sendBracketUpdateToUser(tournamentSocket: TypedSocketNamespace, tournamentId: string, playerId: User['id'], tournamentDetails: Awaited<ReturnType<typeof getTournamentFullDetailsById>>) {
-	const dto = await craftTournamentDetailsForUser(tournamentDetails, playerId);
+	const dto = await craftTournamentDTODetailsForUser(tournamentDetails, playerId);
 	// README: SOCKET-EVENT
 	tournamentSocket.to(`${tournamentId}:${playerId}`).emit('bracket-updated', dto);
 }
@@ -385,50 +384,13 @@ export function tournamentBroadcastParticipantLeft(tournamentId: string, partici
 	});
 }
 
-
-export type TournamentStatusChangeEventData = {
-	tournamentId: string;
-	newStatus: string;
-	changedBy: string;
-	message: string;
-	timestamp: Date;
-	winner: {
-		id: string;
-		username: string;
-	} | undefined;
-}
-/**
- * Notify all tournament lobby participants about the tournament status change (e.g. when the tournament is started or completed)
- * @param tournamentId tournament id
- * @param newStatus new tournament status
- * @param changedBy who changed the status
- * @param message optional message
- * @param winner optional winner info when tournament is completed
- */
-export function tournamentBroadcastStatusChange(
-	tournamentId: string,
-	newStatus: string,
-	changedBy: string,
-	message?: string,
-	winner?: { id: string, username: string },
-) {
+export function tournamentBroadcastTournamentCompleted(tournamentId: string, winnerId: User['id'], winnerUsername: Tournament['winnerUsername']) {
 	const tournamentNamespace = app.io.of("/tournament");
-	const eventData: TournamentStatusChangeEventData = {
-		tournamentId,
-		newStatus,
-		changedBy,
-		message: message || `Tournament status changed to ${newStatus}`,
-		timestamp: new Date(),
-		winner: winner
-	};
 
-	if (newStatus === 'COMPLETED') {
-		eventData.winner = winner;
-	} else {
-		eventData.winner = undefined;
-	}
-
-	tournamentNamespace.to(tournamentId).emit('tournament-status-changed', eventData);
+	tournamentNamespace.to(tournamentId).emit('tournament-completed', {
+		winnerId,
+		winnerUsername,
+	});
 }
 
 export function tournamentBroadcastTournamentDeleted(tournamentId: string, tournamentName: string, deletedBy: string) {
@@ -442,3 +404,13 @@ export function tournamentBroadcastTournamentDeleted(tournamentId: string, tourn
 	});
 }
 
+export function notifyPlayersAboutNewTournamentGame(tournamentId: PrismaGame['tournamentId'], gameId: PrismaGame['id'], leftPlayerId: string, rightPlayerId: string, leftPlayerUsername: string | null = null, rightPlayerUsername: string | null = null) {
+	if (!tournamentId) return;
+	const tournamentNamespace = app.io.of("/tournament");
+	if (leftPlayerId !== BracketGenerator.PLACEHOLDER_USER_ID) {
+		tournamentNamespace.to(`${tournamentId}:${leftPlayerId}`).emit(`your-match-is-ready`, { gameId, tournamentId, opponent: rightPlayerUsername });
+	}
+	if (rightPlayerId !== BracketGenerator.PLACEHOLDER_USER_ID) {
+		tournamentNamespace.to(`${tournamentId}:${rightPlayerId}`).emit(`your-match-is-ready`, { gameId, tournamentId, opponent: leftPlayerUsername });
+	}
+}

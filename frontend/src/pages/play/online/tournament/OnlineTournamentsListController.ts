@@ -35,26 +35,26 @@ export class TournamentsListController extends RouteController {
 		return /*html*/`
 		<div class="flex flex-col relative grow bg-neutral-900">
 			<header class="sticky top-0 right-0 z-10 bg-black/50 flex items-center py-3 px-6 w-full gap-2">
-				<div class="flex justify-end">
+				<div class="flex justify-end gap-2">
 					<button id="${this.id}-create-tournament-btn"
-							class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-xl rounded-md bg-stone-600 hover:bg-stone-500 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
+							class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-base rounded-md bg-stone-600 hover:bg-stone-500 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
 							aria-label="Create Tournament" title="Create Tournament">
 						<i class="fa fa-plus"></i>
 						<span class="flex" data-i18n="${k('generic.create_tournament')}">Create Tournament</span>
 					</button>
 					${
 						// TODO: remove this button after testing
-						false && authManager.user?.username.toLocaleLowerCase() === "sandoramix"
+						authManager.user?.username.toLocaleLowerCase() === "sandoramix"
 							? /*html*/`
 								<button id="${this.id}-clear-tournaments-btn"
-										class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-xl rounded-md bg-red-700 hover:bg-red-600 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
+										class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-base rounded-md bg-red-700 hover:bg-red-600 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
 										aria-label="Create Tournament" title="Clear all tournaments">
 									<i class="fa fa-plus"></i>
 									<span class="flex">Remove all tournaments</span>
 								</button>
 
 								<button id="${this.id}-gen-random-tournament"
-										class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-xl rounded-md bg-amber-700 hover:bg-amber-600 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
+										class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-base rounded-md bg-amber-700 hover:bg-amber-600 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
 										aria-label="Create Tournament" title="Clear all tournaments">
 									<i class="fa fa-plus"></i>
 									<span class="flex">new random tournament</span>
@@ -115,34 +115,34 @@ export class TournamentsListController extends RouteController {
 		this.#bindOnCreateTournamentModalOpen();
 
 		// TODO: remove this after testing
-		// document.querySelector(`#${this.id}-clear-tournaments-btn`)?.addEventListener('click', async () => {
-		// 	try {
-		// 		const res = await api.tournament.clearAllTournaments.mutate();
-		// 		toast.success(t('generic.tournament'), t('generic.delete_tournament_success') ?? "");
-		// 		this.#fetchAndShowTournaments();
-		// 	} catch (err) {
-		// 		showAndLogTrpcError(err, 'generic.tournament');
-		// 	}
-		// });
+		document.querySelector(`#${this.id}-clear-tournaments-btn`)?.addEventListener('click', async () => {
+			try {
+				const res = await api.tournament.clearAllTournaments.mutate();
+				toast.success(t('generic.tournament'), t('generic.delete_tournament_success') ?? "");
+				this.#fetchAndShowTournaments();
+			} catch (err) {
+				showAndLogTrpcError(err, 'generic.tournament');
+			}
+		});
 
-		// document.querySelector(`#${this.id}-gen-random-tournament`)?.addEventListener('click', async () => {
-		// 	try {
-		// 		const randomFutureDate = new Date();
-		// 		randomFutureDate.setDate(randomFutureDate.getDate() + Math.floor(Math.random() * 100));
-		// 		const randomDate = new Date(randomFutureDate.getTime() + Math.random() * 1000 * 60 * 60 * 24 * 365);
+		document.querySelector(`#${this.id}-gen-random-tournament`)?.addEventListener('click', async () => {
+			try {
+				const randomFutureDate = new Date();
+				randomFutureDate.setDate(randomFutureDate.getDate() + Math.floor(Math.random() * 100));
+				const randomDate = new Date(randomFutureDate.getTime() + Math.random() * 1000 * 60 * 60 * 24 * 365);
 
-		// 		const randomName = `tournament: ${randomDate.toISOString().replace(/T/, ' ')}`;
-		// 		const res = await api.tournament.createTournament.mutate({
-		// 			name: randomName,
-		// 			type: "EIGHT",
-		// 			startDate: randomDate.toISOString()
-		// 		});
-		// 		toast.success(t('generic.tournament'), t('generic.delete_tournament_success') ?? "");
-		// 		this.#fetchAndShowTournaments();
-		// 	} catch (err) {
-		// 		showAndLogTrpcError(err, 'generic.tournament');
-		// 	}
-		// });
+				const randomName = `tournament: ${randomDate.toISOString().replace(/T/, ' ')}`;
+				const res = await api.tournament.createTournament.mutate({
+					name: randomName,
+					type: "EIGHT",
+					startDate: randomDate.toISOString()
+				});
+				toast.success(t('generic.tournament'), t('generic.create_tournament_success') ?? "");
+				this.#fetchAndShowTournaments();
+			} catch (err) {
+				showAndLogTrpcError(err, 'generic.tournament');
+			}
+		});
 	}
 
 	async #fetchAndShowTournaments() {
@@ -163,6 +163,10 @@ export class TournamentsListController extends RouteController {
 		}
 	}
 
+	#getTournamentStatusColorClass(status: RouterOutputs['tournament']['getAvailableTournaments'][number]['status']) {
+		return status === 'WAITING_PLAYERS' ? 'bg-green-600' : (status === 'IN_PROGRESS' ? 'bg-yellow-600' : 'bg-red-700');
+	}
+
 	#createTournamentItem(tournament: RouterOutputs['tournament']['getAvailableTournaments'][number]) {
 		const li = document.createElement('li');
 		li.className = `
@@ -170,11 +174,6 @@ export class TournamentsListController extends RouteController {
 			overflow-hidden cursor-pointer flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 sm:p-4
 		`;
 		li.setAttribute('data-tournament-id', tournament.id);
-
-		const isWaiting = tournament.status === 'WAITING_PLAYERS';
-		const isFull = (tournament.maxParticipants ?? 8) <= (tournament.participantsCount ?? 0);
-		const isJoinable = isWaiting && !isFull;
-		const statusClass = isJoinable ? 'bg-green-600' : (isFull ? 'bg-red-700' : 'bg-yellow-600');
 
 		const startDate = tournament.startDate ? new Date(tournament.startDate) : null;
 		const startTooltip = startDate ? startDate.toLocaleString('en-US', {
@@ -208,16 +207,16 @@ export class TournamentsListController extends RouteController {
 				<div class="flex flex-col sm:flex-col sm:items-center sm:justify-between min-w-0 gap-1">
 
 					<div class="flex gap-2 items-center sm:justify-start sm:flex-col sm:gap-1">
-						<div ${tournament.hasUserJoined ? 'disabled' : ''}
+						<button
 							data-i18n="${k('generic.tournamentList.join')}"
-							class="${!isJoinable || tournament.hasUserJoined ? 'hidden' : 'cursor-pointer'} join-tournament-btn px-5 py-2.5 uppercase rounded-md bg-stone-600 hover:bg-stone-500 transition-colors text-sm font-semibold text-center min-w-24">
+							class="${!tournament.canJoin ? 'hidden' : ''} join-tournament-btn px-5 py-2.5 uppercase rounded-md bg-stone-600 hover:bg-stone-500 transition-colors text-sm font-semibold text-center min-w-24">
 							Join
-						</div>
-						<div ${tournament.hasUserJoined ? 'disabled' : ''}
+						</button>
+						<button
 							data-i18n="${k('generic.tournamentList.leave')}"
-							class="${!isJoinable || !tournament.hasUserJoined ? 'hidden' : ''} leave-tournament-btn px-5 py-2.5 uppercase rounded-md bg-red-700 hover:bg-red-600 transition-colors text-sm font-semibold text-center min-w-24">
+							class="${!tournament.canLeave ? 'hidden' : ''} leave-tournament-btn px-5 py-2.5 uppercase rounded-md bg-red-700 hover:bg-red-600 transition-colors text-sm font-semibold text-center min-w-24">
 							Leave
-						</div>
+						</button>
 					</div>
 				</div>
 
@@ -229,14 +228,14 @@ export class TournamentsListController extends RouteController {
 					<span class="font-mono" title="${joinedUsersTooltip ?? 'n/a'}">
 						${tournament.participantsCount ?? 0}
 						/
-						${tournament.maxParticipants ?? 8}
+						${tournament.maxParticipants}
 					</span>
 				</div>
 				<div class="flex items-center gap-1" data-start-tooltip="${startTooltip}" title="${startTooltip}">
 					<i class="fa fa-clock-o text-stone-400"></i>
 					<span class="tournament-countdown font-mono text-sm">${remainingText}</span>
 				</div>
-				<div class="text-xs text-white px-2 py-1 rounded-full ${statusClass} font-semibold text-center w-fit">
+				<div class="text-xs text-white px-2 py-1 rounded-full ${this.#getTournamentStatusColorClass(tournament.status)} font-semibold text-center w-fit">
 					${tournament.status.replace('_', ' ')}
 				</div>
 			</div>
@@ -250,7 +249,7 @@ export class TournamentsListController extends RouteController {
 			joinBtn.addEventListener('click', async (ev) => {
 				ev.preventDefault();
 				ev.stopPropagation();
-				if (tournament.hasUserJoined) {
+				if (tournament.isUserRegistered) {
 					toast.info(t('generic.join_tournament'), t('generic.already_joined_troll_description') ?? "");
 					return;
 				}
@@ -272,7 +271,7 @@ export class TournamentsListController extends RouteController {
 			leaveBtn.addEventListener('click', async (ev) => {
 				ev.preventDefault();
 				ev.stopPropagation();
-				if (!tournament.hasUserJoined) {
+				if (!tournament.isUserRegistered) {
 					toast.info(t('generic.leave_tournament'), t('generic.already_left_troll_description') ?? "");
 					return;
 				}

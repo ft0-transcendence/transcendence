@@ -18,6 +18,9 @@ type TournamentGame = NonNullable<TournamentDTO["games"]>[number];
 
 // TODO: it's a little messy, refactor this
 export class OnlineTournamentDetailsController extends RouteController {
+	#autoRedirectToGameTimeout: NodeJS.Timeout | null = null;
+	#autoRedirectToLobbyTimeout: NodeJS.Timeout | null = null;
+
 	#tournamentId: string = "";
 	#tournamentDto: RouterOutputs["tournament"]["getTournamentDetails"] | null = null;
 
@@ -82,15 +85,15 @@ export class OnlineTournamentDetailsController extends RouteController {
 		const tDto = this.#tournamentDto;
 		const startDate = tDto.startDate ? new Date(tDto.startDate).toLocaleString() : null;
 
-		const isCreator = authManager.user?.id === tDto.createdBy?.id;
-		const canStart = isCreator && tDto.status === 'WAITING_PLAYERS';
-		const canDelete = isCreator && tDto.status !== 'COMPLETED';
+		const canStart = tDto.canStart;
+		const canDelete = tDto.canDelete;
+		const canJoin = tDto.canJoin;
+		const canLeave = tDto.canLeave;
 		const statusColor = this.#getTournamentStatusBadgeColorClass(tDto.status);
 
 		console.debug('Tournament button visibility:', {
 			currentUserId: authManager.user?.id,
 			creatorId: tDto.createdBy?.id,
-			isCreator,
 			status: tDto.status,
 			canStart,
 			canDelete
@@ -135,25 +138,41 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 						<div class="mt-5 flex flex-wrap gap-3">
 							<button id="${this.id}-leave-btn"
-								class="${!tDto.isRegisteredToTournament ? 'hidden' : ''} px-4 py-2 bg-red-700 hover:bg-red-600 rounded-md font-semibold text-sm">
-								<i class="fa fa-sign-out mr-1"></i>${t("generic.leave_tournament")}
+								class="${!canLeave ? 'hidden' : ''} px-4 py-2 bg-red-700 hover:bg-red-600 rounded-md font-semibold text-sm">
+								<i class="fa fa-sign-out mr-1"></i>
+								<span data-i18n="${k('generic.leave_tournament')}">Leave Tournament</span>
 							</button>
+
 							<button id="${this.id}-join-btn"
-								class="${tDto.isRegisteredToTournament ? 'hidden' : ''} px-4 py-2 bg-green-700 hover:bg-green-600 rounded-md font-semibold text-sm">
-								<i class="fa fa-sign-in mr-1"></i>${t("generic.join_tournament")}
+								class="${!canJoin ? 'hidden' : ''} px-4 py-2 bg-green-700 hover:bg-green-600 rounded-md font-semibold text-sm">
+								<i class="fa fa-sign-in mr-1"></i>
+								<span data-i18n="${k('generic.join_tournament')}">Join Tournament</span>
 							</button>
+
 							${canStart ? /*html*/`
 								<button id="${this.id}-start-btn"
 									class="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded-md font-semibold text-sm">
-									<i class="fa fa-play mr-1"></i>${t("generic.start_tournament")}
+									<i class="fa fa-play mr-1"></i>
+									<span data-i18n="${k('generic.start_tournament')}">Start Tournament</span>
 								</button>
 							` : ''}
+
 							${canDelete ? /*html*/`
 								<button id="${this.id}-delete-btn"
 									class="px-4 py-2 bg-stone-700 hover:bg-stone-600 rounded-md font-semibold text-sm">
-									<i class="fa fa-trash mr-1"></i>${t("generic.delete_tournament")}
+									<i class="fa fa-trash mr-1"></i>
+									<span data-i18n="${k('generic.delete_tournament')}">Delete Tournament</span>
 								</button>
 							` : ''}
+
+							<a
+								id="${this.id}-rejoin-btn"
+								href="/play/online/tournaments/${this.#tournamentId}/${tDto.myCurrentActiveGame}"
+								class="${!tDto.myCurrentActiveGame ? 'hidden' : ''} px-4 py-2 bg-amber-700 hover:bg-amber-600 rounded-md font-semibold text-sm"
+							>
+								<i class="fa fa-sign-in mr-1"></i>
+								<span data-i18n="${k('tournament.rejoin_game')}">Rejoin Game</span>
+							</a>
 						</div>
 					</div>
 
@@ -168,19 +187,19 @@ export class OnlineTournamentDetailsController extends RouteController {
 					</div>
 
 					${tDto.winner
-				? /*html*/ `
-									<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md">
-										<h2 class="text-lg font-semibold mb-3 flex items-center gap-2 text-amber-400">
-											<i class="fa fa-trophy"></i>
-											<span data-i18n="${k('generic.winner')}">Winner</span>
-										</h2>
-										<div class="flex items-center gap-3">
-											<img src="${getProfilePictureUrlByUserId(tDto.winner.id)}"
-												class="w-10 h-10 rounded-full ring-2 ring-amber-400">
-											<span class="text-lg font-bold text-amber-400">${tDto.winner.username}</span>
-										</div>
-									</div>
-								`
+						? /*html*/ `
+							<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md">
+								<h2 class="text-lg font-semibold mb-3 flex items-center gap-2 text-amber-400">
+									<i class="fa fa-trophy"></i>
+									<span data-i18n="${k('generic.winner')}">Winner</span>
+								</h2>
+								<div class="flex items-center gap-3">
+									<img src="${getProfilePictureUrlByUserId(tDto.winner.id)}"
+										class="w-10 h-10 rounded-full ring-2 ring-amber-400">
+									<span class="text-lg font-bold text-amber-400">${tDto.winner.username}</span>
+								</div>
+							</div>
+						`
 				: ``
 			}
 
@@ -227,11 +246,31 @@ export class OnlineTournamentDetailsController extends RouteController {
 		this.#tournamentDto = dto;
 		this.#updateBracket(dto.games);
 		this.#renderParticipantsList(dto.participants ?? []);
+		this.#showHideButtons();
+
 		this.updateTitleSuffix();
+	}
+
+	#showHideButtons() {
+		const canStart = this.#tournamentDto?.canStart;
+		const canDelete = this.#tournamentDto?.canDelete;
+		const canJoin = this.#tournamentDto?.canJoin;
+		const canLeave = this.#tournamentDto?.canLeave;
+
+		document.querySelector(`#${this.id}-start-btn`)?.classList.toggle('hidden', !canStart);
+		document.querySelector(`#${this.id}-delete-btn`)?.classList.toggle('hidden', !canDelete);
+		document.querySelector(`#${this.id}-join-btn`)?.classList.toggle('hidden', !canJoin);
+		document.querySelector(`#${this.id}-leave-btn`)?.classList.toggle('hidden', !canLeave);
+
+		const rejoinBtn = document.querySelector(`#${this.id}-rejoin-btn`);
+		rejoinBtn?.classList.toggle('hidden', !this.#tournamentDto?.myCurrentActiveGame);
+		rejoinBtn?.setAttribute('href', `/play/online/tournaments/${this.#tournamentId}/${this.#tournamentDto?.myCurrentActiveGame}`);
+
 	}
 
 	protected async postRender() {
 		if (!this.#tournamentDto) return;
+		window.scrollTo(0, 0);
 
 		this.#tournamentNamespace = io("/tournament");
 
@@ -251,6 +290,25 @@ export class OnlineTournamentDetailsController extends RouteController {
 			socket.on('bracket-updated', (tournament: TournamentDTO) => {
 				console.debug('Bracket updated: ', tournament);
 				this.#renderTournamentDTODetails(tournament);
+			});
+			socket.on('your-match-is-ready', (data: { gameId: string, tournamentId: string, opponent: string | null }) => {
+				console.debug('Match is ready: ', data);
+				toast.info(t('generic.match_is_ready'), t('tournament.match_is_ready', { opponent: data.opponent ?? 'AI' }) ?? '', {
+					duration: 3000,
+				});
+				this.#autoRedirectToGameTimeout = setTimeout(() => {
+					router.navigate(`/play/online/tournaments/${this.#tournamentId}/${data.gameId}`);
+				}, 3000);
+			});
+
+			socket.on('tournament-completed', (data: { winnerId: string, winnerUsername: string }) => {
+				console.debug('Tournament completed: ', data);
+				toast.success(t('generic.tournament'), t('tournament.tournament_has_been_completed', { winner: data.winnerUsername ?? 'AI' }) ?? `The tournament has been completed by ${data.winnerUsername ?? 'AI'}.`);
+				toast.info(t('generic.tournament'), t('generic.returning_to_lobby_in', { seconds: 30 }) ?? `Returning to lobby in 30 seconds...`);
+
+				this.#autoRedirectToLobbyTimeout = setTimeout(() => {
+					router.navigate(`/play/online/tournaments/${this.#tournamentId}`);
+				}, 3000);
 			});
 		})
 
@@ -280,7 +338,8 @@ export class OnlineTournamentDetailsController extends RouteController {
 		if (this.#tournamentNamespace) {
 			const socketEventsToRemove = [
 				'tournament-lobby-joined',
-				'tournament-deleted'
+				'tournament-deleted',
+				'your-match-is-ready'
 			]
 			for (const event of socketEventsToRemove) {
 				this.#tournamentNamespace.off(event);
@@ -288,8 +347,14 @@ export class OnlineTournamentDetailsController extends RouteController {
 			this.#tournamentNamespace.close();
 		}
 
-		super.destroy();
-
+		if (this.#autoRedirectToGameTimeout) {
+			clearTimeout(this.#autoRedirectToGameTimeout);
+			this.#autoRedirectToGameTimeout = null;
+		}
+		if (this.#autoRedirectToLobbyTimeout) {
+			clearTimeout(this.#autoRedirectToLobbyTimeout);
+			this.#autoRedirectToLobbyTimeout = null;
+		}
 	}
 
 	private onJoinTournamentClick = this.#onJoinOrLeaveTournamentClick.bind(this, 'join');

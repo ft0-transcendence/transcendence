@@ -1,274 +1,247 @@
 import { OnlineGame } from "./onlineGame";
 import { GameUserInfo, GameStatus, GameConfig } from "./game";
-import { db } from "../src/trpc/db";
+import { db } from '../src/trpc/db';
 import { updateTournamentWinnerStats, updateGameStats } from "../src/utils/statsUtils";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 import { cache } from "../src/cache";
 import { TypedSocket, TypedSocketNamespace } from "../src/socket-io";
 import { checkAndCreateNextRoundInstances } from "../src/trpc/routes/tournament";
-import { tournamentBroadcastStatusChange } from "../src/socket/tournamentSocketNamespace";
+import { tournamentBroadcastTournamentCompleted } from "../src/socket/tournamentSocketNamespace";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
 export class TournamentGame extends OnlineGame {
-    public readonly tournamentId: string;
-    private onTournamentFinish?: TournamentGameFinishCallback;
-    private aiPlayerService: AIPlayerService;
-    private aiIntervals: Map<string, NodeJS.Timeout> = new Map();
+	public readonly tournamentId: string;
+	private onTournamentFinish?: TournamentGameFinishCallback;
+	private aiPlayerService: AIPlayerService;
+	private aiIntervals: Map<string, NodeJS.Timeout> = new Map();
 
-    constructor(
-        gameId: string,
-        tournamentId: string,
-        socketNamespace: TypedSocketNamespace | null,
-        config?: Partial<GameConfig>,
-        onTournamentFinish?: TournamentGameFinishCallback,
-        updateGameActivity?: () => Promise<void>,
-    ) {
-        super(gameId, socketNamespace, config, async (state) => {
-            // Handle tournament advancement when game finishes (quello che faceva getMatchresults)
-            await this.handleTournamentAdvancement();
-        }, updateGameActivity);
-        this.tournamentId = tournamentId;
-        this.onTournamentFinish = onTournamentFinish;
-        this.aiPlayerService = new AIPlayerService(db);
-    }
+	constructor(
+		gameId: string,
+		tournamentId: string,
+		socketNamespace: TypedSocketNamespace | null,
+		config?: Partial<GameConfig>,
+		onTournamentFinish?: TournamentGameFinishCallback,
+		updateGameActivity?: () => Promise<void>,
+	) {
+		super(gameId, socketNamespace, config, async (state) => {
+			// Handle tournament advancement when game finishes (quello che faceva getMatchresults)
+			await this.handleTournamentAdvancement();
+		}, updateGameActivity);
+		this.tournamentId = tournamentId;
+		this.onTournamentFinish = onTournamentFinish;
+		this.aiPlayerService = new AIPlayerService(db);
+	}
 
-    public async finish() {
-        if (this.finished) return;
-        this.finished = true;
+	public async finish() {
+		if (this.finished) return;
+		this.finished = true;
 
-        console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
+		console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
 
-        for (const interval of this.aiIntervals.values()) {
-            clearInterval(interval);
-        }
-        this.aiIntervals.clear();
+		for (const interval of this.aiIntervals.values()) {
+			clearInterval(interval);
+		}
+		this.aiIntervals.clear();
 
-        for (const [playerId, interval] of this.warningIntervals) {
-            clearInterval(interval);
-        }
-        this.warningIntervals.clear();
+		for (const [playerId, interval] of this.warningIntervals) {
+			clearInterval(interval);
+		}
+		this.warningIntervals.clear();
 
-        if (this.unsubscribeTick) {
-            this.unsubscribeTick();
-            this.unsubscribeTick = null;
-        }
+		if (this.unsubscribeTick) {
+			this.unsubscribeTick();
+			this.unsubscribeTick = null;
+		}
 
-        const state = this.getState();
-        if (this.socketNamespace) {
-            this.socketNamespace.to(this.gameId).emit("game-finished", state);
-        }
+		const state = this.getState();
+		if (this.socketNamespace) {
+			this.socketNamespace.to(this.gameId).emit("game-finished", state);
+		}
 
-        if (this.onTournamentFinish) {
-            try {
-                console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} calling onTournamentFinish callback`);
-                await this.onTournamentFinish(state, this.tournamentId, this.gameId);
-                console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} onTournamentFinish callback completed`);
-            } catch (error) {
-                console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId} onTournamentFinish callback failed:`, error);
-            }
-        }
-    }
+		if (this.onTournamentFinish) {
+			try {
+				console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} calling onTournamentFinish callback`);
+				await this.onTournamentFinish(state, this.tournamentId, this.gameId);
+				console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} onTournamentFinish callback completed`);
+			} catch (error) {
+				console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId} onTournamentFinish callback failed:`, error);
+			}
+		}
+	}
 
-    public async handleTournamentAdvancement() {
-        try {
-            const winnerId = this.scores.left > this.scores.right ? this.leftPlayer?.id : this.rightPlayer?.id;
-            const loserId = this.scores.left > this.scores.right ? this.rightPlayer?.id : this.leftPlayer?.id;
+	public async handleTournamentAdvancement() {
+		try {
+			const isLeftWinner = this.scores.left > this.scores.right;
+			const winnerId = isLeftWinner ? this.leftPlayer?.id : this.rightPlayer?.id;
+			const loserId = isLeftWinner ? this.rightPlayer?.id : this.leftPlayer?.id;
 
-            if (!winnerId || !loserId) {
-                console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: No winner/loser determined`);
-                return;
-            }
+			const winnerUsername = isLeftWinner ? this.leftPlayer?.username : this.rightPlayer?.username;
+			const loserUsername = isLeftWinner ? this.rightPlayer?.username : this.leftPlayer?.username;
 
-            if (this.scores.left !== this.scores.right) {
-                console.log(`📊 Tournament's (#${this.tournamentId}) Game #${this.gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${this.wasForfeited}`);
-                await updateGameStats(db, winnerId, loserId);
-            } else {
-                console.log(`⚠️ Tournament's (#${this.tournamentId}) Game #${this.gameId} ended in a tie, skipping stats update`);
-            }
 
-            const currentGame = await db.game.findUnique({
-                where: { id: this.gameId },
-                include: { previousGames: { select: { id: true } } }
-            });
+			if (!winnerId || !loserId) {
+				console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: No winner/loser determined`);
+				return;
+			}
 
-            if (currentGame?.nextGameId) {
-                const nextGame = await db.game.findUnique({
-                    where: { id: currentGame.nextGameId },
-                    include: { previousGames: { select: { id: true } } }
-                });
+			if (this.scores.left !== this.scores.right) {
+				console.log(`📊 Tournament's (#${this.tournamentId}) Game #${this.gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${this.wasForfeited}`);
+				await updateGameStats(db, winnerId, loserId);
+			} else {
+				console.log(`⚠️ Tournament's (#${this.tournamentId}) Game #${this.gameId} ended in a tie, skipping stats update`);
+			}
 
-                if (nextGame && nextGame.previousGames.length === 2) {
-                    const childIds = nextGame.previousGames.map(g => g.id).sort();
-                    const isLeft = this.gameId === childIds[0];
+			const currentGame = await db.game.findUnique({
+				where: { id: this.gameId },
+				include: { previousGames: { select: { id: true } } }
+			});
 
-                    // Get winner's username
-                    const winnerUser = await db.user.findUnique({
-                        where: { id: winnerId },
-                        select: { username: true }
-                    });
+			if (currentGame?.nextGameId) {
+				const nextGame = await db.game.findUnique({
+					where: { id: currentGame.nextGameId },
+					include: { previousGames: { select: { id: true } } }
+				});
+
+				if (nextGame && nextGame.previousGames.length === 2) {
+					const childIds = nextGame.previousGames.map(g => g.id).sort();
+					const isLeft = this.gameId === childIds[0];
+
+					// Get winner's username
+					const winnerUser = await db.user.findUnique({
+						where: { id: winnerId },
+						select: { username: true }
+					});
 
 					const needLastPlayerToStart = this.aiPlayerService.isAIPlayer(nextGame.leftPlayerUsername) || this.aiPlayerService.isAIPlayer(nextGame.rightPlayerUsername)
 						|| !!nextGame.leftPlayerId || !!nextGame.rightPlayerId;
 
-
 					const commonData = needLastPlayerToStart ? { startDate: new Date() } : {};
 
-                    const data = isLeft
-                        ? { leftPlayerId: winnerId, leftPlayerUsername: winnerUser?.username || null, ...commonData }
-                        : { rightPlayerId: winnerId, rightPlayerUsername: winnerUser?.username || null, ...commonData };
 
-                    await db.game.update({
-                        where: { id: currentGame.nextGameId },
-                        data
-                    });
+					const data = isLeft
+						? { leftPlayerId: winnerId, leftPlayerUsername: winnerUser?.username || null, ...commonData }
+						: { rightPlayerId: winnerId, rightPlayerUsername: winnerUser?.username || null, ...commonData };
 
-                    console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: Winner ${winnerId} advanced to next game #${currentGame.nextGameId}`);
+					await db.game.update({
+						where: { id: currentGame.nextGameId },
+						data
+					});
 
-                    if (this.socketNamespace) {
-                        this.socketNamespace.to(this.tournamentId).emit('tournament-game-completed', {
-                            gameId: this.gameId,
-                            winnerId: winnerId,
-                            nextGameId: currentGame.nextGameId,
-                            leftScore: this.scores.left,
-                            rightScore: this.scores.right
-                        });
-                    }
-                }
+					console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: Winner ${winnerId} advanced to next game #${currentGame.nextGameId}`);
 
-                // Check if we need to create game instances for the next round
-                if (currentGame.tournamentRound) {
-                    await checkAndCreateNextRoundInstances(db, this.tournamentId, currentGame.tournamentRound);
-                }
-            } else { // Torneo completato
-                console.log(`Tournament ${this.tournamentId} completed! Winner: ${winnerId}`);
+				}
 
-                await db.$transaction(async (tx) => {
-                    await tx.tournament.update({
-                        where: { id: this.tournamentId },
-                        data: {
-                            endDate: new Date(),
-                            winnerId: winnerId,
-                            status: 'COMPLETED'
-                        }
-                    });
-                });
+				// Check if we need to create game instances for the next round
+				if (currentGame.tournamentRound) {
+					await checkAndCreateNextRoundInstances(db, this.tournamentId, currentGame.tournamentRound);
+				}
+			} else { // Torneo completato
+				console.log(`Tournament ${this.tournamentId} completed! Winner: ${winnerId}`);
 
-                await updateTournamentWinnerStats(db, winnerId);
+				await db.tournament.update({
+					where: { id: this.tournamentId },
+					data: {
+						endDate: new Date(),
+						winnerId: winnerId,
+						winnerUsername,
+						status: 'COMPLETED'
+					}
+				});
 
-                const cachedTournament = cache.tournaments.active.get(this.tournamentId);
-                if (cachedTournament) {
-                    cachedTournament.status = 'COMPLETED';
-                }
+				await updateTournamentWinnerStats(db, winnerId);
 
-                if (this.socketNamespace) {
-                    const winnerUser = await db.user.findUnique({
-                        where: { id: winnerId },
-                        select: { username: true }
-                    });
+				const cachedTournament = cache.tournaments.active.get(this.tournamentId);
+				if (cachedTournament) {
+					cachedTournament.status = 'COMPLETED';
+				}
 
-                    const tournament = await db.tournament.findUnique({
-                        where: { id: this.tournamentId },
-                        include: {
-                            participants: {
-                                include: {
-                                    user: {
-                                        select: {
-                                            id: true,
-                                            username: true
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
+				if (this.socketNamespace) {
+					const winnerUser = await db.user.findUnique({
+						where: { id: winnerId },
+						select: { username: true }
+					});
 
-                    tournamentBroadcastStatusChange(
-                        this.tournamentId,
-                        'COMPLETED',
-                        'system',
-                        `Tournament completed! Winner: ${winnerUser?.username || 'Unknown'}`,
-                        { id: winnerId, username: winnerUser?.username || 'Unknown' },
-                    );
-                }
-            }
+					tournamentBroadcastTournamentCompleted(this.tournamentId, winnerId, winnerUser?.username || null);
+				}
+			}
 
-        } catch (error) {
-            console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId} advancement failed:`, error);
-        }
-    }
+		} catch (error) {
+			console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId} advancement failed:`, error);
+		}
+	}
 
-    public override playerReady(player: GameUserInfo) {
-        super.playerReady(player);
+	public override playerReady(player: GameUserInfo) {
+		super.playerReady(player);
 
-        if (this.leftPlayer && this.rightPlayer) {
-            this.initializeAI();
-        }
-    }
+		if (this.leftPlayer && this.rightPlayer) {
+			this.initializeAI();
+		}
+	}
 
-    private async initializeAI() {
-        try {
-            if (!this.leftPlayer || !this.rightPlayer) return;
+	private async initializeAI() {
+		try {
+			if (!this.leftPlayer || !this.rightPlayer) return;
 
-            const gameData = await db.game.findUnique({
-                where: { id: this.gameId },
-                select: {
-                    leftPlayerUsername: true,
-                    rightPlayerUsername: true
-                }
-            });
+			const gameData = await db.game.findUnique({
+				where: { id: this.gameId },
+				select: {
+					leftPlayerUsername: true,
+					rightPlayerUsername: true
+				}
+			});
 
-            if (!gameData) return;
+			if (!gameData) return;
 
-            if (this.aiPlayerService.isAIPlayer(gameData.leftPlayerUsername)) {
-                this.startAI(this.leftPlayer.id, 'left');
-            }
-            if (this.aiPlayerService.isAIPlayer(gameData.rightPlayerUsername)) {
-                this.startAI(this.rightPlayer.id, 'right');
-            }
+			if (this.aiPlayerService.isAIPlayer(gameData.leftPlayerUsername)) {
+				this.startAI(this.leftPlayer.id, 'left');
+			}
+			if (this.aiPlayerService.isAIPlayer(gameData.rightPlayerUsername)) {
+				this.startAI(this.rightPlayer.id, 'right');
+			}
 
-        } catch (error) {
-            console.error(`Failed to initialize AI for game #${this.gameId}:`, error);
-        }
-    }
+		} catch (error) {
+			console.error(`Failed to initialize AI for game #${this.gameId}:`, error);
+		}
+	}
 
-    private startAI(playerId: string, side: 'left' | 'right') {
-        console.log(`Starting AI for player ${playerId} on ${side} side in game #${this.gameId}`);
+	private startAI(playerId: string, side: 'left' | 'right') {
+		console.log(`Starting AI for player ${playerId} on ${side} side in game #${this.gameId}`);
 
-        const aiLogic = () => {
-            try {
-                const state = this.getState();
+		const aiLogic = () => {
+			try {
+				const state = this.getState();
 
-                if (state.state !== 'RUNNING') return;
+				if (state.state !== 'RUNNING') return;
 
-                const aiPaddlePos = side === 'left' ? state.paddles.left : state.paddles.right;
-                let target = 50;
+				const aiPaddlePos = side === 'left' ? state.paddles.left : state.paddles.right;
+				let target = 50;
 
-                if (side === 'right' && state.ball.dirX >= 0) {
-                    target = state.ball.y;
-                } else if (side === 'left' && state.ball.dirX <= 0) {
-                    target = state.ball.y;
-                }
+				if (side === 'right' && state.ball.dirX >= 0) {
+					target = state.ball.y;
+				} else if (side === 'left' && state.ball.dirX <= 0) {
+					target = state.ball.y;
+				}
 
-                const diff = target - aiPaddlePos;
-                const deadZone = 5;
+				const diff = target - aiPaddlePos;
+				const deadZone = 5;
 
-                this.release(side, 'up');
-                this.release(side, 'down');
+				this.release(side, 'up');
+				this.release(side, 'down');
 
-                if (Math.abs(diff) > deadZone) {
-                    if (diff > 0) {
-                        this.press(side, 'down');
-                    } else {
-                        this.press(side, 'up');
-                    }
-                }
-            } catch (error) {
-                console.error(`AI error for player ${playerId}:`, error);
-            }
-        };
+				if (Math.abs(diff) > deadZone) {
+					if (diff > 0) {
+						this.press(side, 'down');
+					} else {
+						this.press(side, 'up');
+					}
+				}
+			} catch (error) {
+				console.error(`AI error for player ${playerId}:`, error);
+			}
+		};
 
-        const interval = setInterval(aiLogic, 1000 / 60);
-        this.aiIntervals.set(playerId, interval);
-    }
+		const interval = setInterval(aiLogic, 1000 / 60);
+		this.aiIntervals.set(playerId, interval);
+	}
 }

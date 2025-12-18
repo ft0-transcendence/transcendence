@@ -9,7 +9,7 @@ import { app } from '../main';
 import { applySocketAuth } from './plugins/socketAuthSession';
 import { db } from './trpc/db';
 import { finalizeVsGameResult } from './services/vsGameService';
-import { craftTournamentDetailsForUser, getTournamentFullDetailsById } from './trpc/routes/tournament';
+import { craftTournamentDTODetailsForUser, getTournamentFullDetailsById } from './trpc/routes/tournament';
 import { setupMatchmakingNamespace } from './socket/matchmakingSocketNamespace';
 import { setupOnlineVersusGameNamespace } from './socket/versusGameSocketNamespace';
 import { setupTournamentNamespace } from './socket/tournamentSocketNamespace';

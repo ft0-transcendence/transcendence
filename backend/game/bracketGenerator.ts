@@ -3,6 +3,7 @@ import { AIPlayerService } from "../src/services/aiPlayerService";
 import { app } from "../main";
 import { mapTournamentGamesToDTO } from "../src/trpc/routes/tournament";
 import { db } from "../src/trpc/db";
+import { tournamentBroadcastTournamentCompleted } from "../src/socket/tournamentSocketNamespace";
 
 //TODO: Remove this shit
 export const EMPTY_SLOT_USERNAME = 'Empty slot';
@@ -636,6 +637,25 @@ export class BracketGenerator {
 			await skipAiVsAiGames(allGames.filter(g => g.tournamentRound === 'QUARTI'));
 			await skipAiVsAiGames(allGames.filter(g => g.tournamentRound === 'SEMIFINALE'));
 			await skipAiVsAiGames(allGames.filter(g => g.tournamentRound === 'FINALE'));
+
+			const finaleGame = allGames.find(g => g.tournamentRound === 'FINALE');
+			if (finaleGame && finaleGame.endDate){
+				const isLeftWinner = finaleGame.leftPlayerScore > finaleGame.rightPlayerScore;
+
+				const winnerId = isLeftWinner ? finaleGame.leftPlayerId : finaleGame.rightPlayerId;
+				const winnerUsername = isLeftWinner ? finaleGame.leftPlayerUsername : finaleGame.rightPlayerUsername;
+
+				await db.tournament.update({
+					where: { id: tournamentId },
+					data: {
+						endDate: new Date(),
+						status: 'COMPLETED',
+						winnerId,
+						winnerUsername
+					}
+				})
+				tournamentBroadcastTournamentCompleted(tournamentId, winnerId, winnerUsername);
+			}
 
 			await this.updateGameTypeForAIPlayers(tournamentId, tx);
 		};

@@ -258,7 +258,6 @@ export class GameComponent extends ComponentController {
 		if (this.#gameFinished) return;
 
 
-
 		this.#fillUserInfo(state.leftPlayer, `${this.id}-left-user`, state.scores.left, this.#leftPlayerData == null);
 		this.#fillUserInfo(state.rightPlayer, `${this.id}-right-user`, state.scores.right, this.#rightPlayerData == null);
 
