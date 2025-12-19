@@ -4,7 +4,6 @@ import { checkAndCreateNextRoundInstances } from "../trpc/routes/tournament";
 import { app } from "../../main";
 import { tournamentBroadcastBracketUpdateById } from "../socket/tournamentSocketNamespace";
 import { db } from "../trpc/db";
-import { BracketGenerator } from '../../game/bracketGenerator';
 
 export class AIPlayerService {
 	private db: PrismaClient | Prisma.TransactionClient;
@@ -124,8 +123,8 @@ export class AIPlayerService {
 			let leftPlayerIsAI = nextGame.leftPlayerUsername === null;
 			let rightPlayerIsAI = nextGame.rightPlayerUsername === null;
 
-			const leftPlayerSlotIsEmpty = leftPlayer.id === BracketGenerator.PLACEHOLDER_USER_ID && !leftPlayerIsAI;
-			const rightPlayerSlotIsEmpty = rightPlayer.id === BracketGenerator.PLACEHOLDER_USER_ID && !rightPlayerIsAI;
+			const leftPlayerSlotIsEmpty = leftPlayer.id === null && !leftPlayerIsAI;
+			const rightPlayerSlotIsEmpty = rightPlayer.id === null && !rightPlayerIsAI;
 
 			const freeSlotsLeft = (leftPlayerSlotIsEmpty ? 1 : 0) + (rightPlayerSlotIsEmpty ? 1 : 0);
 

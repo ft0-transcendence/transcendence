@@ -10,8 +10,7 @@ import { AIPlayerService } from "../../services/aiPlayerService";
 import {
 	TournamentValidator,
 	tournamentValidationSchemas,
-	handleTournamentError,
-	validateCacheConsistency
+	handleTournamentError
 } from "../../utils/tournamentValidation";
 import { STANDARD_GAME_CONFIG } from "../../../shared_exports";
 import { app } from "../../../main";
@@ -583,8 +582,8 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 		);
 
 		gameInstance.setPlayers(
-			{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: game.leftPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID },
-			{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: game.rightPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID }
+			{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: true },
+			{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: true }
 		);
 
 		// Add to cache
@@ -638,7 +637,11 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 		return false;
 	}
 
-	if (!game.leftPlayerUsername || !game.rightPlayerUsername) {
+	// Check if game has empty slots (playerId is null)
+	const isLeftEmpty = game.leftPlayerId === null;
+	const isRightEmpty = game.rightPlayerId === null;
+
+	if (isLeftEmpty || isRightEmpty) {
 		app.log.debug(`⏭️ Game ${gameId} has empty slots, waiting for players`);
 		return false;
 	}
@@ -677,8 +680,8 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 	);
 
 	gameInstance.setPlayers(
-		{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: game.leftPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID },
-		{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: game.rightPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID }
+		{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: true },
+		{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: true }
 	);
 
 	if (game.leftPlayerScore > 0 || game.rightPlayerScore > 0) {
@@ -908,11 +911,6 @@ export async function autoStartTournament(db: PrismaClient, tournamentId: string
 export async function getTournamentDetailsById(tournamentId: string, requestedByUser?: User | null) {
 	try {
 		const tournament = await getTournamentFullDetailsById(tournamentId, true);
-
-
-		if (tournament!.status === 'WAITING_PLAYERS' || tournament!.status === 'IN_PROGRESS') {
-			validateCacheConsistency(tournamentId, db);
-		}
 
 		const result = await craftTournamentDTODetailsForUser(tournament, requestedByUser?.id);
 

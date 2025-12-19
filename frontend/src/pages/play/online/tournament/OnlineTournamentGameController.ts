@@ -32,11 +32,6 @@ export class OnlineTournamentGameController extends RouteController {
 			withCredentials: true,
 		});
 
-		this.#gameSocket.on('connect', () => {
-			console.debug('Game Socket connected to server');
-			this.#gameSocket.emit('join-tournament-game', this.#gameId);
-		});
-
 		this.#gameComponent = new GameComponent({
 			gameId: this.#gameId,
 			gameType: 'TOURNAMENT',
@@ -52,37 +47,19 @@ export class OnlineTournamentGameController extends RouteController {
 	}
 
 	protected async preRender(): Promise<void> {
-		console.debug('OnlineVersusGameController preRender. Params:', this.params);
+		console.debug('OnlineTournamentGameController preRender. Params:', this.params);
 
-		let gameFound = false;
 		try {
 			const game = await api.game.getTournamentGameDetails.query({ tournamentId: this.#tournamentId, gameId: this.#gameId });
 			this.#game = game;
-			gameFound = game != null;
+			console.debug('Tournament game loaded', this.#game);
 		} catch (err) {
-			gameFound = false;
+			if (err instanceof TRPCClientError) {
+				console.error('Error loading tournament game:', err.message);
+			}
+			this.#game = null;
 		}
-		if (!gameFound) {
-			console.debug('Game not found');
-			this.#gameComponent.showError(
-				/*html*/`
-					<h3 data-i18n="${k('generic.game_not_found')}">Game not found</h3>
-				`
-			);
-			this.#isGameValidated = true;
-		}
-		else if (this.#game?.endDate || this.#game?.abortDate) {
-			this.#gameComponent.showError(
-				/*html*/`
-					<h3 data-i18n="${k('generic.game_has_ended')}">Game has ended</h3>
-				`
-			);
-			this.#isGameValidated = true;
-		}
-
 	}
-
-
 
 	async render() {
 		return /*html*/`<div class="flex flex-col grow">
@@ -93,7 +70,19 @@ export class OnlineTournamentGameController extends RouteController {
 				<section class="flex flex-col grow sm:items-center sm:w-full max-w-2xl">
 					<div class="grow flex flex-col w-full">
 						<!-- GAME COMPONENT -->
-						${await this.#gameComponent!.render()}
+						${this.#game
+							? await this.#gameComponent.render()
+							: /*html*/`
+								<div class="grow flex flex-col w-full items-center justify-center bg-black">
+									<h3 data-i18n="${k('generic.game_not_found')}" class="text-2xl uppercase font-mono font-bold">Game not found</h3>
+									<a data-route="/tournament" href="/play/online/tournaments"
+										class="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-400 transition-colors">
+										<i class="fa fa-arrow-left"></i>
+										<span class="ml-1" data-i18n="${k('generic.go_back')}">Go back</span>
+									</a>
+								</div>
+							`
+						}
 					</div>
 				</section>
 				<section class="hidden sm:flex sm:min-w-32 sm:grow">
@@ -108,27 +97,33 @@ export class OnlineTournamentGameController extends RouteController {
 	}
 
 	protected async postRender() {
-		console.debug('Listening for errors');
+		if (this.#game) {
+			this.#gameComponent.setMovementHandler((side, direction, type) => {
+				const event = type === 'press' ? 'player-press' : 'player-release';
+				this.#gameSocket.emit(event, direction);
+			});
 
-		this.#gameComponent.setMovementHandler((side, direction, type) => {
-			// if (this.#gameState?.state !== 'RUNNING') return;
-			const event = type === 'press' ? 'player-press' : 'player-release';
-			this.#gameSocket.emit(event, direction);
-		});
-		if (!this.#game?.endDate && !this.#game?.abortDate) {
+			// Setup socket connection in postRender to ensure proper timing
+			this.#gameSocket.on('connect', () => {
+				console.debug('Tournament Game Socket connected to server');
+				console.debug('Emitting join-tournament-game for gameId:', this.#gameId);
+				this.#gameSocket.emit('join-tournament-game', this.#gameId);
+			});
+
+			// If already connected, emit immediately
+			if (this.#gameSocket.connected) {
+				console.debug('Socket already connected, emitting join-tournament-game immediately');
+				this.#gameSocket.emit('join-tournament-game', this.#gameId);
+			}
+
 			this.#setupSocketEvents();
+		} else {
+			this.unregisterChildComponent(this.#gameComponent);
 		}
 	}
+
 	protected async destroy() {
 		if (this.#gameSocket.connected) {
-			const eventsToRemove = [
-				'tournament-game-joined',
-				'error',
-				'game-cancelled',
-			]
-			for (const event of eventsToRemove) {
-				this.#gameSocket.off(event);
-			}
 			this.#gameSocket.close();
 			console.debug('Cleaning up game socket');
 		}
@@ -147,7 +142,7 @@ export class OnlineTournamentGameController extends RouteController {
 				isPlayer: boolean,
 				ableToPlay: boolean,
 			}) => {
-				console.debug('Game found', data);
+				console.debug('Tournament game joined!', data);
 				this.#isGameValidated = true;
 
 				const myId = authManager.user?.id;
@@ -178,26 +173,25 @@ export class OnlineTournamentGameController extends RouteController {
 
 				const otherPlayer = amILeftPlayer ? data.game.rightPlayer : data.game.leftPlayer;
 
+				const getPlayerName = (player: typeof otherPlayer) => player?.username || 'AI';
+
 				if (data.ableToPlay) {
-					this.titleSuffix = `VS ${otherPlayer.username}`;
+					this.titleSuffix = `VS ${getPlayerName(otherPlayer)}`;
 				} else {
-					this.titleSuffix = `${data.game.leftPlayer.username} vs ${data.game.rightPlayer.username}`;
+					this.titleSuffix = `${getPlayerName(data.game.leftPlayer)} vs ${getPlayerName(data.game.rightPlayer)}`;
 				}
+
+				// CRITICAL: Pass socket to GameComponent to enable game-state updates
 				this.#gameComponent.updatePartialProps({
 					socketConnection: this.#gameSocket
 				});
 			});
 
-
-
 		this.#gameSocket.on('error', (data) => {
-			console.debug('Error', data);
+			console.error('Tournament game socket error:', data);
 			if (this.#isGameValidated) {
-				// GAME IS FOUND BUT THERE IS AN ERROR
-				console.error('Game error', data);
 				toast.error('Error', data);
 			} else {
-				console.debug('Game not found');
 				this.#gameComponent.showError(data);
 			}
 		});
@@ -209,6 +203,14 @@ export class OnlineTournamentGameController extends RouteController {
 					<h3 data-i18n="${k('game.aborted.generic')}">Game aborted</h3>
 				`
 			);
+		});
+
+		this.#gameSocket.on('game-finished', (state: Game['GameStatus']) => {
+			console.debug('Tournament game finished', state);
+		});
+
+		this.#gameSocket.on('player-joined-tournament-game', (data: { userId: string, username: string }) => {
+			console.debug('Player joined tournament game', data);
 		});
 	}
 }

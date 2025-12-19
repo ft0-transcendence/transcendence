@@ -6,6 +6,7 @@ import { app } from "../../main";
 import { GameUserInfo } from "../../shared_exports";
 import { OnlineGame } from "../../game/onlineGame";
 import { MovePaddleAction } from "../../game/game";
+import { db } from "../trpc/db";
 
 // TODO: FIX THIS STUFF. TournamentGame Never ends
 
@@ -28,12 +29,46 @@ export function setupTournamentGameNamespace(io: Server) {
 
 		socket.on("join-tournament-game", (gameId: string) => {
 			(async () => {
-				console.log(`Socket ${socket.id} joining tournament game room: ${gameId}`);
+				app.log.info(`Socket ${socket.id} (user: ${user.username}) joining tournament game: ${gameId}`);
 
 				try {
-					const game = cache.tournaments.activeTournamentGames.get(gameId);
+					// First, try to get the game from cache
+					let game = cache.tournaments.activeTournamentGames.get(gameId);
+
+					// If not in cache, try to create it on-demand
+					if (!game) {
+						app.log.warn(`Game ${gameId} not in cache, attempting to create on-demand`);
+
+						// Get tournamentId from database
+						const gameData = await db.game.findUnique({
+							where: { id: gameId },
+							select: { tournamentId: true, leftPlayerUsername: true, rightPlayerUsername: true, leftPlayerId: true, rightPlayerId: true }
+						});
+
+						if (!gameData?.tournamentId) {
+							app.log.error(`Game ${gameId} not found in database`);
+							socket.emit('error', 'Tournament game not found');
+							return;
+						}
+
+						app.log.info(`Game ${gameId} found in DB - Tournament: ${gameData.tournamentId}, Left: ${gameData.leftPlayerUsername} (${gameData.leftPlayerId}), Right: ${gameData.rightPlayerUsername} (${gameData.rightPlayerId})`);
+
+						// Try to create game instance on-demand
+						const { createGameInstanceIfNeeded } = await import('../trpc/routes/tournament.js');
+						const created = await createGameInstanceIfNeeded(db, gameData.tournamentId, gameId);
+
+						if (created) {
+							app.log.info(`✅ Game instance ${gameId} created on-demand`);
+						} else {
+							app.log.warn(`⚠️ Game instance ${gameId} was NOT created (might be AI vs AI or empty slots)`);
+						}
+
+						// Try to get it again from cache
+						game = cache.tournaments.activeTournamentGames.get(gameId);
+					}
 
 					if (!game) {
+						app.log.error(`Game ${gameId} still not in cache after create attempt`);
 						socket.emit('error', 'Tournament game not found or not active');
 						return;
 					}
@@ -80,10 +115,10 @@ export function setupTournamentGameNamespace(io: Server) {
 						username: user.username
 					});
 
-					app.log.info('User %s joined tournament game %s', user.username, gameId);
+					app.log.info('✅ User %s joined tournament game %s successfully', user.username, gameId);
 
 				} catch (error) {
-					app.log.error('Error joining tournament game:', error);
+					app.log.error('❌ Error joining tournament game %s:', gameId, error);
 					socket.emit('error', 'Failed to join tournament game');
 				}
 			})();
@@ -168,7 +203,7 @@ export function setupTournamentGameNamespace(io: Server) {
 		});
 
 		socket.on("disconnect", () => {
-			console.log(`Socket ${socket.id} disconnected from tournament-game namespace`);
+			app.log.info(`Socket ${socket.id} disconnected from tournament-game namespace`);
 			const allGames = Array.from(cache.tournaments.activeTournamentGames.values());
 			const playerGames = allGames.filter(g => g.isPlayerInGame(user.id));
 			for (const game of playerGames) {

@@ -113,12 +113,12 @@ model Game {
     abortDate           DateTime?
     scoreGoal           Int              @default(5)
     leftPlayerScore     Int              @default(0)
-    leftPlayerId        String
-    leftPlayer          User             @relation("gamesAsLeftPlayer", fields: [leftPlayerId], references: [id])
+    leftPlayerId        String?
+    leftPlayer          User?            @relation("gamesAsLeftPlayer", fields: [leftPlayerId], references: [id])
     leftPlayerUsername  String?
     rightPlayerScore    Int              @default(0)
-    rightPlayerId       String
-    rightPlayer         User             @relation("gamesAsRightPlayer", fields: [rightPlayerId], references: [id])
+    rightPlayerId       String?
+    rightPlayer         User?            @relation("gamesAsRightPlayer", fields: [rightPlayerId], references: [id])
     rightPlayerUsername String?
     nextGameId          String?
     nextGame            Game?            @relation("previousGames", fields: [nextGameId], references: [id])

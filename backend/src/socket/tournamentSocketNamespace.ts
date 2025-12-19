@@ -9,7 +9,6 @@ import { GameUserInfo } from "../../shared_exports";
 import { OnlineGame } from "../../game/onlineGame";
 import { MovePaddleAction } from '../../game/game';
 import { craftTournamentDTODetailsForUser, getTournamentFullDetailsById } from "../trpc/routes/tournament";
-import { BracketGenerator } from "../../game/bracketGenerator";
 
 
 export function setupTournamentNamespace(io: Server) {
@@ -241,13 +240,13 @@ export function tournamentBroadcastTournamentDeleted(tournamentId: string, tourn
 	});
 }
 
-export function notifyPlayersAboutNewTournamentGame(tournamentId: PrismaGame['tournamentId'], gameId: PrismaGame['id'], leftPlayerId: string, rightPlayerId: string, leftPlayerUsername: string | null = null, rightPlayerUsername: string | null = null) {
+export function notifyPlayersAboutNewTournamentGame(tournamentId: PrismaGame['tournamentId'], gameId: PrismaGame['id'], leftPlayerId: string | null, rightPlayerId: string | null, leftPlayerUsername: string | null = null, rightPlayerUsername: string | null = null) {
 	if (!tournamentId) return;
 	const tournamentNamespace = app.io.of("/tournament");
-	if (leftPlayerId !== BracketGenerator.PLACEHOLDER_USER_ID) {
+	if (leftPlayerId !== null) {
 		tournamentNamespace.to(`${tournamentId}:${leftPlayerId}`).emit(`your-match-is-ready`, { gameId, tournamentId, opponent: rightPlayerUsername });
 	}
-	if (rightPlayerId !== BracketGenerator.PLACEHOLDER_USER_ID) {
+	if (rightPlayerId !== null) {
 		tournamentNamespace.to(`${tournamentId}:${rightPlayerId}`).emit(`your-match-is-ready`, { gameId, tournamentId, opponent: leftPlayerUsername });
 	}
 }
