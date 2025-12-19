@@ -6,6 +6,9 @@ type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
 export class OnlineGame extends Game {
 	protected gameId: string;
+
+	get currentGameId() { return this.gameId; }
+
 	protected socketNamespace: TypedSocketNamespace | null;
 
 	public pendingDbCreation: PrismaGame | null = null;

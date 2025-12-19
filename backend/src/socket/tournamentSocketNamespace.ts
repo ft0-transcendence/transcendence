@@ -138,7 +138,7 @@ export function setupTournamentNamespace(io: Server) {
 		});
 
 		socket.on("disconnect", async (reason) => {
-			app.log.info("Tournament socket disconnected %s, reason: %s", socket.id, reason);
+			app.log.info("User id=%s username=%s disconnected from tournament namespace", user.id, user.username);
 
 			// Remove user from all tournament lobbies
 			for (const [tournamentId, lobby] of cache.tournaments.tournamentLobbies) {
@@ -164,170 +164,7 @@ export function setupTournamentNamespace(io: Server) {
 				}
 			}
 		});
-
-		socket.on("join-tournament-game", async (gameId: string) => {
-			try {
-				const game = cache.tournaments.activeTournamentGames.get(gameId);
-
-				if (!game) {
-					socket.emit('error', 'Tournament game not found or not active');
-					return;
-				}
-
-				const isPlayerInGame = game.isPlayerInGame(user.id);
-
-				game.setSocketNamespace(tournamentNamespace);
-
-				// add utente alla partita
-				const gameUserInfo: GameUserInfo = {
-					id: user.id,
-					username: user.username,
-					isPlayer: isPlayerInGame
-				};
-
-				game.addConnectedUser(gameUserInfo);
-
-				// join alla room della partita
-				await socket.join(`${gameId}:${user.id}`);
-				await socket.join(gameId);
-
-				// set giocatore come ready
-				game.playerReady(gameUserInfo);
-
-				// If the user is a player and was previously disconnected, mark as reconnected (15s grace period)
-				if (isPlayerInGame && 'markPlayerReconnected' in game) {
-					(game as OnlineGame).markPlayerReconnected(user.id);
-				}
-
-				socket.emit('tournament-game-joined', {
-					gameId: gameId,
-					game: {
-						leftPlayer: game.leftPlayer,
-						rightPlayer: game.rightPlayer,
-						state: game.getState()
-					},
-					playerSide: game.leftPlayer?.id === user.id ? 'left' : 'right',
-					isPlayer: isPlayerInGame,
-					ableToPlay: isPlayerInGame
-				});
-
-				socket.to(gameId).emit('player-joined-tournament-game', {
-					userId: user.id,
-					username: user.username
-				});
-
-				app.log.info('User %s joined tournament game %s', user.username, gameId);
-
-			} catch (error) {
-				app.log.error('Error joining tournament game:', error);
-				socket.emit('error', 'Failed to join tournament game');
-			}
-		});
-
-		// Tournament game input handlers
-		socket.on("player-press", (action: MovePaddleAction) => {
-			const rooms = Array.from(socket.rooms);
-			const gameId = rooms.find(room => room !== socket.id && room !== `tournament-${user.id}`);
-
-			if (!gameId) {
-				socket.emit('error', 'Not in any game room');
-				return;
-			}
-
-			const game = cache.tournaments.activeTournamentGames.get(gameId);
-			if (!game) {
-				socket.emit('error', 'Tournament game not found');
-				return;
-			}
-
-			const isPlayerInGame = game.isPlayerInGame(user.id);
-			if (!isPlayerInGame) {
-				socket.emit('error', 'You are not a player in this game');
-				return;
-			}
-
-			if (game.leftPlayer?.id === user.id) {
-				game.press("left", action);
-			} else if (game.rightPlayer?.id === user.id) {
-				game.press("right", action);
-			}
-
-			socket.to(gameId).emit("game-state", game.getState());
-			socket.emit("game-state", game.getState());
-		});
-
-		socket.on("player-release", (action: MovePaddleAction) => {
-			const rooms = Array.from(socket.rooms);
-			const gameId = rooms.find(room => room !== socket.id && room !== `tournament-${user.id}`);
-
-			if (!gameId) {
-				socket.emit('error', 'Not in any game room');
-				return;
-			}
-
-			const game = cache.tournaments.activeTournamentGames.get(gameId);
-			if (!game) {
-				socket.emit('error', 'Tournament game not found');
-				return;
-			}
-
-			const isPlayerInGame = game.isPlayerInGame(user.id);
-			if (!isPlayerInGame) {
-				socket.emit('error', 'You are not a player in this game');
-				return;
-			}
-
-			if (game.leftPlayer?.id === user.id) {
-				game.release("left", action);
-			} else if (game.rightPlayer?.id === user.id) {
-				game.release("right", action);
-			}
-
-			socket.to(gameId).emit("game-state", game.getState());
-			socket.emit("game-state", game.getState());
-		});
-
-		socket.on("leave-game", async (gameId: string) => {
-			await socket.leave(gameId);
-			app.log.info(`User ${user.username} left tournament game room ${gameId}`);
-			socket.to(gameId).emit("player-left", { userId: user.id });
-
-			const game = cache.tournaments.activeTournamentGames.get(gameId);
-			if (game && game.isPlayerInGame(user.id)) {
-				(game as OnlineGame).markPlayerDisconnected(user.id);
-			}
-		});
-
-		socket.on("disconnect", () => {
-			app.log.info("Tournament socket disconnected %s", socket.id);
-
-			const userGameInfo = {
-				id: user.id,
-				username: user.username,
-				isPlayer: false,
-			};
-
-			// Handle disconnection for all active tournament games
-			cache.tournaments.activeTournamentGames.forEach((game, gameId) => {
-				const removed = game.removeConnectedUser(userGameInfo);
-				if (removed) {
-					socket.to(gameId).emit('player-left', userGameInfo);
-				}
-
-				if (game.isPlayerInGame(user.id)) {
-					(game as OnlineGame).markPlayerDisconnected(user.id);
-				}
-			});
-		});
 	});
-
-	// Not actually needed, because at each bracket update the lobby should be programmatically notified already
-	// notifyInterval = setInterval(()=>{
-	// 	const tournamentIds = Array.from(cache.tournaments.tournamentLobbies.keys());
-	// 	for (const tournamentId of tournamentIds) {
-	// 		tournamentBroadcastBracketUpdateById(tournamentId);
-	// 	}
-	// }, notifyIntervalMs);
 }
 
 
@@ -357,7 +194,7 @@ export async function tournamentSendBracketUpdateForUser(tournamentId: string, p
 }
 
 async function sendBracketUpdateToUser(tournamentSocket: TypedSocketNamespace, tournamentId: string, playerId: User['id'], tournamentDetails: Awaited<ReturnType<typeof getTournamentFullDetailsById>>) {
-	const dto = await craftTournamentDTODetailsForUser(tournamentDetails, playerId);
+	const dto = craftTournamentDTODetailsForUser(tournamentDetails, playerId);
 	// README: SOCKET-EVENT
 	tournamentSocket.to(`${tournamentId}:${playerId}`).emit('bracket-updated', dto);
 }

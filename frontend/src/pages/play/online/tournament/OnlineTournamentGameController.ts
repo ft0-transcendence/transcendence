@@ -28,7 +28,7 @@ export class OnlineTournamentGameController extends RouteController {
 		this.#gameId = this.params.gameId;
 		this.#tournamentId = this.params.tournamentId;
 
-		this.#gameSocket = io("/tournament", {
+		this.#gameSocket = io("/tournament-game", {
 			withCredentials: true,
 		});
 
@@ -121,6 +121,14 @@ export class OnlineTournamentGameController extends RouteController {
 	}
 	protected async destroy() {
 		if (this.#gameSocket.connected) {
+			const eventsToRemove = [
+				'tournament-game-joined',
+				'error',
+				'game-cancelled',
+			]
+			for (const event of eventsToRemove) {
+				this.#gameSocket.off(event);
+			}
 			this.#gameSocket.close();
 			console.debug('Cleaning up game socket');
 		}
@@ -195,7 +203,12 @@ export class OnlineTournamentGameController extends RouteController {
 		});
 
 		this.#gameSocket.on('game-cancelled', (data) => {
-			toast.error('Partita cancellata', data.message);
+			toast.error(t('game.aborted.generic'), data.message);
+			this.#gameComponent.showError(
+				/*html*/`
+					<h3 data-i18n="${k('game.aborted.generic')}">Game aborted</h3>
+				`
+			);
 		});
 	}
 }
