@@ -123,8 +123,8 @@ export class AIPlayerService {
 			let leftPlayerIsAI = nextGame.leftPlayerUsername === null;
 			let rightPlayerIsAI = nextGame.rightPlayerUsername === null;
 
-			const leftPlayerSlotIsEmpty = leftPlayer.id === null && !leftPlayerIsAI;
-			const rightPlayerSlotIsEmpty = rightPlayer.id === null && !rightPlayerIsAI;
+			const leftPlayerSlotIsEmpty = leftPlayer === null && !leftPlayerIsAI;
+			const rightPlayerSlotIsEmpty = rightPlayer === null && !rightPlayerIsAI;
 
 			const freeSlotsLeft = (leftPlayerSlotIsEmpty ? 1 : 0) + (rightPlayerSlotIsEmpty ? 1 : 0);
 

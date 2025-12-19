@@ -293,8 +293,8 @@ export class BracketGenerator {
 				tournamentRound: 'QUARTI' as any
 			},
 			select: {
-				leftPlayerUsername: true,
-				rightPlayerUsername: true
+				leftPlayerId: true,
+				rightPlayerId: true
 			}
 		});
 
@@ -601,16 +601,19 @@ export class BracketGenerator {
 				const winnerId = isLeftWinner ? finaleGame.leftPlayerId : finaleGame.rightPlayerId;
 				const winnerUsername = isLeftWinner ? finaleGame.leftPlayerUsername : finaleGame.rightPlayerUsername;
 
-				await db.tournament.update({
-					where: { id: tournamentId },
-					data: {
-						endDate: new Date(),
-						status: 'COMPLETED',
-						winnerId,
-						winnerUsername
-					}
-				})
-				tournamentBroadcastTournamentCompleted(tournamentId, winnerId, winnerUsername);
+				// Only complete tournament if we have a valid winner (not an empty slot)
+				if (winnerId && winnerUsername !== undefined) {
+					await db.tournament.update({
+						where: { id: tournamentId },
+						data: {
+							endDate: new Date(),
+							status: 'COMPLETED',
+							winnerId,
+							winnerUsername
+						}
+					})
+					tournamentBroadcastTournamentCompleted(tournamentId, winnerId, winnerUsername);
+				}
 			}
 
 			await this.updateGameTypeForAIPlayers(tournamentId, tx);

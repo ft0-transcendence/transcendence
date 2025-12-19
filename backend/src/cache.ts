@@ -9,7 +9,7 @@ import { updateGameStats } from "./utils/statsUtils";
 import { GameStatus } from "../game/game";
 
 
-async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
+async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstance: OnlineGame, leftPlayerId: string | null, rightPlayerId: string | null) {
 	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
 	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
 
@@ -33,7 +33,7 @@ async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstanc
 		console.log(`✅ VS Game ${gameId} successfully updated in database`);
 
 		// Aggiorna sempre le statistiche dei giocatori
-		if (state.scores.left !== state.scores.right) {
+		if (state.scores.left !== state.scores.right && leftPlayerId && rightPlayerId) {
 			let winnerId: string;
 			let loserId: string;
 
@@ -47,6 +47,8 @@ async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstanc
 
 			console.log(`📊 VS Game ${gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${isAborted}`);
 			await updateGameStats(db, winnerId, loserId);
+		} else if (!leftPlayerId || !rightPlayerId) {
+			console.log(`⚠️ VS Game ${gameId} has missing player IDs, skipping stats update`);
 		} else {
 			console.log(`⚠️ VS Game ${gameId} ended in a tie, skipping stats update`);
 		}
@@ -118,6 +120,18 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 	});
 
 	for (const game of activeVSGames) {
+		// Skip games with missing players (should not happen for VS games, but handle gracefully)
+		if (!game.leftPlayer || !game.rightPlayer || !game.leftPlayerId || !game.rightPlayerId) {
+			fastify.log.warn('VS Game #%s has missing players, marking as aborted', game.id);
+			await db.game.update({
+				where: { id: game.id },
+				data: {
+					endDate: new Date(),
+					abortDate: new Date(),
+				}
+			});
+			continue;
+		}
 
 		const LEASE_TIME = 1000 * 60; // 1 min
 
@@ -196,6 +210,12 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		}
 		if (!game.startDate){
 			fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s has no start date, skipping`, game.id);
+			continue;
+		}
+
+		// Skip games with empty slots (they will be created on-demand when needed)
+		if (!game.leftPlayer || !game.rightPlayer) {
+			fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s has empty slots, skipping (will create on-demand)`, game.id);
 			continue;
 		}
 

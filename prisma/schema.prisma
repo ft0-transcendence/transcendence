@@ -101,7 +101,6 @@ enum TournamentRound {
     FINALE
 }
 
-// TODO: ideally left and right player could be `null` if it's not yet assigned or is an AI
 model Game {
     id                  String           @id @default(cuid())
     type                GameType

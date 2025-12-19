@@ -539,6 +539,12 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 	let aiGamesSkipped = 0;
 
 	for (const game of allGames) {
+		// Skip games with empty slots
+		if (!game.leftPlayer || !game.rightPlayer) {
+			app.log.debug(`⏭️ Skipping game ${game.id} - has empty slots`);
+			continue;
+		}
+
 		const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
 		const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
 
@@ -627,6 +633,12 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 		return false;
 	}
 
+	// Check if game has empty slots (player is null)
+	if (!game.leftPlayer || !game.rightPlayer) {
+		app.log.debug(`⏭️ Game ${gameId} has empty slots, waiting for players`);
+		return false;
+	}
+
 	const aiPlayerService = new AIPlayerService(db);
 	const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
 	const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
@@ -634,15 +646,6 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 	// Don't create instance if both are AI
 	if (isLeftAI && isRightAI) {
 		app.log.debug(`⏭️ Game ${gameId} is AI vs AI, no instance needed`);
-		return false;
-	}
-
-	// Check if game has empty slots (playerId is null)
-	const isLeftEmpty = game.leftPlayerId === null;
-	const isRightEmpty = game.rightPlayerId === null;
-
-	if (isLeftEmpty || isRightEmpty) {
-		app.log.debug(`⏭️ Game ${gameId} has empty slots, waiting for players`);
 		return false;
 	}
 
@@ -766,6 +769,12 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 			continue;
 		}
 
+		// Skip games with empty slots
+		if (!game.leftPlayer || !game.rightPlayer) {
+			app.log.debug(`⏭️ Game ${game.id} has empty slots, waiting for players`);
+			continue;
+		}
+
 		const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
 		const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
 
@@ -773,13 +782,6 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 		if (isLeftAI && isRightAI) {
 			app.log.debug(`⏭️ Skipping AI vs AI game ${game.id} (${nextRound}) - handled by simulation`);
 			aiGamesSkipped++;
-			continue;
-		}
-
-		const EMPTY_SLOT = 'Empty slot';
-		if (game.leftPlayerUsername === EMPTY_SLOT || game.rightPlayerUsername === EMPTY_SLOT ||
-			game.leftPlayerUsername === undefined || game.rightPlayerUsername === undefined) {
-			app.log.debug(`⏭️ Game ${game.id} has empty slots, waiting for players`);
 			continue;
 		}
 
@@ -817,8 +819,8 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 		);
 
 		gameInstance.setPlayers(
-			{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: game.leftPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID },
-			{ id: game.rightPlayer.id, username: game.leftPlayerUsername, isPlayer: game.rightPlayer.id !== BracketGenerator.PLACEHOLDER_USER_ID }
+			{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: true },
+			{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: true }
 		);
 
 		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
@@ -944,7 +946,7 @@ export function craftTournamentDTODetailsForUser(tournamentData: Awaited<ReturnT
 	const canStart = isWaitingForPlayers && isCreator;
 	const canDelete = isCreator;
 
-	const myCurrentActiveGame = tournamentData.games.find(g => (g.leftPlayer.id === requestedByUserId || g.rightPlayer.id === requestedByUserId) && g.endDate == null && g.abortDate == null && g.startDate != null);
+	const myCurrentActiveGame = tournamentData.games.find(g => (g.leftPlayer?.id === requestedByUserId || g.rightPlayer?.id === requestedByUserId) && g.endDate == null && g.abortDate == null && g.startDate != null);
 
 	const result = {
 		...tournamentData,
@@ -1090,11 +1092,11 @@ export type MapTournamentGamesDTO = {
 	leftPlayer: {
 		id: string;
 		username: string;
-	};
+	} | null;
 	rightPlayer: {
 		id: string;
 		username: string;
-	};
+	} | null;
 	previousGames: {
 		id: string;
 	}[];

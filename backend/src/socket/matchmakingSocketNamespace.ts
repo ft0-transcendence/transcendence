@@ -71,6 +71,11 @@ export function setupMatchmakingNamespace(io: Server) {
 							? activeGameWithCurrentUser.rightPlayer
 							: activeGameWithCurrentUser.leftPlayer;
 
+						if (!opponent) {
+							app.log.warn('Active game has no opponent, skipping');
+							return;
+						}
+
 						const opponentData: GameUserInfo = { id: opponent.id, username: opponent.username, isPlayer: true };
 
 						app.log.info('User already in active game, skipping matchmaking', user.username);

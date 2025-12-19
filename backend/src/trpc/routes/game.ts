@@ -83,7 +83,7 @@ export const gameRouter = t.router({
 			const res = matches.map(m => {
 				const mySide: "left" | "right" = m.leftPlayerId === id ? 'left' : 'right';
 				const winner = m.leftPlayerScore > m.rightPlayerScore ? m.leftPlayer : m.rightPlayer;
-				const result: "W" | "L" = winner.id === id ? 'W' : 'L';
+				const result: "W" | "L" = winner?.id === id ? 'W' : 'L';
 				return {
 					...m,
 					result,
@@ -133,7 +133,7 @@ export const gameRouter = t.router({
 
 			const mySide: "left" | "right" = game.leftPlayerId === id ? 'left' : 'right';
 			const winner = game.leftPlayerScore > game.rightPlayerScore ? game.leftPlayer : game.rightPlayer;
-			const result: "W" | "L" = winner.id === id ? 'W' : 'L';
+			const result: "W" | "L" = winner?.id === id ? 'W' : 'L';
 
 			let obj = isPlayerInGame ? {
 				mySide,
@@ -183,7 +183,7 @@ export const gameRouter = t.router({
 
 			const mySide: "left" | "right" = game.leftPlayerId === id ? 'left' : 'right';
 			const winner = game.leftPlayerScore > game.rightPlayerScore ? game.leftPlayer : game.rightPlayer;
-			const result: "W" | "L" = winner.id === id ? 'W' : 'L';
+			const result: "W" | "L" = winner?.id === id ? 'W' : 'L';
 
 			let obj = isPlayerInGame ? {
 				mySide,
