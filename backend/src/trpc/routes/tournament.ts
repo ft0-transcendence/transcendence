@@ -1128,13 +1128,11 @@ export function mapTournamentGamesToDTO(rawGames: MapTournamentGamesDTO[]) {
 
 	const games = mappedGames.filter(g => g.tournamentRound);
 
-	// TODO: revise the part below (check if it's persistent)
-
 	const byId = new Map(games.map(g => [g.id, g]));
 	const byRound: Record<string, typeof games> = {};
 	games.forEach(g => (byRound[g.tournamentRound!] ??= []).push(g));
 
-	// Build children map
+	// Build children map (previousGames are the games that feed into this game)
 	const children = new Map<string, string[]>();
 	games.forEach(g => {
 		g.previousGames?.forEach(pid => {
@@ -1142,7 +1140,7 @@ export function mapTournamentGamesToDTO(rawGames: MapTournamentGamesDTO[]) {
 		});
 	});
 
-	// DFS order (top → bottom)
+	// DFS order (top → bottom) for consistent bracket ordering
 	const order: string[] = [];
 
 	function dfs(id: string) {
@@ -1156,13 +1154,13 @@ export function mapTournamentGamesToDTO(rawGames: MapTournamentGamesDTO[]) {
 		order.push(id);
 	}
 
-	// Start from roots (finals)
+	// Start from roots (finals) - games with no nextGameId
 	games.filter(g => !g.nextGameId).forEach(g => dfs(g.id));
 
-	// Index lookup
+	// Index lookup for sorting
 	const index = new Map(order.map((id, i) => [id, i]));
 
-	// Sort each round using traversal order
+	// Sort each round using DFS traversal order (ensures consistent left-to-right bracket ordering)
 	const sortedGamesByRound = Object.fromEntries(
 		Object.entries(byRound).map(([round, gs]) => [
 			round,
@@ -1170,10 +1168,11 @@ export function mapTournamentGamesToDTO(rawGames: MapTournamentGamesDTO[]) {
 		])
 	);
 
+	// Combine rounds in tournament order: QUARTI → SEMIFINALE → FINALE
 	const result = [
-		...sortedGamesByRound.QUARTI,
-		...sortedGamesByRound.SEMIFINALE,
-		...sortedGamesByRound.FINALE,
+		...(sortedGamesByRound.QUARTI || []),
+		...(sortedGamesByRound.SEMIFINALE || []),
+		...(sortedGamesByRound.FINALE || []),
 	]
 	return result;
 }
