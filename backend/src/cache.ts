@@ -209,6 +209,14 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 			fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s is completed, skipping`, game.id);
 			continue;
 		}
+		const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
+		const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
+
+		if (isLeftAI && isRightAI) {
+
+		}
+
+
 		if (!game.startDate){
 			fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s has no start date, skipping`, game.id);
 			continue;
@@ -222,7 +230,6 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 
 		const LEASE_TIME = 1000 * 60; // 1 min
 
-		// TODO: check for tournament FINALE after the AI progressed to the finale and the server restarted. It's being set to finished...
 		if (game.tournament?.status === 'IN_PROGRESS') {
 			const now = new Date();
 			const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);
@@ -248,48 +255,47 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		const gameInstance = new TournamentGame(
 			game.id,
 			game.tournamentId,
-			null,
 			{
-				maxScore: game.scoreGoal,
-				initialData: {
-					leftPlayerScore: game.leftPlayerScore,
-					rightPlayerScore: game.rightPlayerScore,
+				socketNamespace: null,
+				config: {
+					maxScore: game.scoreGoal,
+					initialData: {
+						leftPlayerScore: game.leftPlayerScore,
+						rightPlayerScore: game.rightPlayerScore,
+					}
+				},
+				onGameFinish: async (state, tournamentId, gameId) => {
+					// Check if game was forfeited due to disconnection
+					const isAborted = gameInstance.wasForfeited;
+
+					const updateData: Partial<Game> = {
+						endDate: new Date(),
+						leftPlayerScore: state.scores.left,
+						rightPlayerScore: state.scores.right,
+					};
+
+					if (isAborted) {
+						updateData.abortDate = new Date();
+					}
+					await db.game.updateMany({
+						where: { id: gameId },
+						data: updateData,
+					});
+
+					cache.tournaments.activeTournamentGames.delete(gameId);
+					fastify.log.info("Tournament (Game #%s persisted and removed from cache.", gameId);
+				},
+				updateGameActivity: async () => {
+					await db.game.updateMany({
+						where: { id: game.id, endDate: null },
+						data: { updatedAt: new Date() }
+					});
 				}
-			},
-			async (state, tournamentId, gameId) => {
-				// Check if game was forfeited due to disconnection
-				const isAborted = gameInstance.wasForfeited;
-
-				const updateData: Partial<Game> = {
-					endDate: new Date(),
-					leftPlayerScore: state.scores.left,
-					rightPlayerScore: state.scores.right,
-				};
-
-				if (isAborted) {
-					updateData.abortDate = new Date();
-				}
-
-				await db.game.update({
-					where: { id: gameId },
-					data: updateData,
-				});
-				cache.tournaments.activeTournamentGames.delete(gameId);
-				fastify.log.info("Tournament (Game #%s persisted and removed from cache.", gameId);
-			},
-			async () => {
-				// TODO: FIX THIS STUFF. TournamentGame Never ends (Database concurrency issues)
-				await db.game.update({
-					where: { id: game.id },
-					data: { updatedAt: new Date() }
-				});
 			}
 		);
 
 		// For AI games, we'll handle AI logic in the TournamentGame itself
 		// by checking player types when they join
-		const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
-		const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
 		const leftPlayer = {
 			id: game.leftPlayerId,
 			username: game.leftPlayerUsername,

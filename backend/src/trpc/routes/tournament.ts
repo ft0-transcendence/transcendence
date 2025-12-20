@@ -428,7 +428,7 @@ export const tournamentRouter = t.router({
 async function createTournamentGameInstances(db: PrismaClient, tournamentId: string): Promise<void> {
 	app.log.info(`🎮 Creating TournamentGame instances for tournament ${tournamentId} (quarter finals only)`);
 
-	const tournamentNamespace = app.io.of("/tournament");
+	const tournamentNamespace = app.io.of("/tournament-game");
 
 	// Only create instances for QUARTER FINALS initially
 	const allGames = await db.game.findMany({
@@ -459,7 +459,7 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 
 	for (const game of allGames) {
 		// Skip games with empty slots
-		if (!game.leftPlayer || !game.rightPlayer) {
+		if (!game.leftPlayer && !game.rightPlayer) {
 			app.log.debug(`⏭️ Skipping game ${game.id} - has empty slots`);
 			continue;
 		}
@@ -478,37 +478,41 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 		const gameInstance = new TournamentGame(
 			game.id,
 			tournamentId,
-			tournamentNamespace,
-			{ maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
-			async (state: any, _tid: string, gid: string) => {
-				const isAborted = gameInstance.wasForfeited;
+			{
+				socketNamespace: tournamentNamespace,
+				config: { maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
+				onGameFinish:
+					async (state: any, _tid: string, gid: string) => {
+						const isAborted = gameInstance.wasForfeited;
 
-				app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
+						app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
 
-				await db.game.update({
-					where: { id: gid },
-					data: {
-						endDate: new Date(),
-						abortDate: isAborted ? new Date() : null,
-						leftPlayerScore: state.scores.left,
-						rightPlayerScore: state.scores.right
-					}
-				});
+						await db.game.updateMany({
+							where: { id: gid },
+							data: {
+								endDate: new Date(),
+								abortDate: isAborted ? new Date() : null,
+								leftPlayerScore: state.scores.left,
+								rightPlayerScore: state.scores.right
+							}
+						});
 
-				cache.tournaments.activeTournamentGames.delete(gid);
-				app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
+						cache.tournaments.activeTournamentGames.delete(gid);
+						app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
+					},
+				updateGameActivity: async () => {
+					await db.game.updateMany({
+						where: { id: game.id, endDate: null },
+						data: { updatedAt: new Date() }
+					});
+				}
 			},
-			async () => {
-				await db.game.update({
-					where: { id: game.id },
-					data: { updatedAt: new Date() }
-				});
-			}
+
 		);
 
 		gameInstance.setPlayers(
-			{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: !isLeftAI },
-			{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: !isRightAI }
+			{ id: game.leftPlayerId, username: game.leftPlayerUsername, isPlayer: !isLeftAI },
+			{ id: game.rightPlayerId, username: game.rightPlayerUsername, isPlayer: !isRightAI }
 		);
 
 		// Add to cache
@@ -518,106 +522,10 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 
 		app.log.info(`✅ TournamentGame instance created for ${game.id} - Left: ${game.leftPlayerUsername}, Right: ${game.rightPlayerUsername}`);
 
-		notifyPlayersAboutNewTournamentGame(game.tournamentId, game.id, game.leftPlayer.id, game.rightPlayer.id);
+		notifyPlayersAboutNewTournamentGame(game.tournamentId, game.id, game.leftPlayerId, game.rightPlayerId);
 	}
 
 	app.log.info(`🎮 Tournament ${tournamentId}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
-}
-
-export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId: string, gameId: string): Promise<boolean> {
-
-	const existingInstance = cache.tournaments.activeTournamentGames.get(gameId);
-	if (existingInstance) {
-		app.log.debug(`🔄 Game instance ${gameId} already exists, skipping creation`);
-		return false;
-	}
-
-	const game = await db.game.findUnique({
-		where: { id: gameId },
-		select: {
-			id: true,
-			scoreGoal: true,
-			leftPlayerScore: true,
-			rightPlayerScore: true,
-			tournamentRound: true,
-			leftPlayer: { select: { id: true, username: true } },
-			rightPlayer: { select: { id: true, username: true } },
-			leftPlayerUsername: true,
-			rightPlayerUsername: true,
-			endDate: true,
-			leftPlayerId: true,
-			rightPlayerId: true
-		}
-	});
-
-	if (!game || game.endDate) {
-		app.log.debug(`⚠️ Game ${gameId} not found or already ended`);
-		return false;
-	}
-
-	// Check if game has empty slots (player is null)
-	if (!game.leftPlayer || !game.rightPlayer) {
-		app.log.debug(`⏭️ Game ${gameId} has empty slots, waiting for players`);
-		return false;
-	}
-
-	const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
-	const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
-
-	// Don't create instance if both are AI
-	if (isLeftAI && isRightAI) {
-		app.log.debug(`⏭️ Game ${gameId} is AI vs AI, no instance needed`);
-		return false;
-	}
-
-	app.log.info(`🆕 Creating on-demand game instance for ${gameId} (${game.tournamentRound})`);
-
-	const tournamentNamespace = app.io.of("/tournament");
-	const gameInstance = new TournamentGame(
-		game.id,
-		tournamentId,
-		tournamentNamespace,
-		{ maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
-		async (state: any, _tid: string, gid: string) => {
-			const isAborted = gameInstance.wasForfeited;
-			app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
-
-			await db.game.update({
-				where: { id: gid },
-				data: {
-					endDate: new Date(),
-					abortDate: isAborted ? new Date() : null,
-					leftPlayerScore: state.scores.left,
-					rightPlayerScore: state.scores.right
-				}
-			});
-
-			cache.tournaments.activeTournamentGames.delete(gid);
-			app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
-		},
-		async () => {
-			await db.game.update({
-				where: { id: game.id },
-				data: { updatedAt: new Date() }
-			});
-		}
-	);
-
-	gameInstance.setPlayers(
-		{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: true },
-		{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: true }
-	);
-
-	if (game.leftPlayerScore > 0 || game.rightPlayerScore > 0) {
-		gameInstance.scores.left = game.leftPlayerScore;
-		gameInstance.scores.right = game.rightPlayerScore;
-		app.log.info(`📊 Restored scores for game ${game.id}: ${game.leftPlayerScore}-${game.rightPlayerScore}`);
-	}
-
-	cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
-	app.log.info(`✅ On-demand game instance created for ${game.id} - Left: ${game.leftPlayerUsername}, Right: ${game.rightPlayerUsername}`);
-
-	return true;
 }
 
 //Only creates instances for games with at least one human player
@@ -680,7 +588,7 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 		orderBy: { startDate: 'asc' }
 	});
 
-	const tournamentNamespace = app.io.of("/tournament");
+	const tournamentNamespace = app.io.of("/tournament-game");
 	let humanGamesCreated = 0;
 	let aiGamesSkipped = 0;
 
@@ -711,31 +619,33 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 		const gameInstance = new TournamentGame(
 			game.id,
 			tournamentId,
-			tournamentNamespace,
-			{ maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
-			async (state: any, _tid: string, gid: string) => {
-				const isAborted = gameInstance.wasForfeited;
+			{
+				socketNamespace: tournamentNamespace,
+				config: { maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
+				onGameFinish: async (state: any, _tid: string, gid: string) => {
+					const isAborted = gameInstance.wasForfeited;
 
-				app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
+					app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
 
-				await db.game.update({
-					where: { id: gid },
-					data: {
-						endDate: new Date(),
-						abortDate: isAborted ? new Date() : null,
-						leftPlayerScore: state.scores.left,
-						rightPlayerScore: state.scores.right
-					}
-				});
+					await db.game.update({
+						where: { id: gid },
+						data: {
+							endDate: new Date(),
+							abortDate: isAborted ? new Date() : null,
+							leftPlayerScore: state.scores.left,
+							rightPlayerScore: state.scores.right
+						}
+					});
 
-				cache.tournaments.activeTournamentGames.delete(gid);
-				app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
-			},
-			async () => {
-				await db.game.update({
-					where: { id: game.id },
-					data: { updatedAt: new Date() }
-				});
+					cache.tournaments.activeTournamentGames.delete(gid);
+					app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
+				},
+				updateGameActivity: async () => {
+					await db.game.update({
+						where: { id: game.id },
+						data: { updatedAt: new Date() }
+					});
+				}
 			}
 		);
 
@@ -767,14 +677,14 @@ async function executeTournamentStart(tournament: Tournament, startedByUsername:
 	const startDate = new Date();
 
 	const result = await db.$transaction(async (tx) => {
-		await db.tournament.update({
+		await tx.tournament.update({
 			where: { id: tournament.id },
 			data: {
 				status: 'IN_PROGRESS',
 				startDate: startDate
 			}
 		});
-		const result = await db.game.updateMany({
+		const result = await tx.game.updateMany({
 			where: {
 				tournamentId: tournament.id,
 				tournamentRound: TournamentRound.QUARTI
@@ -1032,22 +942,10 @@ export function mapTournamentGamesToDTO(rawGames: MapTournamentGamesDTO[]) {
 		const rightPlayerIsAI = AIPlayerService.isAIPlayer(g.rightPlayerId, g.rightPlayerUsername);
 
 		return {
-			id: g.id,
-			leftPlayer: g.leftPlayer,
-			rightPlayer: g.rightPlayer,
-			leftPlayerScore: g.leftPlayerScore,
-			rightPlayerScore: g.rightPlayerScore,
-			startDate: g.startDate,
-			endDate: g.endDate,
-			abortDate: g.abortDate,
-			scoreGoal: g.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
-			tournamentRound: g.tournamentRound,
-			leftPlayerUsername: g.leftPlayerUsername,
-			rightPlayerUsername: g.rightPlayerUsername,
+			...g,
 			isAIGame: leftPlayerIsAI || rightPlayerIsAI,
 			leftPlayerIsAI,
 			rightPlayerIsAI,
-			nextGameId: g.nextGameId,
 			previousGames,
 		};
 	});

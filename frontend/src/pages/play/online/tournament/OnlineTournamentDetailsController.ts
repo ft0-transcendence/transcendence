@@ -16,7 +16,6 @@ import { showAndLogTrpcError } from "@src/utils/trpcResponseUtils";
 type TournamentDTO = NonNullable<RouterOutputs["tournament"]["getTournamentDetails"]>;
 type TournamentGame = NonNullable<TournamentDTO["games"]>[number];
 
-// TODO: it's a little messy, refactor this
 export class OnlineTournamentDetailsController extends RouteController {
 	#autoRedirectToGameTimeout: NodeJS.Timeout | null = null;
 	#autoRedirectToLobbyTimeout: NodeJS.Timeout | null = null;
@@ -47,6 +46,8 @@ export class OnlineTournamentDetailsController extends RouteController {
 	}
 
 	protected async preRender() {
+		document.querySelector(`#app_layout_content`)?.scrollTo(0,0);
+
 		this.registerChildComponent(this.#loadingOverlays.root);
 		console.debug('[TournamentDetails] Loading tournament with ID:', this.#tournamentId);
 		try {
@@ -280,7 +281,6 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 			socket.emit('join-tournament-lobby', this.#tournamentId);
 
-			// TODO: tournament events
 			socket.on('tournament-deleted', (data: { tournamentName: string }) => {
 				if (this.#isDeletingTournament) return;
 				toast.warn(t('generic.tournament'), t('tournament.tournament_has_been_deleted', data) ?? `The tournament "${data.tournamentName}" has been deleted by the creator.`);

@@ -16,7 +16,7 @@ export async function updateGameStats(
 	try {
 		// Update winner's stats
 		if (winnerId){
-			await db.user.update({
+			await db.user.updateMany({
 				where: { id: winnerId },
 				data: {
 					totalWins: {
@@ -28,7 +28,7 @@ export async function updateGameStats(
 
 		// Update loser's stats
 		if (loserId){
-			await db.user.update({
+			await db.user.updateMany({
 				where: { id: loserId },
 				data: {
 					totalLosses: {
@@ -52,10 +52,11 @@ export async function updateGameStats(
  */
 export async function updateTournamentWinnerStats(
 	db: PrismaClient,
-	winnerId: string
+	winnerId: PrismaGame['leftPlayerId'] | PrismaGame['rightPlayerId']
 ): Promise<void> {
+	if (!winnerId) return;
 	try {
-		await db.user.update({
+		await db.user.updateMany({
 			where: { id: winnerId },
 			data: {
 				tournamentsWon: {

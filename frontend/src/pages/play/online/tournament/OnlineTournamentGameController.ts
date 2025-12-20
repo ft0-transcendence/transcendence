@@ -9,14 +9,13 @@ import { RouteController } from "@src/tools/ViewController";
 import { TRPCClientError } from "@trpc/client";
 import { io, Socket } from "socket.io-client";
 
-// TODO: tournament games are fu**ed up and never ending. Also the score is never updaed on DB. Fix it.
 export class OnlineTournamentGameController extends RouteController {
 
 	#gameId: string = "";
 	#game: RouterOutputs['game']['getTournamentGameDetails'] | null = null;
 	#tournamentId: string = "";
 
-	#gameSocket: Socket;
+	#gameSocket?: Socket;
 
 	#isGameValidated = false;
 
@@ -28,24 +27,19 @@ export class OnlineTournamentGameController extends RouteController {
 		this.#gameId = this.params.gameId;
 		this.#tournamentId = this.params.tournamentId;
 
-		this.#gameSocket = io("/tournament-game", {
-			withCredentials: true,
-		});
-
-
-		// Setup socket connection in postRender to ensure proper timing
-		this.#gameSocket.on('connect', () => {
-			console.debug('Tournament Game Socket connected to server');
-			console.debug('Emitting join-tournament-game for gameId:', this.#gameId);
-			this.#gameSocket.emit('join-tournament-game', this.#gameId);
-		});
-
 		this.#gameComponent = new GameComponent({
 			gameId: this.#gameId,
 			gameType: 'TOURNAMENT',
 			isLocalGame: false,
-			socketConnection: this.#gameSocket,
+			goBackPath: `/play/online/tournaments/${this.#tournamentId}`
 		});
+
+		this.#gameComponent.setMovementHandler((side, direction, type) => {
+			// if (this.#gameState?.state !== 'RUNNING') return;
+			const event = type === 'press' ? 'player-press' : 'player-release';
+			this.#gameSocket?.emit(event, { direction, gameId: this.#gameId });
+		});
+
 		this.registerChildComponent(this.#gameComponent);
 
 		this.updateTitleSuffix();
@@ -79,9 +73,9 @@ export class OnlineTournamentGameController extends RouteController {
 				<section class="flex flex-col grow sm:items-center sm:w-full max-w-2xl">
 					<div class="grow flex flex-col w-full">
 						<!-- GAME COMPONENT -->
-						${this.#game
-				? await this.#gameComponent.render()
-				: /*html*/`
+						${await this.#gameComponent.silentRender()}
+						${!this.#game
+				? /*html*/`
 								<div class="grow flex flex-col w-full items-center justify-center bg-black">
 									<h3 data-i18n="${k('generic.game_not_found')}" class="text-2xl uppercase font-mono font-bold">Game not found</h3>
 									<a data-route="/tournament" href="/play/online/tournaments"
@@ -91,6 +85,7 @@ export class OnlineTournamentGameController extends RouteController {
 									</a>
 								</div>
 							`
+				: ''
 			}
 					</div>
 				</section>
@@ -107,11 +102,6 @@ export class OnlineTournamentGameController extends RouteController {
 
 	protected async postRender() {
 		if (this.#game) {
-			this.#gameComponent.setMovementHandler((side, direction, type) => {
-				const event = type === 'press' ? 'player-press' : 'player-release';
-				this.#gameSocket.emit(event, { direction, gameId: this.#gameId });
-			});
-
 			this.#setupSocketEvents();
 		} else {
 			this.unregisterChildComponent(this.#gameComponent);
@@ -126,94 +116,103 @@ export class OnlineTournamentGameController extends RouteController {
 			'game-finished',
 		]
 		eventsToRemove.forEach(event => {
-			this.#gameSocket.off(event);
+			this.#gameSocket?.off(event);
 		});
 	}
 
 	#setupSocketEvents() {
-		this.#gameSocket.on('tournament-game-joined',
-			(data: {
-				gameId: string,
-				game: {
-					leftPlayer: Game['GameUserInfo'],
-					rightPlayer: Game['GameUserInfo'],
-					state: Game['GameStatus']
-				},
-				playerSide: 'left' | 'right',
-				isPlayer: boolean,
-				ableToPlay: boolean,
-			}) => {
-				console.debug('Tournament game joined!', data);
-				this.#isGameValidated = true;
+		this.#gameSocket = io("/tournament-game", {
+			withCredentials: true,
+		});
 
-				const myId = authManager.user?.id;
-				const amILeftPlayer = data.playerSide === 'left';
+		// Setup socket connection in postRender to ensure proper timing
+		this.#gameSocket.on('connect', () => {
+			this.#gameSocket?.emit('join-tournament-game', this.#gameId);
 
-				this.#gameComponent.updateGameState(data.game.state);
-				this.#gameComponent.setActivePlayers(amILeftPlayer, !amILeftPlayer);
+			this.#gameSocket?.on('tournament-game-joined',
+				(data: {
+					gameId: string,
+					game: {
+						leftPlayer: Game['GameUserInfo'],
+						rightPlayer: Game['GameUserInfo'],
+						state: Game['GameStatus']
+					},
+					playerSide: 'left' | 'right',
+					isPlayer: boolean,
+					ableToPlay: boolean,
+				}) => {
+					console.debug('Tournament game joined!', data);
+					this.#isGameValidated = true;
 
-				let newKeyBindings: GameComponent['defaultKeyBindings'] = {};
+					const myId = authManager.user?.id;
+					const amILeftPlayer = data.playerSide === 'left';
 
-				if (amILeftPlayer) {
-					newKeyBindings = {
-						'w': { side: 'left', direction: 'up' },
-						's': { side: 'left', direction: 'down' },
-						'arrowup': { side: 'left', direction: 'up' },
-						'arrowdown': { side: 'left', direction: 'down' },
+					this.#gameComponent.updateGameState(data.game.state);
+					this.#gameComponent.setActivePlayers(amILeftPlayer, !amILeftPlayer);
+
+					let newKeyBindings: GameComponent['defaultKeyBindings'] = {};
+
+					if (amILeftPlayer) {
+						newKeyBindings = {
+							'w': { side: 'left', direction: 'up' },
+							's': { side: 'left', direction: 'down' },
+							'arrowup': { side: 'left', direction: 'up' },
+							'arrowdown': { side: 'left', direction: 'down' },
+						}
+					} else {
+						newKeyBindings = {
+							'w': { side: 'right', direction: 'up' },
+							's': { side: 'right', direction: 'down' },
+							'arrowup': { side: 'right', direction: 'up' },
+							'arrowdown': { side: 'right', direction: 'down' },
+						}
 					}
-				} else {
-					newKeyBindings = {
-						'w': { side: 'right', direction: 'up' },
-						's': { side: 'right', direction: 'down' },
-						'arrowup': { side: 'right', direction: 'up' },
-						'arrowdown': { side: 'right', direction: 'down' },
+
+					this.#gameComponent.updateKeyBindings(newKeyBindings);
+
+					const otherPlayer = amILeftPlayer ? data.game.rightPlayer : data.game.leftPlayer;
+
+					const getPlayerName = (player: typeof otherPlayer) => player?.username || 'AI';
+
+					if (data.ableToPlay) {
+						this.titleSuffix = `VS ${getPlayerName(otherPlayer)}`;
+					} else {
+						this.titleSuffix = `${getPlayerName(data.game.leftPlayer)} vs ${getPlayerName(data.game.rightPlayer)}`;
 					}
-				}
 
-				this.#gameComponent.updateKeyBindings(newKeyBindings);
-
-				const otherPlayer = amILeftPlayer ? data.game.rightPlayer : data.game.leftPlayer;
-
-				const getPlayerName = (player: typeof otherPlayer) => player?.username || 'AI';
-
-				if (data.ableToPlay) {
-					this.titleSuffix = `VS ${getPlayerName(otherPlayer)}`;
-				} else {
-					this.titleSuffix = `${getPlayerName(data.game.leftPlayer)} vs ${getPlayerName(data.game.rightPlayer)}`;
-				}
-
-				// CRITICAL: Pass socket to GameComponent to enable game-state updates
-				this.#gameComponent.updatePartialProps({
-					socketConnection: this.#gameSocket
+					// CRITICAL: Pass socket to GameComponent to enable game-state updates
+					this.#gameComponent.updatePartialProps({
+						socketConnection: this.#gameSocket
+					});
 				});
+
+			this.#gameSocket?.on('error', (data) => {
+				console.error('Tournament game socket error:', data);
+				if (this.#isGameValidated) {
+					toast.error('Error', data);
+				} else {
+					this.#gameComponent.showError(data);
+				}
 			});
 
-		this.#gameSocket.on('error', (data) => {
-			console.error('Tournament game socket error:', data);
-			if (this.#isGameValidated) {
-				toast.error('Error', data);
-			} else {
-				this.#gameComponent.showError(data);
-			}
+			this.#gameSocket?.on('game-cancelled', (data) => {
+				toast.error(t('game.aborted.generic'), data.message);
+				this.#gameComponent.showError(
+					/*html*/`
+						<h3 data-i18n="${k('game.aborted.generic')}">Game aborted</h3>
+					`
+				);
+			});
+
+			this.#gameSocket?.on('game-finished', (data: { winnerId: string, winnerUsername: string }) => {
+				console.debug('Tournament game finished', data);
+				// TODO: Maybe add a winner banner
+			});
+
+			this.#gameSocket?.on('player-joined-tournament-game', (data: { userId: string, username: string }) => {
+				console.debug('Player joined tournament game', data);
+			});
 		});
 
-		this.#gameSocket.on('game-cancelled', (data) => {
-			toast.error(t('game.aborted.generic'), data.message);
-			this.#gameComponent.showError(
-				/*html*/`
-					<h3 data-i18n="${k('game.aborted.generic')}">Game aborted</h3>
-				`
-			);
-		});
-
-		this.#gameSocket.on('game-finished', (data: { winnerId: string, winnerUsername: string }) => {
-			console.debug('Tournament game finished', data);
-			this.#gameComponent.hideError();
-			// TODO: show winner
-		});
-
-		this.#gameSocket.on('player-joined-tournament-game', (data: { userId: string, username: string }) => {
-			console.debug('Player joined tournament game', data);
-		});
 	}
 }

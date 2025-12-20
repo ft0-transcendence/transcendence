@@ -154,7 +154,6 @@ export class AppRouter {
 		document.body.removeEventListener('click', this.#onGenericMenuClickBind);
 		document.body.addEventListener('contextmenu', this.#onGenericMenuClickBind);
 
-		// TODO: maybe (?) find a better way to redirect back to the last route after login
 		const lastRoute = sessionStorage.getItem('lastRoute');
 		const isUserLoggedIn = await authManager.isUserLoggedIn();
 		const currentPath = this.#cleanPath(location.pathname);

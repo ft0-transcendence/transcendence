@@ -7,7 +7,6 @@ import { GameUserInfo } from "../../shared_exports";
 import { OnlineGame } from "../../game/onlineGame";
 import { MovePaddleAction } from "../../game/game";
 import { db } from "../trpc/db";
-import { createGameInstanceIfNeeded } from "../trpc/routes/tournament";
 import { User } from "@prisma/client";
 
 export function setupTournamentGameNamespace(io: Server) {
@@ -30,7 +29,7 @@ export function setupTournamentGameNamespace(io: Server) {
 					let game = cache.tournaments.activeTournamentGames.get(gameId);
 
 					if (!game) {
-						app.log.warn(`User id[${user.id}] tried to join non-existing tournament game id[${gameId}]. Current active games: ${cache.tournaments.activeTournamentGames.keys()}`);
+						app.log.warn(`User id[${user.id}] tried to join non-existing tournament game id[${gameId}]. Current active games: ${[...cache.tournaments.activeTournamentGames.keys()]}`);
 						socket.emit('error', 'Tournament game not found or not active');
 						return;
 					}

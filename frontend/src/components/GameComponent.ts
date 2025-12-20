@@ -197,6 +197,7 @@ export class GameComponent extends ComponentController {
 
 	protected async destroy() {
 		this.#destroyGameEventListeners();
+		this.#unsubscribeFromSocketEvents(this.#props.socketConnection);
 		this.#canvas = null;
 		this.#ctx = null;
 		this.#gameState = null;
