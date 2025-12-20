@@ -220,7 +220,7 @@ export function tournamentBroadcastParticipantLeft(tournamentId: string, partici
 	});
 }
 
-export function tournamentBroadcastTournamentCompleted(tournamentId: string, winnerId: User['id'], winnerUsername: Tournament['winnerUsername']) {
+export function tournamentBroadcastTournamentCompleted(tournamentId: string, winnerId: PrismaGame['leftPlayerId'] | PrismaGame['rightPlayerId'], winnerUsername: Tournament['winnerUsername']) {
 	const tournamentNamespace = app.io.of("/tournament");
 
 	tournamentNamespace.to(tournamentId).emit('tournament-completed', {

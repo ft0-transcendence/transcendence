@@ -27,7 +27,7 @@ export const tournamentRouter = t.router({
 
 	getAvailableTournaments: publicProcedure
 		.query(async ({ ctx }) => {
-			return await getAvailableTournamentListDTO();
+			return await getAvailableTournamentListDTO(ctx.user?.id);
 		}),
 
 	getTournamentDetails: publicProcedure
@@ -38,88 +38,6 @@ export const tournamentRouter = t.router({
 			const result = await getTournamentDetailsById(input.tournamentId, ctx.user);
 			app.log.debug(`[getTournamentDetails] Returning result with ${result.games?.length} games`);
 			return result
-		}),
-
-	joinTournamentGame: protectedProcedure
-		.input(z.object({
-			gameId: z.string()
-		}))
-		.mutation(async ({ ctx, input }) => {
-			try {
-				const { gameId } = input;
-				const userId = ctx.user!.id;
-
-				const game = await ctx.db.game.findUnique({
-					where: { id: gameId },
-					include: {
-						leftPlayer: true,
-						rightPlayer: true,
-						tournament: {
-							include: {
-								participants: {
-									include: { user: true }
-								}
-							}
-						}
-					}
-				});
-
-				if (!game) {
-					throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
-				}
-
-				if (game.type !== GameType.TOURNAMENT && game.type !== GameType.AI) {
-					throw new TRPCError({ code: "BAD_REQUEST", message: "Not a tournament game" });
-				}
-
-				if (!game.tournament) {
-					throw new TRPCError({ code: "BAD_REQUEST", message: "Game has no associated tournament" });
-				}
-
-				const isParticipant = game.tournament!.participants.some((p) => p.userId === userId);
-				if (!isParticipant) {
-					throw new TRPCError({ code: "FORBIDDEN", message: "You are not a participant in this tournament" });
-				}
-
-				const isPlayerInGame = game.leftPlayerId === userId || game.rightPlayerId === userId;
-				if (!isPlayerInGame) {
-					throw new TRPCError({ code: "FORBIDDEN", message: "You are not a player in this game" });
-				}
-
-				if (game.endDate) {
-					throw new TRPCError({ code: "BAD_REQUEST", message: "Game already finished" });
-				}
-
-				const aiPlayerService = new AIPlayerService(ctx.db);
-
-				return {
-					game: {
-						id: game.id,
-						leftPlayer: game.leftPlayer,
-						rightPlayer: game.rightPlayer,
-						leftPlayerScore: game.leftPlayerScore,
-						rightPlayerScore: game.rightPlayerScore,
-						startDate: game.startDate,
-						scoreGoal: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore,
-						tournamentRound: game.tournamentRound,
-						leftPlayerUsername: game.leftPlayerUsername,
-						rightPlayerUsername: game.rightPlayerUsername,
-						leftPlayerIsAI: aiPlayerService.isAIPlayer(game.leftPlayerUsername),
-						rightPlayerIsAI: aiPlayerService.isAIPlayer(game.rightPlayerUsername),
-						isAIGame: aiPlayerService.isAIPlayer(game.leftPlayerUsername) || aiPlayerService.isAIPlayer(game.rightPlayerUsername)
-					},
-					tournament: {
-						id: game.tournament!.id,
-						name: game.tournament!.name,
-						type: game.tournament!.type
-					},
-					isPlayer: true,
-					playerSide: game.leftPlayerId === userId ? 'left' : 'right'
-				};
-
-			} catch (error) {
-				handleTournamentError(error as Error, 'joinTournamentGame', undefined, ctx.user!.id);
-			}
 		}),
 
 	joinTournament: protectedProcedure
@@ -529,12 +447,13 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 			rightPlayer: { select: { id: true, username: true } },
 			leftPlayerUsername: true,
 			rightPlayerUsername: true,
+			leftPlayerId: true,
+			rightPlayerId: true,
 			tournamentId: true
 		},
 		orderBy: { startDate: 'asc' }
 	});
 
-	const aiPlayerService = new AIPlayerService(db);
 	let humanGamesCreated = 0;
 	let aiGamesSkipped = 0;
 
@@ -545,8 +464,8 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 			continue;
 		}
 
-		const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
-		const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
+		const isLeftAI = !game.leftPlayerId && game.leftPlayerUsername !== null;
+		const isRightAI = !game.rightPlayerId && game.rightPlayerUsername !== null;
 
 		if (isLeftAI && isRightAI) {
 			app.log.debug(`⏭️Skipping AI vs AI game ${game.id} - already handled by simulation`);
@@ -588,8 +507,8 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 		);
 
 		gameInstance.setPlayers(
-			{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: true },
-			{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: true }
+			{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: !isLeftAI },
+			{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: !isRightAI }
 		);
 
 		// Add to cache
@@ -624,7 +543,9 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 			rightPlayer: { select: { id: true, username: true } },
 			leftPlayerUsername: true,
 			rightPlayerUsername: true,
-			endDate: true
+			endDate: true,
+			leftPlayerId: true,
+			rightPlayerId: true
 		}
 	});
 
@@ -639,9 +560,8 @@ export async function createGameInstanceIfNeeded(db: PrismaClient, tournamentId:
 		return false;
 	}
 
-	const aiPlayerService = new AIPlayerService(db);
-	const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
-	const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
+	const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
+	const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
 
 	// Don't create instance if both are AI
 	if (isLeftAI && isRightAI) {
@@ -752,12 +672,12 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 			leftPlayer: { select: { id: true, username: true } },
 			rightPlayer: { select: { id: true, username: true } },
 			leftPlayerUsername: true,
-			rightPlayerUsername: true
+			rightPlayerUsername: true,
+			leftPlayerId: true,
+			rightPlayerId: true
 		},
 		orderBy: { startDate: 'asc' }
 	});
-
-	const aiPlayerService = new AIPlayerService(db);
 
 	const tournamentNamespace = app.io.of("/tournament");
 	let humanGamesCreated = 0;
@@ -775,8 +695,8 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 			continue;
 		}
 
-		const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
-		const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
+		const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
+		const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
 
 		// Skip AI vs AI games (they are handled by simulation)
 		if (isLeftAI && isRightAI) {
@@ -849,7 +769,7 @@ async function executeTournamentStart(tournament: Tournament, startedByUsername:
 		await db.tournament.update({
 			where: { id: tournament.id },
 			data: {
-				status: 'IN_PROGRESS' as TournamentStatus,
+				status: 'IN_PROGRESS',
 				startDate: startDate
 			}
 		});
@@ -901,7 +821,7 @@ export async function autoStartTournament(db: PrismaClient, tournamentId: string
 	});
 
 	if (!tournament
-		 || tournament.status !== 'WAITING_PLAYERS'
+		|| tournament.status !== 'WAITING_PLAYERS'
 	) {
 		return;
 	}
@@ -951,6 +871,7 @@ export function craftTournamentDTODetailsForUser(tournamentData: Awaited<ReturnT
 	const result = {
 		...tournamentData,
 		isUserRegistered,
+		isCreator,
 		canJoin,
 		canLeave,
 		canStart,
@@ -1021,7 +942,7 @@ async function fetchTournamentsWithFullDetails(tournamentIds: string[]) {
 }
 
 
-export async function getAvailableTournamentListDTO(){
+export async function getAvailableTournamentListDTO(requestedByUserId?: User['id']) {
 	const notEndedTournaments = (await db.tournament.findMany({
 		where: {
 			status: {
@@ -1036,7 +957,7 @@ export async function getAvailableTournamentListDTO(){
 
 	const tournaments = await fetchTournamentsWithFullDetails(notEndedTournaments);
 	const craftedTournaments = craftTournamentDetailsDTO(tournaments);
-	return craftedTournaments.map(tournament=>craftTournamentDTODetailsForUser(tournament)!);
+	return craftedTournaments.map(tournament => craftTournamentDTODetailsForUser(tournament, requestedByUserId)!);
 }
 
 
@@ -1065,7 +986,7 @@ export async function getTournamentFullDetailsById(tournamentId: string, shouldE
 }
 
 export function craftTournamentDetailsDTO(tournamentData: Awaited<ReturnType<typeof fetchTournamentsWithFullDetails>>) {
-	return tournamentData.map((tournament)=>{
+	return tournamentData.map((tournament) => {
 		const mappedGames = mapTournamentGamesToDTO(tournament.games);
 		return {
 			id: tournament!.id,
@@ -1105,6 +1026,10 @@ export type MapTournamentGamesDTO = {
 export function mapTournamentGamesToDTO(rawGames: MapTournamentGamesDTO[]) {
 	const mappedGames = rawGames.map((g) => {
 		const previousGames = g.previousGames?.map(pg => pg.id) || [];
+
+		const leftPlayerIsAI = AIPlayerService.isAIPlayer(g.leftPlayerId, g.leftPlayerUsername);
+		const rightPlayerIsAI = AIPlayerService.isAIPlayer(g.rightPlayerId, g.rightPlayerUsername);
+
 		return {
 			id: g.id,
 			leftPlayer: g.leftPlayer,
@@ -1118,9 +1043,9 @@ export function mapTournamentGamesToDTO(rawGames: MapTournamentGamesDTO[]) {
 			tournamentRound: g.tournamentRound,
 			leftPlayerUsername: g.leftPlayerUsername,
 			rightPlayerUsername: g.rightPlayerUsername,
-			isAIGame: AIPlayerService.isAIPlayer(g.leftPlayerUsername) || AIPlayerService.isAIPlayer(g.rightPlayerUsername),
-			leftPlayerIsAI: AIPlayerService.isAIPlayer(g.leftPlayerUsername),
-			rightPlayerIsAI: AIPlayerService.isAIPlayer(g.rightPlayerUsername),
+			isAIGame: leftPlayerIsAI || rightPlayerIsAI,
+			leftPlayerIsAI,
+			rightPlayerIsAI,
 			nextGameId: g.nextGameId,
 			previousGames,
 		};
@@ -1170,9 +1095,9 @@ export function mapTournamentGamesToDTO(rawGames: MapTournamentGamesDTO[]) {
 
 	// Combine rounds in tournament order: QUARTI → SEMIFINALE → FINALE
 	const result = [
-		...(sortedGamesByRound.QUARTI || []),
-		...(sortedGamesByRound.SEMIFINALE || []),
-		...(sortedGamesByRound.FINALE || []),
+		...sortedGamesByRound.QUARTI,
+		...sortedGamesByRound.SEMIFINALE,
+		...sortedGamesByRound.FINALE,
 	]
 	return result;
 }

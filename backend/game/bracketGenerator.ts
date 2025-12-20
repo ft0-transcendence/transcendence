@@ -4,6 +4,7 @@ import { app } from "../main";
 import { mapTournamentGamesToDTO } from "../src/trpc/routes/tournament";
 import { db } from "../src/trpc/db";
 import { tournamentBroadcastTournamentCompleted } from "../src/socket/tournamentSocketNamespace";
+import { CONSTANTS } from "../constants";
 
 
 export type BracketNode = {
@@ -155,20 +156,20 @@ export class BracketGenerator {
 	//AI game
 	async updateGameTypeForAIPlayers(tournamentId: string, tx?: Prisma.TransactionClient): Promise<void> {
 		const executeTransaction = async (client: Prisma.TransactionClient) => {
-			const aiPlayerService = new AIPlayerService(client);
-
 			const games = await client.game.findMany({
 				where: { tournamentId },
 				select: {
 					id: true,
 					leftPlayerUsername: true,
-					rightPlayerUsername: true
+					rightPlayerUsername: true,
+					leftPlayerId: true,
+					rightPlayerId: true
 				}
 			});
 
 			for (const game of games) {
-				const isLeftAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
-				const isRightAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
+				const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
+				const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
 
 				if (isLeftAI || isRightAI) {
 					await client.game.update({
@@ -477,7 +478,7 @@ export class BracketGenerator {
 				tournamentRound: TournamentRound.QUARTI,
 			},
 			data: {
-				leftPlayerUsername: null,
+				leftPlayerUsername: CONSTANTS.AI_USERNAME,
 			}
 		});
 		await db.game.updateMany({
@@ -487,7 +488,7 @@ export class BracketGenerator {
 				tournamentRound: TournamentRound.QUARTI,
 			},
 			data: {
-				rightPlayerUsername: null,
+				rightPlayerUsername: CONSTANTS.AI_USERNAME,
 			}
 		});
 
@@ -526,19 +527,14 @@ export class BracketGenerator {
 
 		const executeTransaction = async (tx: Prisma.TransactionClient) => {
 
-			const checkIfLeftIsAI = (game: typeof allGames[0]) => game.leftPlayerUsername === null && game.leftPlayerId === null;
-			const chekcIfRightIsAI = (game: typeof allGames[0]) => game.rightPlayerUsername === null && game.rightPlayerId === null;
-
 			const skipAiVsAiGames = async (games: typeof allGames) => {
 				for (const game of games) {
-					const isLeftAi = checkIfLeftIsAI(game);
-					const isRightAi = chekcIfRightIsAI(game);
+					const isLeftAi = game.leftPlayerId === null && game.leftPlayerUsername !== null;
+					const isRightAi = game.rightPlayerId === null && game.rightPlayerUsername !== null;
 					if (!isLeftAi || !isRightAi) {
 						continue;
 					}
-					app.log.debug(`Autocompleting AI vs AI game #${game.id}
-\tleft: ${isLeftAi} username: ${game.leftPlayerUsername} user: {id: ${game.leftPlayer?.id}, username: ${game.leftPlayer?.username}}
-\tright: ${isRightAi} username: ${game.rightPlayerUsername}, user: {id: ${game.rightPlayer?.id}, username: ${game.rightPlayer?.username}}`);
+					app.log.debug(`Autocompleting AI vs AI game #${game.id}; leftPlayer[${game.leftPlayerUsername}] rightPlayer[${game.rightPlayerUsername}]`);
 
 					const winner = Math.random() < 0.5 ? 'left' : 'right';
 					const leftScore = winner === 'left' ? game.scoreGoal : Math.floor(Math.random() * (game.scoreGoal));
@@ -566,21 +562,21 @@ export class BracketGenerator {
 						if (gameBeforeNextOnLeftSide?.id === game.id) {
 							shouldBePlacedOnLeft = true;
 						}
-						app.log.debug(`AIvsAI game #${game.id} has next game #${nextGame.id}. Placing the winner on the ${shouldBePlacedOnLeft ? 'left' : 'right'} side`);
+						app.log.debug(`AI vs AI game #${game.id} has next game #${nextGame.id}. Placing the winner on the ${shouldBePlacedOnLeft ? 'left' : 'right'} side`);
 
 						let updatedNextGame: Game;
 						if (shouldBePlacedOnLeft) {
 							updatedNextGame = await tx.game.update({
 								where: { id: nextGame.id },
 								data: {
-									leftPlayerUsername: null,
+									leftPlayerUsername: CONSTANTS.AI_USERNAME,
 								}
 							});
 						} else {
 							updatedNextGame = await tx.game.update({
 								where: { id: nextGame.id },
 								data: {
-									rightPlayerUsername: null,
+									rightPlayerUsername: CONSTANTS.AI_USERNAME,
 								}
 							});
 						}
@@ -594,25 +590,22 @@ export class BracketGenerator {
 			await skipAiVsAiGames(allGames.filter(g => g.tournamentRound === 'FINALE'));
 
 			const finaleGame = allGames.find(g => g.tournamentRound === 'FINALE');
-			if (finaleGame && finaleGame.endDate){
+			if (finaleGame && finaleGame.endDate) {
 				const isLeftWinner = finaleGame.leftPlayerScore > finaleGame.rightPlayerScore;
 
 				const winnerId = isLeftWinner ? finaleGame.leftPlayerId : finaleGame.rightPlayerId;
 				const winnerUsername = isLeftWinner ? finaleGame.leftPlayerUsername : finaleGame.rightPlayerUsername;
 
-				// Only complete tournament if we have a valid winner (not an empty slot)
-				if (winnerId && winnerUsername !== undefined) {
-					await db.tournament.update({
-						where: { id: tournamentId },
-						data: {
-							endDate: new Date(),
-							status: 'COMPLETED',
-							winnerId,
-							winnerUsername
-						}
-					})
-					tournamentBroadcastTournamentCompleted(tournamentId, winnerId, winnerUsername);
-				}
+				await db.tournament.update({
+					where: { id: tournamentId },
+					data: {
+						endDate: new Date(),
+						status: 'COMPLETED',
+						winnerId,
+						winnerUsername
+					}
+				})
+				tournamentBroadcastTournamentCompleted(tournamentId, winnerId, winnerUsername);
 			}
 
 			await this.updateGameTypeForAIPlayers(tournamentId, tx);

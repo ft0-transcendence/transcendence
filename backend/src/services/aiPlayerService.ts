@@ -12,17 +12,9 @@ export class AIPlayerService {
 		this.db = db;
 	}
 
-	async assignAIPlayerToGame(gameId: string, position: 'left' | 'right'): Promise<void> {
-		const updateData = position === 'left'
-			? { leftPlayerUsername: null }
-			: { rightPlayerUsername: null };
-
-		await this.db.game.update({
-			where: { id: gameId },
-			data: updateData
-		});
-	}
-
+	/**
+	 * @unused
+	 */
 	async handleAIvsAIMatch(gameId: string) {
 		app.log.debug(`🤖 Starting AI vs AI simulation for game ${gameId}`);
 
@@ -79,6 +71,9 @@ export class AIPlayerService {
 		});
 	}
 
+	/**
+	 * @unused
+	 */
 	private async saveAIMatchResult(gameId: string, leftScore: number, rightScore: number) {
 		let game = await db.game.update({
 			where: { id: gameId },
@@ -181,59 +176,7 @@ export class AIPlayerService {
 		}
 	}
 
-	isAIPlayer(username: string | null): boolean {
-		return username === null;
-	}
-	public static isAIPlayer(username: string | null): boolean {
-		return username === null;
-	}
-
-	async getTournamentAIGames(tournamentId: string): Promise<string[]> {
-		const aiGames = await this.db.game.findMany({
-			where: {
-				tournamentId: tournamentId,
-				OR: [
-					{ leftPlayerUsername: null },
-					{ rightPlayerUsername: null }
-				]
-			},
-			select: { id: true }
-		});
-
-		return aiGames.map((game) => game.id);
-	}
-
-
-
-	async isAIvsAIGame(gameId: string): Promise<boolean> {
-		const game = await this.db.game.findUnique({
-			where: { id: gameId },
-			select: {
-				leftPlayerUsername: true,
-				rightPlayerUsername: true
-			}
-		});
-
-		if (!game) {
-			return false;
-		}
-
-		return this.isAIPlayer(game.leftPlayerUsername) && this.isAIPlayer(game.rightPlayerUsername);
-	}
-
-	async hasAIPlayer(gameId: string): Promise<boolean> {
-		const game = await this.db.game.findUnique({
-			where: { id: gameId },
-			select: {
-				leftPlayerUsername: true,
-				rightPlayerUsername: true
-			}
-		});
-
-		if (!game) {
-			return false;
-		}
-
-		return this.isAIPlayer(game.leftPlayerUsername) || this.isAIPlayer(game.rightPlayerUsername);
+	public static isAIPlayer(playerId: Game['leftPlayerId'] | Game['rightPlayerId'], username: Game['leftPlayerUsername'] | Game['rightPlayerUsername']) {
+		return playerId === null && username !== null;
 	}
 }

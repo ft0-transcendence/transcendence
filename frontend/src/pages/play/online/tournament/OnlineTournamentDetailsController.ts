@@ -485,39 +485,19 @@ export class OnlineTournamentDetailsController extends RouteController {
 				this.#updateBracketGame(gameEl, game);
 			}
 		})
-
-		// const lines: any[] = [];
-		// games?.forEach((game, index) => {
-		// 	let gameEl = bracketContainer.querySelector(`[data-game-id="${game.id}"]`) as HTMLElement | null;
-		// 	const nextGameEl = bracketContainer.querySelector(`[data-game-id="${game.nextGameId}"]`) as HTMLElement | null;
-		// 	if (gameEl && nextGameEl) {
-		// 		const line = new LeaderLine(
-		// 			gameEl,
-		// 			nextGameEl,
-		// 			{
-
-		// 			}
-		// 		);
-		// 		lines.push(line);
-		// 	}
-		// });
-		// window.addEventListener('scroll', ()=>{
-		// 	lines.forEach(line => line.position());
-		// })
-
 	}
 
-	#getUserUsername(game: TournamentGame, givenId: string, givenUsername: string, isAI = false) {
-		return isAI || (givenId === "placeholder-tournament-user")
-			? (!isAI && !game.startDate)
-				? /*html*/`<p class="text-stone-400 font-thin" data-i18n="${k('generic.tbd')}">TBD</p>`
-				: /*html*/`<p data-i18n="${k('generic.ai')}">AI</p>`
-			: givenUsername;
+	#getUserUsername(givenId: NonNullable<TournamentGame['leftPlayer']>['id'] | undefined, givenUsername: TournamentGame['leftPlayerUsername'], isAI = false) {
+		if (isAI) return /*html*/`<p data-i18n="${k('generic.ai')}">AI</p>`;
+		if (!givenId) {
+			return /*html*/`<p class="text-stone-400 font-thin" data-i18n="${k('generic.tbd')}">TBD</p>`;
+		}
+		return /*html*/`<p>${givenUsername}</p>`;
 	}
 
 	#updateBracketGame(gameEl: HTMLElement, game: TournamentGame) {
-		gameEl.querySelector('.left-player-username')!.innerHTML = this.#getUserUsername(game, game.leftPlayer.id, game.leftPlayerUsername ?? game.leftPlayer?.username, game.leftPlayerIsAI);
-		gameEl.querySelector('.right-player-username')!.innerHTML = this.#getUserUsername(game, game.rightPlayer.id, game.rightPlayerUsername ?? game.rightPlayer?.username, game.rightPlayerIsAI);
+		gameEl.querySelector('.left-player-username')!.innerHTML = this.#getUserUsername(game.leftPlayer?.id, game.leftPlayerUsername ?? game.leftPlayer?.username ?? null, game.leftPlayerIsAI);
+		gameEl.querySelector('.right-player-username')!.innerHTML = this.#getUserUsername(game.rightPlayer?.id, game.rightPlayerUsername ?? game.rightPlayer?.username ?? null, game.rightPlayerIsAI);
 
 		gameEl.querySelector('.left-player-score')!.innerHTML = game.leftPlayerScore.toString();
 		gameEl.querySelector('.right-player-score')!.innerHTML = game.rightPlayerScore.toString();
@@ -546,12 +526,12 @@ export class OnlineTournamentDetailsController extends RouteController {
 					<p class="absolute bottom-2 left-2 text-sm uppercase text-stone-400 font-semibold font-mono">${index + 1}</p>
 					<div class=" items-center text-sm text-center gap-1 grid grid-flow-row grid-cols-3">
 						<div class="flex flex-col justify-center items-center gap-1">
-							<div class="font-semibold left-player-username md:px-2">${this.#getUserUsername(g, g.leftPlayer.id, g.leftPlayerUsername ?? g.leftPlayer?.username, g.leftPlayerIsAI)}</div>
+							<div class="font-semibold left-player-username md:px-2">${this.#getUserUsername(g.leftPlayer?.id, g.leftPlayerUsername ?? g.leftPlayer?.username ?? null, g.leftPlayerIsAI)}</div>
 							<p class="left-player-score">${g.leftPlayerScore}</p>
 						</div>
 						<span class="text-stone-400 text-xs" data-i18n="${k('generic.vs')}">vs</span>
 						<div class="flex flex-col justify-center items-center gap-1">
-							<div class="font-semibold right-player-username md:px-2">${this.#getUserUsername(g, g.rightPlayer.id, g.rightPlayerUsername ?? g.rightPlayer?.username, g.rightPlayerIsAI)}</div>
+							<div class="font-semibold right-player-username md:px-2">${this.#getUserUsername(g.rightPlayer?.id, g.rightPlayerUsername ?? g.rightPlayer?.username ?? null, g.rightPlayerIsAI)}</div>
 							<p class="right-player-score">${g.rightPlayerScore}</p>
 						</div>
 					</div>

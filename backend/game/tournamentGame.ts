@@ -100,28 +100,28 @@ export class TournamentGame extends OnlineGame {
 			if (currentGame?.nextGameId) {
 				const nextGame = await db.game.findUnique({
 					where: { id: currentGame.nextGameId },
-					include: { previousGames: { select: { id: true } } }
+					include: {
+						previousGames: {
+							select: {
+								id: true
+							}
+						},
+					}
 				});
 
 				if (nextGame && nextGame.previousGames.length === 2) {
 					const childIds = nextGame.previousGames.map(g => g.id).sort();
 					const isLeft = this.gameId === childIds[0];
 
-					// Get winner's username
-					const winnerUser = await db.user.findUnique({
-						where: { id: winnerId },
-						select: { username: true }
-					});
-
-					const needLastPlayerToStart = this.aiPlayerService.isAIPlayer(nextGame.leftPlayerUsername) || this.aiPlayerService.isAIPlayer(nextGame.rightPlayerUsername)
+					const needLastPlayerToStart = AIPlayerService.isAIPlayer(nextGame.leftPlayerId, nextGame.leftPlayerUsername) || AIPlayerService.isAIPlayer(nextGame.rightPlayerId, nextGame.rightPlayerUsername)
 						|| !!nextGame.leftPlayerId || !!nextGame.rightPlayerId;
 
 					const commonData = needLastPlayerToStart ? { startDate: new Date() } : {};
 
 
 					const data = isLeft
-						? { leftPlayerId: winnerId, leftPlayerUsername: winnerUser?.username || null, ...commonData }
-						: { rightPlayerId: winnerId, rightPlayerUsername: winnerUser?.username || null, ...commonData };
+						? { leftPlayerId: winnerId, leftPlayerUsername: winnerUsername || null, ...commonData }
+						: { rightPlayerId: winnerId, rightPlayerUsername: winnerUsername || null, ...commonData };
 
 					await db.game.update({
 						where: { id: currentGame.nextGameId },
@@ -187,16 +187,18 @@ export class TournamentGame extends OnlineGame {
 				where: { id: this.gameId },
 				select: {
 					leftPlayerUsername: true,
-					rightPlayerUsername: true
+					rightPlayerUsername: true,
+					leftPlayerId: true,
+					rightPlayerId: true
 				}
 			});
 
 			if (!gameData) return;
 
-			if (this.aiPlayerService.isAIPlayer(gameData.leftPlayerUsername)) {
+			if (AIPlayerService.isAIPlayer(gameData.leftPlayerId, gameData.leftPlayerUsername)) {
 				this.startAI(this.leftPlayer.id, 'left');
 			}
-			if (this.aiPlayerService.isAIPlayer(gameData.rightPlayerUsername)) {
+			if (AIPlayerService.isAIPlayer(gameData.rightPlayerId, gameData.rightPlayerUsername)) {
 				this.startAI(this.rightPlayer.id, 'right');
 			}
 

@@ -32,6 +32,14 @@ export class OnlineTournamentGameController extends RouteController {
 			withCredentials: true,
 		});
 
+
+		// Setup socket connection in postRender to ensure proper timing
+		this.#gameSocket.on('connect', () => {
+			console.debug('Tournament Game Socket connected to server');
+			console.debug('Emitting join-tournament-game for gameId:', this.#gameId);
+			this.#gameSocket.emit('join-tournament-game', this.#gameId);
+		});
+
 		this.#gameComponent = new GameComponent({
 			gameId: this.#gameId,
 			gameType: 'TOURNAMENT',
@@ -102,19 +110,6 @@ export class OnlineTournamentGameController extends RouteController {
 				const event = type === 'press' ? 'player-press' : 'player-release';
 				this.#gameSocket.emit(event, direction);
 			});
-
-			// Setup socket connection in postRender to ensure proper timing
-			this.#gameSocket.on('connect', () => {
-				console.debug('Tournament Game Socket connected to server');
-				console.debug('Emitting join-tournament-game for gameId:', this.#gameId);
-				this.#gameSocket.emit('join-tournament-game', this.#gameId);
-			});
-
-			// If already connected, emit immediately
-			if (this.#gameSocket.connected) {
-				console.debug('Socket already connected, emitting join-tournament-game immediately');
-				this.#gameSocket.emit('join-tournament-game', this.#gameId);
-			}
 
 			this.#setupSocketEvents();
 		} else {
