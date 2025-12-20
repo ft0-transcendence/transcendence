@@ -8,6 +8,7 @@ import { OnlineGame } from "../../game/onlineGame";
 import { MovePaddleAction } from "../../game/game";
 import { db } from "../trpc/db";
 import { createGameInstanceIfNeeded } from "../trpc/routes/tournament";
+import { User } from "@prisma/client";
 
 // TODO: FIX THIS STUFF. TournamentGame Never ends
 
@@ -24,54 +25,28 @@ export function setupTournamentGameNamespace(io: Server) {
 	const tournamentGameNamespace = io.of("/tournament-game");
 	applySocketAuth(tournamentGameNamespace);
 
+	const getTournamentGameRoomName = (gameId: string, userId?: User['id']) => {
+		if (!userId) return `tournament-game:${gameId}`;
+		return `tournament-game:${gameId}:${userId}`;
+	}
+
 	tournamentGameNamespace.on("connection", (socket: TypedSocket) => {
 		const { user } = socket.data;
 		app.log.debug(`A user connected to the tournament-game namespace: id=${user.id}`);
 
 		socket.on("join-tournament-game", (gameId: string) => {
 			(async () => {
-				app.log.info(`Socket ${socket.id} (user: ${user.username}) joining tournament game: ${gameId}`);
+				app.log.info(`User: ${user.username} (userId[${user.id}]) joining tournament game: ${gameId}`);
 
 				try {
-					// First, try to get the game from cache
 					let game = cache.tournaments.activeTournamentGames.get(gameId);
 
-					// If not in cache, try to create it on-demand
 					if (!game) {
-						app.log.warn(`Game ${gameId} not in cache, attempting to create on-demand`);
-
-						// Get tournamentId from database
-						const gameData = await db.game.findUnique({
-							where: { id: gameId },
-							select: { tournamentId: true, leftPlayerUsername: true, rightPlayerUsername: true, leftPlayerId: true, rightPlayerId: true }
-						});
-
-						if (!gameData?.tournamentId) {
-							app.log.error(`Game ${gameId} not found in database`);
-							socket.emit('error', 'Tournament game not found');
-							return;
-						}
-
-						app.log.info(`Game ${gameId} found in DB - Tournament: ${gameData.tournamentId}, Left: ${gameData.leftPlayerUsername} (${gameData.leftPlayerId}), Right: ${gameData.rightPlayerUsername} (${gameData.rightPlayerId})`);
-
-						// Try to create game instance on-demand
-						const created = await createGameInstanceIfNeeded(db, gameData.tournamentId, gameId);
-
-						if (created) {
-							app.log.info(`✅ Game instance ${gameId} created on-demand`);
-						} else {
-							app.log.warn(`⚠️ Game instance ${gameId} was NOT created (might be AI vs AI or empty slots)`);
-						}
-
-						// Try to get it again from cache
-						game = cache.tournaments.activeTournamentGames.get(gameId);
-					}
-
-					if (!game) {
-						app.log.error(`Game ${gameId} still not in cache after create attempt`);
+						app.log.warn(`User id[${user.id}] tried to join non-existing tournament game id[${gameId}].`);
 						socket.emit('error', 'Tournament game not found or not active');
 						return;
 					}
+					const tournamentId = game.tournamentId;
 
 					const isPlayerInGame = game.isPlayerInGame(user.id);
 
@@ -87,8 +62,8 @@ export function setupTournamentGameNamespace(io: Server) {
 					game.addConnectedUser(gameUserInfo);
 
 					// join alla room della partita
-					await socket.join(`${gameId}:${user.id}`);
-					await socket.join(gameId);
+					await socket.join(getTournamentGameRoomName(gameId, user.id));
+					await socket.join(getTournamentGameRoomName(gameId));
 
 					// set giocatore come ready
 					game.playerReady(gameUserInfo);
@@ -98,24 +73,24 @@ export function setupTournamentGameNamespace(io: Server) {
 						game.markPlayerReconnected(user.id);
 					}
 
-					socket.emit('tournament-game-joined', {
-						gameId: gameId,
-						game: {
-							leftPlayer: game.leftPlayer,
-							rightPlayer: game.rightPlayer,
-							state: game.getState()
-						},
-						playerSide: game.leftPlayer?.id === user.id ? 'left' : 'right',
-						isPlayer: isPlayerInGame,
-						ableToPlay: isPlayerInGame
-					});
+					// socket.emit('tournament-game-joined', {
+					// 	gameId: gameId,
+					// 	game: {
+					// 		leftPlayer: game.leftPlayer,
+					// 		rightPlayer: game.rightPlayer,
+					// 		state: game.getState()
+					// 	},
+					// 	playerSide: game.leftPlayer?.id === user.id ? 'left' : 'right',
+					// 	isPlayer: isPlayerInGame,
+					// 	ableToPlay: isPlayerInGame
+					// });
 
-					socket.to(gameId).emit('player-joined-tournament-game', {
+					socket.to(getTournamentGameRoomName(gameId)).emit('player-joined', {
 						userId: user.id,
 						username: user.username
 					});
 
-					app.log.info('✅ User %s joined tournament game %s successfully', user.username, gameId);
+					app.log.info('✅ User [%s] (userId[%s]) joined tournament game gameId[%s] successfully', user.username, user.id, gameId);
 
 				} catch (error) {
 					app.log.error('❌ Error joining tournament game %s: %s', gameId, error);
@@ -125,14 +100,9 @@ export function setupTournamentGameNamespace(io: Server) {
 		});
 
 		// Tournament game input handlers
-		socket.on("player-press", (action: MovePaddleAction) => {
-			const rooms = Array.from(socket.rooms);
-			const gameId = rooms.find(room => room !== socket.id && room !== `tournament-${user.id}`);
-
-			if (!gameId) {
-				socket.emit('error', 'Not in any game room');
-				return;
-			}
+		socket.on("player-press", (input: { direction: MovePaddleAction, gameId: string }) => {
+			const gameId = input.gameId;
+			const action = input.direction;
 
 			const game = cache.tournaments.activeTournamentGames.get(gameId);
 			if (!game) {
@@ -152,18 +122,12 @@ export function setupTournamentGameNamespace(io: Server) {
 				game.press("right", action);
 			}
 
-			socket.to(gameId).emit("game-state", game.getState());
-			socket.emit("game-state", game.getState());
+			// socket.to(getTournamentGameRoom(gameId)).emit("game-state", game.getState());
 		});
 
-		socket.on("player-release", (action: MovePaddleAction) => {
-			const rooms = Array.from(socket.rooms);
-			const gameId = rooms.find(room => room !== socket.id && room !== `tournament-${user.id}`);
-
-			if (!gameId) {
-				socket.emit('error', 'Not in any game room');
-				return;
-			}
+		socket.on("player-release", (input: { direction: MovePaddleAction, gameId: string }) => {
+			const gameId = input.gameId;
+			const action = input.direction;
 
 			const game = cache.tournaments.activeTournamentGames.get(gameId);
 			if (!game) {
@@ -183,14 +147,13 @@ export function setupTournamentGameNamespace(io: Server) {
 				game.release("right", action);
 			}
 
-			socket.to(gameId).emit("game-state", game.getState());
-			socket.emit("game-state", game.getState());
+			// socket.to(getTournamentGameRoom(gameId)).emit("game-state", game.getState());
 		});
 
 		const onSocketDisconnect = async (gameId: string) => {
 			await socket.leave(gameId);
 			app.log.info(`User ${user.username} left tournament game room ${gameId}`);
-			socket.to(gameId).emit("player-left", { userId: user.id });
+			socket.to(getTournamentGameRoomName(gameId)).emit("player-left", { userId: user.id });
 
 			const game = cache.tournaments.activeTournamentGames.get(gameId);
 			if (game && game.isPlayerInGame(user.id)) {

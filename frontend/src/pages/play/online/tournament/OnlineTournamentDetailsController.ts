@@ -344,7 +344,6 @@ export class OnlineTournamentDetailsController extends RouteController {
 			for (const event of socketEventsToRemove) {
 				this.#tournamentNamespace.off(event);
 			}
-			this.#tournamentNamespace.close();
 		}
 
 		if (this.#autoRedirectToGameTimeout) {

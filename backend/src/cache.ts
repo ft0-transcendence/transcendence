@@ -7,6 +7,7 @@ import { db } from "./trpc/db";
 import { app } from "../main";
 import { updateGameStats } from "./utils/statsUtils";
 import { GameStatus } from "../game/game";
+import { AIPlayerService } from "./services/aiPlayerService";
 
 
 async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstance: OnlineGame, leftPlayerId: string | null, rightPlayerId: string | null) {
@@ -85,7 +86,7 @@ export type Cache = {
 	userSockets: Map<User['id'], Set<TypedSocket>>;
 	tournaments: {
 		active: Map<string, TournamentCacheEntry>;
-		activeTournamentGames: Map<string, OnlineGame>;
+		activeTournamentGames: Map<string, TournamentGame>;
 		tournamentLobbies: Map<string, Set<User['id']>>;
 	};
 }
@@ -213,11 +214,11 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 			continue;
 		}
 
-		// Skip games with empty slots (they will be created on-demand when needed)
-		if (!game.leftPlayer || !game.rightPlayer) {
-			fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s has empty slots, skipping (will create on-demand)`, game.id);
-			continue;
-		}
+		// // Skip games with empty slots (they will be created on-demand when needed)
+		// if (!game.leftPlayer || !game.rightPlayer) {
+		// 	fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s has empty slots, skipping (will create on-demand)`, game.id);
+		// 	continue;
+		// }
 
 		const LEASE_TIME = 1000 * 60; // 1 min
 
@@ -286,9 +287,21 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 
 		// For AI games, we'll handle AI logic in the TournamentGame itself
 		// by checking player types when they join
+		const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
+		const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
+		const leftPlayer = {
+			id: game.leftPlayerId,
+			username: game.leftPlayerUsername,
+			isPlayer: !isLeftAI
+		};
+		const rightPlayer = {
+			id: game.rightPlayerId,
+			username: game.rightPlayerUsername,
+			isPlayer: !isRightAI
+		}
 
 
-		gameInstance.setPlayers({ ...game.leftPlayer }, { ...game.rightPlayer });
+		gameInstance.setPlayers(leftPlayer, rightPlayer);
 		gameInstance.scores.left = game.leftPlayerScore;
 		gameInstance.scores.right = game.rightPlayerScore;
 

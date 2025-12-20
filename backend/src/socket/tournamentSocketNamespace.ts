@@ -75,8 +75,8 @@ export function setupTournamentNamespace(io: Server) {
 					cache.tournaments.active.set(tournamentId, {
 						id: tournament.id,
 						name: tournament.name,
-						type: 'EIGHT',
-						status: tournament.status as 'WAITING_PLAYERS' | 'IN_PROGRESS' | 'COMPLETED',
+						type: tournament.type,
+						status: tournament.status,
 						participants: new Set(tournament.participants.map(p => p.userId)),
 						connectedUsers: new Set(),
 						creatorId: tournament.createdById,
@@ -89,8 +89,8 @@ export function setupTournamentNamespace(io: Server) {
 				const tournamentInfo = cache.tournaments.active.get(tournamentId)!;
 				tournamentInfo.connectedUsers.add(user.id);
 
-				await socket.join(`${tournamentId}:${user.id}`);
-				await socket.join(tournamentId);
+				await socket.join(getTournamentRoomName(tournamentId));
+				await socket.join(getTournamentRoomName(tournamentId, user.id));
 
 				// Send comprehensive tournament state including bracket info
 				await tournamentSendBracketUpdateForUser(tournamentId, user.id);
@@ -109,20 +109,16 @@ export function setupTournamentNamespace(io: Server) {
 						const opponentId = nextMatch.leftPlayerId === user.id ? nextMatch.rightPlayerId : nextMatch.leftPlayerId;
 						const opponent = tournament.participants.find(p => p.userId === opponentId);
 
-						socket.emit('your-match-ready', {
-							tournamentId: tournament.id,
-							tournamentName: tournament.name,
-							gameId: nextMatch.id,
-							round: nextMatch.tournamentRound,
-							opponentId: opponentId,
-							opponentUsername: opponent?.user?.username || null,
-							message: `Your ${nextMatch.tournamentRound?.toLowerCase() || 'match'} is ready!`
-						});
+						const isLeft = nextMatch.leftPlayerId === user.id;
+						const leftId = isLeft ? nextMatch.leftPlayerId : null;
+						const rightId = isLeft ? null : nextMatch.rightPlayerId;
+
+						notifyPlayersAboutNewTournamentGame(tournament.id, nextMatch.id, leftId, rightId, nextMatch.leftPlayerUsername, nextMatch.rightPlayerUsername);
 					}
 				}
 
 				// Notify other participants about user joining lobby
-				socket.to(tournamentId).emit('user-joined-tournament-lobby', {
+				socket.to(getTournamentRoomName(tournamentId)).emit('user-joined-tournament-lobby', {
 					userId: user.id,
 					username: user.username,
 					connectedUsersCount: tournamentInfo.connectedUsers.size
@@ -148,7 +144,7 @@ export function setupTournamentNamespace(io: Server) {
 					}
 
 					// Notify remaining users in lobby
-					socket.to(tournamentId).emit('user-left-tournament-lobby', {
+					socket.to(getTournamentRoomName(tournamentId)).emit('user-left-tournament-lobby', {
 						userId: user.id,
 						username: user.username,
 						connectedUsersCount: lobby.size
@@ -169,6 +165,10 @@ export function setupTournamentNamespace(io: Server) {
 
 
 // Helper functions for tournament notifications
+function getTournamentRoomName(tournamentId: string, userId?: User['id']) {
+	if (!userId) return `tournament:${tournamentId}`;
+	return `tournament:${tournamentId}:${userId}`;
+}
 
 export async function tournamentBroadcastBracketUpdateById(tournamentId: string) {
 	const tournamentSocket = app.io.of("/tournament");
@@ -195,14 +195,14 @@ export async function tournamentSendBracketUpdateForUser(tournamentId: string, p
 async function sendBracketUpdateToUser(tournamentSocket: TypedSocketNamespace, tournamentId: string, playerId: User['id'], tournamentDetails: Awaited<ReturnType<typeof getTournamentFullDetailsById>>) {
 	const dto = craftTournamentDTODetailsForUser(tournamentDetails, playerId);
 	// README: SOCKET-EVENT
-	tournamentSocket.to(`${tournamentId}:${playerId}`).emit('bracket-updated', dto);
+	tournamentSocket.to(getTournamentRoomName(tournamentId, playerId)).emit('bracket-updated', dto);
 }
 
 
 
 export function tournamentBroadcastParticipantJoined(tournamentId: string, participant: { id: string, username: string }, slotPosition: number) {
 	const tournamentNamespace = app.io.of("/tournament");
-	tournamentNamespace.to(tournamentId).emit('participant-joined-tournament', {
+	tournamentNamespace.to(getTournamentRoomName(tournamentId)).emit('participant-joined-tournament', {
 		tournamentId,
 		participant,
 		slotPosition,
@@ -212,7 +212,7 @@ export function tournamentBroadcastParticipantJoined(tournamentId: string, parti
 
 export function tournamentBroadcastParticipantLeft(tournamentId: string, participant: { id: string, username: string }, slotPosition: number) {
 	const tournamentNamespace = app.io.of("/tournament");
-	tournamentNamespace.to(tournamentId).emit('participant-left-tournament', {
+	tournamentNamespace.to(getTournamentRoomName(tournamentId)).emit('participant-left-tournament', {
 		tournamentId,
 		participant,
 		slotPosition,
@@ -223,7 +223,7 @@ export function tournamentBroadcastParticipantLeft(tournamentId: string, partici
 export function tournamentBroadcastTournamentCompleted(tournamentId: string, winnerId: PrismaGame['leftPlayerId'] | PrismaGame['rightPlayerId'], winnerUsername: Tournament['winnerUsername']) {
 	const tournamentNamespace = app.io.of("/tournament");
 
-	tournamentNamespace.to(tournamentId).emit('tournament-completed', {
+	tournamentNamespace.to(getTournamentRoomName(tournamentId)).emit('tournament-completed', {
 		winnerId,
 		winnerUsername,
 	});
@@ -231,7 +231,7 @@ export function tournamentBroadcastTournamentCompleted(tournamentId: string, win
 
 export function tournamentBroadcastTournamentDeleted(tournamentId: string, tournamentName: string, deletedBy: string) {
 	const tournamentNamespace = app.io.of("/tournament");
-	tournamentNamespace.to(tournamentId).emit('tournament-deleted', {
+	tournamentNamespace.to(getTournamentRoomName(tournamentId)).emit('tournament-deleted', {
 		tournamentId,
 		tournamentName,
 		deletedBy,
@@ -242,11 +242,12 @@ export function tournamentBroadcastTournamentDeleted(tournamentId: string, tourn
 
 export function notifyPlayersAboutNewTournamentGame(tournamentId: PrismaGame['tournamentId'], gameId: PrismaGame['id'], leftPlayerId: string | null, rightPlayerId: string | null, leftPlayerUsername: string | null = null, rightPlayerUsername: string | null = null) {
 	if (!tournamentId) return;
+	app.log.info(`Notifying players about new tournament game. tournamentId=${tournamentId}, gameId=${gameId}, leftPlayerId=${leftPlayerId}, rightPlayerId=${rightPlayerId}`);
 	const tournamentNamespace = app.io.of("/tournament");
 	if (leftPlayerId !== null) {
-		tournamentNamespace.to(`${tournamentId}:${leftPlayerId}`).emit(`your-match-is-ready`, { gameId, tournamentId, opponent: rightPlayerUsername });
+		tournamentNamespace.to(getTournamentRoomName(tournamentId, leftPlayerId)).emit(`your-match-is-ready`, { gameId, tournamentId, opponent: rightPlayerUsername });
 	}
 	if (rightPlayerId !== null) {
-		tournamentNamespace.to(`${tournamentId}:${rightPlayerId}`).emit(`your-match-is-ready`, { gameId, tournamentId, opponent: leftPlayerUsername });
+		tournamentNamespace.to(getTournamentRoomName(tournamentId, rightPlayerId)).emit(`your-match-is-ready`, { gameId, tournamentId, opponent: leftPlayerUsername });
 	}
 }

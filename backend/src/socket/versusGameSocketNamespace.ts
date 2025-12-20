@@ -101,15 +101,10 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 			// socket.emit('game-state', game.getState());
 		});
 
-		socket.on("player-press", (action: MovePaddleAction) => {
+		socket.on("player-press", (input: { direction: MovePaddleAction, gameId: string }) => {
 			// Get gameId from the socket's rooms
-			const rooms = Array.from(socket.rooms);
-			const gameId = rooms.find(room => room !== socket.id);
-
-			if (!gameId) {
-				socket.emit('error', 'Not in any game room');
-				return;
-			}
+			const gameId = input.gameId;
+			const action = input.direction;
 
 			const game = cache.active_1v1_games.get(gameId);
 			if (!game) {
@@ -133,13 +128,10 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 			socket.emit("game-state", game.getState());
 		});
 
-		socket.on("player-release", (action: MovePaddleAction) => {
-			const rooms = Array.from(socket.rooms);
-			const gameId = rooms.find(room => room !== socket.id);
-			if (!gameId) {
-				socket.emit('error', 'Not in any game room');
-				return;
-			}
+		socket.on("player-release", (input: { direction: MovePaddleAction, gameId: string }) => {
+			const gameId = input.gameId;
+			const action = input.direction;
+
 			const game = cache.active_1v1_games.get(gameId);
 			if (!game) {
 				socket.emit('error', 'Game not found');

@@ -39,7 +39,7 @@ export class OnlineVersusGameController extends RouteController {
 
 	override updateTitleSuffix() {
 		if (this.#gameDto) {
-			this.titleSuffix = `${this.#gameDto.leftPlayer.username} ${t('generic.vs')} ${this.#gameDto.rightPlayer.username} - ${t('page_titles.play.online.1v1_game')}`;
+			this.titleSuffix = `${this.#gameDto.leftPlayerUsername} ${t('generic.vs')} ${this.#gameDto.rightPlayerUsername} - ${t('page_titles.play.online.1v1_game')}`;
 		} else {
 			this.titleSuffix = t('page_titles.play.online.1v1_game') || '1 VS 1 - game';
 		}
@@ -52,8 +52,8 @@ export class OnlineVersusGameController extends RouteController {
 				gameId: this.#gameId,
 			});
 			console.debug('Game', this.#gameDto);
-		} catch (err){
-			if (err instanceof TRPCClientError){
+		} catch (err) {
+			if (err instanceof TRPCClientError) {
 				console.error('Error', err.message);
 				showAndLogTrpcError(err, 'generic.game');
 				this.#gameDto = null;
@@ -71,9 +71,9 @@ export class OnlineVersusGameController extends RouteController {
 					<div class="grow flex flex-col w-full">
 						<!-- GAME COMPONENT -->
 
-						${this.#gameDto
-							? await this.#gameComponent.render()
-							: /*html*/`
+						${await this.#gameComponent.silentRender()}
+						${!this.#gameDto
+				? /*html*/`
 								<div class="grow flex flex-col w-full items-center justify-center bg-black">
 									<h3 data-i18n="${k('generic.game_not_found')}" class="text-2xl uppercase font-mono font-bold">Game not found</h3>
 									<a data-route="/play" href="/play/online/games"
@@ -83,7 +83,7 @@ export class OnlineVersusGameController extends RouteController {
 									</a>
 								</div>
 							`
-						}
+				: ``}
 					</div>
 				</section>
 				<section class="hidden sm:flex sm:min-w-32 sm:grow">
@@ -98,11 +98,11 @@ export class OnlineVersusGameController extends RouteController {
 	}
 
 	protected async postRender() {
-		if (this.#gameDto){
+		if (this.#gameDto) {
 			this.#gameComponent.setMovementHandler((side, direction, type) => {
 				// if (this.#gameState?.state !== 'RUNNING') return;
 				const event = type === 'press' ? 'player-press' : 'player-release';
-				this.#gameSocket.emit(event, direction);
+				this.#gameSocket.emit(event, { direction, gameId: this.#gameId });
 			});
 
 			this.#gameSocket.on('connect', () => {

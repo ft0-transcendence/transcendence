@@ -66,7 +66,7 @@ export type GameConfig = {
 }
 
 export type GameUserInfo = {
-	id: string;
+	id: string | null;
 	username: string | null;
 	isPlayer?: boolean;
 }

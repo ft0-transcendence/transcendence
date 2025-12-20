@@ -1,3 +1,4 @@
+import { Game as PrismaGame } from "@prisma/client";
 import { OnlineGame } from "./onlineGame";
 import { GameUserInfo, GameStatus, GameConfig } from "./game";
 import { db } from '../src/trpc/db';
@@ -199,7 +200,7 @@ export class TournamentGame extends OnlineGame {
 				this.startAI(this.leftPlayer.id, 'left');
 			}
 			if (AIPlayerService.isAIPlayer(gameData.rightPlayerId, gameData.rightPlayerUsername)) {
-				this.startAI(this.rightPlayer.id, 'right');
+				this.startAI(this.leftPlayer.id, 'right');
 			}
 
 		} catch (error) {
@@ -207,7 +208,7 @@ export class TournamentGame extends OnlineGame {
 		}
 	}
 
-	private startAI(playerId: string, side: 'left' | 'right') {
+	private startAI(playerId: PrismaGame['leftPlayerId'], side: 'left' | 'right') {
 		console.log(`Starting AI for player ${playerId} on ${side} side in game #${this.gameId}`);
 
 		const aiLogic = () => {
@@ -244,6 +245,6 @@ export class TournamentGame extends OnlineGame {
 		};
 
 		const interval = setInterval(aiLogic, 1000 / 60);
-		this.aiIntervals.set(playerId, interval);
+		this.aiIntervals.set(side, interval);
 	}
 }

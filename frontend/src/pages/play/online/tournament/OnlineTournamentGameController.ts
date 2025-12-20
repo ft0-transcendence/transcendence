@@ -79,8 +79,8 @@ export class OnlineTournamentGameController extends RouteController {
 					<div class="grow flex flex-col w-full">
 						<!-- GAME COMPONENT -->
 						${this.#game
-							? await this.#gameComponent.render()
-							: /*html*/`
+				? await this.#gameComponent.render()
+				: /*html*/`
 								<div class="grow flex flex-col w-full items-center justify-center bg-black">
 									<h3 data-i18n="${k('generic.game_not_found')}" class="text-2xl uppercase font-mono font-bold">Game not found</h3>
 									<a data-route="/tournament" href="/play/online/tournaments"
@@ -90,7 +90,7 @@ export class OnlineTournamentGameController extends RouteController {
 									</a>
 								</div>
 							`
-						}
+			}
 					</div>
 				</section>
 				<section class="hidden sm:flex sm:min-w-32 sm:grow">
@@ -108,7 +108,7 @@ export class OnlineTournamentGameController extends RouteController {
 		if (this.#game) {
 			this.#gameComponent.setMovementHandler((side, direction, type) => {
 				const event = type === 'press' ? 'player-press' : 'player-release';
-				this.#gameSocket.emit(event, direction);
+				this.#gameSocket.emit(event, { direction, gameId: this.#gameId });
 			});
 
 			this.#setupSocketEvents();
@@ -118,10 +118,15 @@ export class OnlineTournamentGameController extends RouteController {
 	}
 
 	protected async destroy() {
-		if (this.#gameSocket.connected) {
-			this.#gameSocket.close();
-			console.debug('Cleaning up game socket');
-		}
+		const eventsToRemove = [
+			'tournament-game-joined',
+			'error',
+			'game-cancelled',
+			'game-finished',
+		]
+		eventsToRemove.forEach(event => {
+			this.#gameSocket.off(event);
+		});
 	}
 
 	#setupSocketEvents() {
@@ -200,8 +205,10 @@ export class OnlineTournamentGameController extends RouteController {
 			);
 		});
 
-		this.#gameSocket.on('game-finished', (state: Game['GameStatus']) => {
-			console.debug('Tournament game finished', state);
+		this.#gameSocket.on('game-finished', (data: { winnerId: string, winnerUsername: string }) => {
+			console.debug('Tournament game finished', data);
+			this.#gameComponent.hideError();
+			// TODO: show winner
 		});
 
 		this.#gameSocket.on('player-joined-tournament-game', (data: { userId: string, username: string }) => {
