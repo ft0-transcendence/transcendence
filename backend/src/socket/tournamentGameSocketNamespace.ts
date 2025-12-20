@@ -7,6 +7,7 @@ import { GameUserInfo } from "../../shared_exports";
 import { OnlineGame } from "../../game/onlineGame";
 import { MovePaddleAction } from "../../game/game";
 import { db } from "../trpc/db";
+import { createGameInstanceIfNeeded } from "../trpc/routes/tournament";
 
 // TODO: FIX THIS STUFF. TournamentGame Never ends
 
@@ -20,10 +21,10 @@ import { db } from "../trpc/db";
 	- player-reconnected
 */
 export function setupTournamentGameNamespace(io: Server) {
-	const tournamentNamespace = io.of("/tournament-game");
-	applySocketAuth(tournamentNamespace);
+	const tournamentGameNamespace = io.of("/tournament-game");
+	applySocketAuth(tournamentGameNamespace);
 
-	tournamentNamespace.on("connection", (socket: TypedSocket) => {
+	tournamentGameNamespace.on("connection", (socket: TypedSocket) => {
 		const { user } = socket.data;
 		app.log.debug(`A user connected to the tournament-game namespace: id=${user.id}`);
 
@@ -54,7 +55,6 @@ export function setupTournamentGameNamespace(io: Server) {
 						app.log.info(`Game ${gameId} found in DB - Tournament: ${gameData.tournamentId}, Left: ${gameData.leftPlayerUsername} (${gameData.leftPlayerId}), Right: ${gameData.rightPlayerUsername} (${gameData.rightPlayerId})`);
 
 						// Try to create game instance on-demand
-						const { createGameInstanceIfNeeded } = await import('../trpc/routes/tournament.js');
 						const created = await createGameInstanceIfNeeded(db, gameData.tournamentId, gameId);
 
 						if (created) {
@@ -75,7 +75,7 @@ export function setupTournamentGameNamespace(io: Server) {
 
 					const isPlayerInGame = game.isPlayerInGame(user.id);
 
-					game.setSocketNamespace(tournamentNamespace);
+					game.setSocketNamespace(tournamentGameNamespace);
 
 					// add utente alla partita
 					const gameUserInfo: GameUserInfo = {
@@ -118,7 +118,7 @@ export function setupTournamentGameNamespace(io: Server) {
 					app.log.info('✅ User %s joined tournament game %s successfully', user.username, gameId);
 
 				} catch (error) {
-					app.log.error('❌ Error joining tournament game %s:', gameId, error);
+					app.log.error('❌ Error joining tournament game %s: %s', gameId, error);
 					socket.emit('error', 'Failed to join tournament game');
 				}
 			})();

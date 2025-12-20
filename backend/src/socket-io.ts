@@ -14,6 +14,7 @@ import { setupMatchmakingNamespace } from './socket/matchmakingSocketNamespace';
 import { setupOnlineVersusGameNamespace } from './socket/versusGameSocketNamespace';
 import { setupTournamentNamespace } from './socket/tournamentSocketNamespace';
 import { sendFriendsListToUser, setupFriendshipNamespace } from './socket/friendshipSocketNamespace';
+import { setupTournamentGameNamespace } from './socket/tournamentGameSocketNamespace';
 
 
 type SocketData = {
@@ -37,7 +38,9 @@ export function setupSocketHandlers(io: Server) {
 	setupMatchmakingNamespace(io);
 	setupOnlineVersusGameNamespace(io);
 	setupFriendshipNamespace(io);
+
 	setupTournamentNamespace(io);
+	setupTournamentGameNamespace(io);
 
 	app.log.info("Setting up Socket.IO handlers");
 	io.on("connection", async (socket: TypedSocket) => {
