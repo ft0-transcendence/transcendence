@@ -278,6 +278,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 				fastify.log.info("Tournament (Game #%s persisted and removed from cache.", gameId);
 			},
 			async () => {
+				// TODO: FIX THIS STUFF. TournamentGame Never ends (Database concurrency issues)
 				await db.game.update({
 					where: { id: game.id },
 					data: { updatedAt: new Date() }

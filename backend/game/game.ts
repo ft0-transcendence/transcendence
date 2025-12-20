@@ -113,8 +113,8 @@ export class Game {
 
 	private _leftPlayer: GameUserInfo | null = null;
 	private _rightPlayer: GameUserInfo | null = null;
-	private leftPlayerReady: boolean = false;
-	private rightPlayerReady: boolean = false;
+	protected leftPlayerReady: boolean = false;
+	protected rightPlayerReady: boolean = false;
 
 	constructor(config: Partial<GameConfig> = {}) {
 		this.config = {

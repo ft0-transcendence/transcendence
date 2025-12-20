@@ -113,7 +113,6 @@ export function setupTournamentNamespace(io: Server) {
 						const leftId = isLeft ? nextMatch.leftPlayerId : null;
 						const rightId = isLeft ? null : nextMatch.rightPlayerId;
 
-						notifyPlayersAboutNewTournamentGame(tournament.id, nextMatch.id, leftId, rightId, nextMatch.leftPlayerUsername, nextMatch.rightPlayerUsername);
 					}
 				}
 

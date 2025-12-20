@@ -513,6 +513,7 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 
 		// Add to cache
 		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
+
 		humanGamesCreated++;
 
 		app.log.info(`✅ TournamentGame instance created for ${game.id} - Left: ${game.leftPlayerUsername}, Right: ${game.rightPlayerUsername}`);

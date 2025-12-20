@@ -1,6 +1,7 @@
 import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState, STANDARD_GAME_CONFIG, GameConfig } from "./game";
 import { Game as PrismaGame } from "@prisma/client";
 import { TypedSocketNamespace } from "../src/socket-io";
+import { app } from "../main";
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
@@ -30,8 +31,6 @@ export class OnlineGame extends Game {
 	private _playerLeft: GameUserInfo | null = null;
 	private _playerRight: GameUserInfo | null = null;
 	private connectedUsers: GameUserInfo[] = [];
-	private playerLeftReady = false;
-	private playerRightReady = false;
 
 	constructor(
 		gameId: string,
@@ -81,12 +80,14 @@ export class OnlineGame extends Game {
 	}
 
 	public playerReady(player: GameUserInfo) {
-		if (player.id === this._playerLeft?.id) {
-			this.playerLeftReady = true;
-		} else if (player.id === this._playerRight?.id) {
-			this.playerRightReady = true;
+		if (this.leftPlayer?.id === player.id || (this.leftPlayer?.isPlayer === false)) {
+			this.leftPlayerReady = true;
 		}
-		if (this.playerLeftReady && this.playerRightReady) {
+		if (this.rightPlayer?.id === player.id || (this.rightPlayer?.isPlayer === false)) {
+			this.rightPlayerReady = true;
+		}
+		app.log.debug('Players ready: left[%s], right[%s]', this.leftPlayerReady, this.rightPlayerReady);
+		if (this.leftPlayerReady && this.rightPlayerReady) {
 
 			this.start();
 			if (this.socketNamespace) {

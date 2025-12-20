@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Game as PrismaGame } from '@prisma/client';
 import { app } from '../../main';
 
 /**
@@ -9,29 +9,34 @@ import { app } from '../../main';
  */
 export async function updateGameStats(
 	db: PrismaClient,
-	winnerId: string,
-	loserId: string
+	winnerId: PrismaGame['leftPlayerId'] | PrismaGame['rightPlayerId'],
+	loserId: PrismaGame['leftPlayerId'] | PrismaGame['rightPlayerId']
 ): Promise<void> {
+
 	try {
 		// Update winner's stats
-		await db.user.update({
-			where: { id: winnerId },
-			data: {
-				totalWins: {
-					increment: 1
+		if (winnerId){
+			await db.user.update({
+				where: { id: winnerId },
+				data: {
+					totalWins: {
+						increment: 1
+					}
 				}
-			}
-		});
+			});
+		}
 
 		// Update loser's stats
-		await db.user.update({
-			where: { id: loserId },
-			data: {
-				totalLosses: {
-					increment: 1
+		if (loserId){
+			await db.user.update({
+				where: { id: loserId },
+				data: {
+					totalLosses: {
+						increment: 1
+					}
 				}
-			}
-		});
+			});
+		}
 
 		app.log.info(`📊 Stats updated: ${winnerId} won, ${loserId} lost`);
 	} catch (error) {

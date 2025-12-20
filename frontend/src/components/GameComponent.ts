@@ -414,7 +414,7 @@ export class GameComponent extends ComponentController {
 			const $image = $container.querySelector('.game-user-image') as HTMLImageElement;
 			const isLocalGame = this.#props.isLocalGame;
 
-			if (user.isPlayer && !isLocalGame) {
+			if (user.isPlayer && !isLocalGame && user.id) {
 				if ($image) {
 					$image.src = getProfilePictureUrlByUserId(user.id);
 					$image.classList.remove('hidden');

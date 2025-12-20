@@ -6,11 +6,16 @@ import { cache } from '../cache';
 import { GameUserInfo } from "../../shared_exports";
 import { OnlineGame } from "../../game/onlineGame";
 import { MovePaddleAction } from "../../game/game";
+import { User } from "@prisma/client";
 
 
 export function setupOnlineVersusGameNamespace(io: Server) {
 	const onlineVersusGameNamespace = io.of("/vs-game");
 	applySocketAuth(onlineVersusGameNamespace);
+
+	const getOnlineVersusGameRoomNameForUser = (gameId: string, userId: User['id']) => {
+		return `vs-game:${gameId}:${userId}`;
+	}
 
 	onlineVersusGameNamespace.on("connection", (socket: TypedSocket) => {
 		app.log.info("Online Versus Game socket connected. id=%s, username=%s", socket.id, socket.data.user.username);
@@ -82,7 +87,7 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 
 			// Create and join a "label" (not a real room, just a way to group sockets) to which we can broadcast the game state
 			await socket.join(gameId);
-			await socket.join(`${gameId}:${user.id}`);
+			await socket.join(getOnlineVersusGameRoomNameForUser(gameId, user.id));
 			game.playerReady({ id: user.id, username: user.username });
 			// After joining, if both players are ready the game may have just started; emit fresh state to this socket too
 			socket.emit('game-state', game.getState());
@@ -96,9 +101,6 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 
 			// Notify other players in the game
 			socket.to(gameId).emit('player-joined', gameUserInfo);
-
-			// socket.emit('player-list', game.getConnectedPlayers());
-			// socket.emit('game-state', game.getState());
 		});
 
 		socket.on("player-press", (input: { direction: MovePaddleAction, gameId: string }) => {
@@ -124,8 +126,6 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 			} else if (game.rightPlayer?.id === user.id) {
 				game.press("right", action);
 			}
-			socket.to(gameId).emit("game-state", game.getState());
-			socket.emit("game-state", game.getState());
 		});
 
 		socket.on("player-release", (input: { direction: MovePaddleAction, gameId: string }) => {
@@ -147,8 +147,6 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 			} else if (game.rightPlayer?.id === user.id) {
 				game.release("right", action);
 			}
-			socket.to(gameId).emit("game-state", game.getState());
-			socket.emit("game-state", game.getState());
 		});
 
 		socket.on("leave-game", async (gameId: string) => {

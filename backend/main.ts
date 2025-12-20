@@ -138,12 +138,12 @@ async function checkAndStartTournaments() {
 			}
 		}
 	} catch (error) {
-		app.log.error('Error checking tournaments for auto-start:', error);
+		app.log.error('Error checking tournaments for auto-start: %s', error);
 	}
 }
 
 app.ready().then(() => {
-	console.log('Fastify is ready');
+	app.log.info('Fastify is ready');
 	setupSocketHandlers(app.io);
 	loadActiveGamesIntoCache(app.prisma, app);
 

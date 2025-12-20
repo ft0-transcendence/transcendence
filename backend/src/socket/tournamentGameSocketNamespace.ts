@@ -10,23 +10,11 @@ import { db } from "../trpc/db";
 import { createGameInstanceIfNeeded } from "../trpc/routes/tournament";
 import { User } from "@prisma/client";
 
-// TODO: FIX THIS STUFF. TournamentGame Never ends
-
-/*
-	Check if all these events are handled:
-	- player-joined
-	- player-left
-	- game-aborted
-	- player-disconnected
-	- disconnection-timer-update
-	- player-reconnected
-*/
 export function setupTournamentGameNamespace(io: Server) {
 	const tournamentGameNamespace = io.of("/tournament-game");
 	applySocketAuth(tournamentGameNamespace);
 
-	const getTournamentGameRoomName = (gameId: string, userId?: User['id']) => {
-		if (!userId) return `tournament-game:${gameId}`;
+	const getTournamentGameRoomNameForUser = (gameId: string, userId: User['id']) => {
 		return `tournament-game:${gameId}:${userId}`;
 	}
 
@@ -42,11 +30,10 @@ export function setupTournamentGameNamespace(io: Server) {
 					let game = cache.tournaments.activeTournamentGames.get(gameId);
 
 					if (!game) {
-						app.log.warn(`User id[${user.id}] tried to join non-existing tournament game id[${gameId}].`);
+						app.log.warn(`User id[${user.id}] tried to join non-existing tournament game id[${gameId}]. Current active games: ${cache.tournaments.activeTournamentGames.keys()}`);
 						socket.emit('error', 'Tournament game not found or not active');
 						return;
 					}
-					const tournamentId = game.tournamentId;
 
 					const isPlayerInGame = game.isPlayerInGame(user.id);
 
@@ -62,8 +49,8 @@ export function setupTournamentGameNamespace(io: Server) {
 					game.addConnectedUser(gameUserInfo);
 
 					// join alla room della partita
-					await socket.join(getTournamentGameRoomName(gameId, user.id));
-					await socket.join(getTournamentGameRoomName(gameId));
+					await socket.join(getTournamentGameRoomNameForUser(gameId, user.id));
+					await socket.join(gameId);
 
 					// set giocatore come ready
 					game.playerReady(gameUserInfo);
@@ -73,19 +60,21 @@ export function setupTournamentGameNamespace(io: Server) {
 						game.markPlayerReconnected(user.id);
 					}
 
-					// socket.emit('tournament-game-joined', {
-					// 	gameId: gameId,
-					// 	game: {
-					// 		leftPlayer: game.leftPlayer,
-					// 		rightPlayer: game.rightPlayer,
-					// 		state: game.getState()
-					// 	},
-					// 	playerSide: game.leftPlayer?.id === user.id ? 'left' : 'right',
-					// 	isPlayer: isPlayerInGame,
-					// 	ableToPlay: isPlayerInGame
-					// });
+					socket.emit('tournament-game-joined', {
+						gameId: gameId,
+						game: {
+							leftPlayer: game.leftPlayer,
+							rightPlayer: game.rightPlayer,
+							state: game.getState()
+						},
+						playerSide: game.leftPlayer?.id === user.id ? 'left' : 'right',
+						isPlayer: isPlayerInGame,
+						ableToPlay: isPlayerInGame
+					});
 
-					socket.to(getTournamentGameRoomName(gameId)).emit('player-joined', {
+					socket.to(getTournamentGameRoomNameForUser(gameId, user.id)).emit('game-state', game.getState());
+
+					socket.to(gameId).emit('player-joined', {
 						userId: user.id,
 						username: user.username
 					});
@@ -121,8 +110,6 @@ export function setupTournamentGameNamespace(io: Server) {
 			} else if (game.rightPlayer?.id === user.id) {
 				game.press("right", action);
 			}
-
-			// socket.to(getTournamentGameRoom(gameId)).emit("game-state", game.getState());
 		});
 
 		socket.on("player-release", (input: { direction: MovePaddleAction, gameId: string }) => {
@@ -146,14 +133,12 @@ export function setupTournamentGameNamespace(io: Server) {
 			} else if (game.rightPlayer?.id === user.id) {
 				game.release("right", action);
 			}
-
-			// socket.to(getTournamentGameRoom(gameId)).emit("game-state", game.getState());
 		});
 
 		const onSocketDisconnect = async (gameId: string) => {
 			await socket.leave(gameId);
 			app.log.info(`User ${user.username} left tournament game room ${gameId}`);
-			socket.to(getTournamentGameRoomName(gameId)).emit("player-left", { userId: user.id });
+			socket.to(gameId).emit("player-left", { userId: user.id });
 
 			const game = cache.tournaments.activeTournamentGames.get(gameId);
 			if (game && game.isPlayerInGame(user.id)) {
@@ -161,7 +146,7 @@ export function setupTournamentGameNamespace(io: Server) {
 			}
 		}
 
-		socket.on("leave-game", (gameId: string)=>{
+		socket.on("leave-game", (gameId: string) => {
 			onSocketDisconnect(gameId)
 		});
 

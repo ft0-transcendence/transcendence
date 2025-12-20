@@ -190,7 +190,7 @@ export function setupMatchmakingNamespace(io: Server) {
 
 
 
-export async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstance: OnlineGame, leftPlayerId: string, rightPlayerId: string) {
+export async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstance: OnlineGame, leftPlayerId: PrismaGame['leftPlayerId'], rightPlayerId: PrismaGame['rightPlayerId']) {
 	app.log.debug(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
 	app.log.debug(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
 

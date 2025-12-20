@@ -44,6 +44,7 @@ export class OnlineTournamentGameController extends RouteController {
 			gameId: this.#gameId,
 			gameType: 'TOURNAMENT',
 			isLocalGame: false,
+			socketConnection: this.#gameSocket,
 		});
 		this.registerChildComponent(this.#gameComponent);
 

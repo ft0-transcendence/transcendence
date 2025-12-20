@@ -1,12 +1,12 @@
-import { GameType, PrismaClient } from '@prisma/client';
+import { GameType, PrismaClient, Game as PrismaGame } from '@prisma/client';
 
 import { updateGameStats } from '../utils/statsUtils';
 import { STANDARD_GAME_CONFIG } from '../../game/game';
 
 export type FinalizeVsGameParams = {
-	gameId: string;
-	leftPlayerId: string;
-	rightPlayerId: string;
+	gameId: PrismaGame['id'];
+	leftPlayerId: PrismaGame['leftPlayerId'];
+	rightPlayerId: PrismaGame['rightPlayerId'];
 	scores: { left: number; right: number };
 	isForfeited: boolean;
 	finishedAt?: Date;
