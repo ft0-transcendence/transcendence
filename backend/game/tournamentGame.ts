@@ -11,6 +11,7 @@ import { notifyPlayersAboutNewTournamentGame, tournamentBroadcastBracketUpdateBy
 import { app } from "../main";
 import { skipTournamentAiVsAiGame } from "./bracketGenerator";
 import { AiAccuracy, STANDARD_GAME_CONFIG } from "../constants";
+import { AIBrain } from "./AIBrain";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
@@ -219,62 +220,16 @@ export class TournamentGame extends OnlineGame {
 		}
 	}
 
-	private startAI(playerId: PrismaGame['leftPlayerId'], side: 'left' | 'right', accuracy: AiAccuracy = AiAccuracy.HIGH) {
-		accuracy = Math.max(0, Math.min(1, accuracy));
-
-		app.log.warn(`Starting AI for player ${playerId} on ${side} side in game #${this.gameId}. Accuracy set to ${accuracy}`);
-
+	private startAI(playerId: PrismaGame['leftPlayerId'], side: 'left' | 'right') {
+		const brain = new AIBrain({ position: side });
 		const aiLogic = () => {
 			try {
 				const state = this.getState();
 				if (state.state !== 'RUNNING') return;
 
-				// reaction delay (frame skipping). needed?
-				if (Math.random() > accuracy) { return; }
-
-				const errorRate = 1 - accuracy;
-				// 1->0 accuracy value = 0->50% error
-				const percentageError = (Math.random() * 2 - 1) * (errorRate * 0.5);
-
-
-				const aiPaddlePos = side === 'left' ? state.paddles.left : state.paddles.right;
-
-				let target = 50;
-
-				const ballComingTowardsPaddle = side === 'right' ? state.ball.dirX >= 0 : state.ball.dirX <= 0;
-
-				if (ballComingTowardsPaddle) {
-					target = state.ball.y;
-
-					target += percentageError;
-				}
-
-				const diff = target - aiPaddlePos;
-				const deadZone = 5;
-
-				this.release(side, 'up');
-				this.release(side, 'down');
-
-				if (Math.abs(diff) > deadZone) {
-					// let's make it undecisive
-					if (Math.random() > accuracy) {
-						return;
-					}
-
-					const moveDown = diff > 0;
-
-					// jiggle
-					// const shouldActuallyMoveDown = Math.random() < accuracy ? moveDown : !moveDown;
-					const shouldActuallyMoveDown = moveDown;
-
-					if (shouldActuallyMoveDown) {
-						this.press(side, 'down');
-					} else {
-						this.press(side, 'up');
-					}
-				}
+				brain.processCycle(state, this);
 			} catch (error) {
-				app.log.error(`AI error for player ${playerId}:`, error);
+				app.log.error(`AI error for player ${playerId}: %s`, error);
 			}
 		};
 

@@ -1,5 +1,5 @@
 import { RouteController } from '@tools/ViewController';
-import { Game, GameClass, STANDARD_GAME_CONFIG } from '@shared';
+import { AIBrain, Game, GameClass, STANDARD_GAME_CONFIG } from '@shared';
 import { GameComponent } from '@src/components/GameComponent';
 import { authManager } from '@src/tools/AuthManager';
 import { k, t } from '@src/tools/i18n';
@@ -7,6 +7,8 @@ import { k, t } from '@src/tools/i18n';
 export class LocalVersusAiGameController extends RouteController {
 	#game: GameClass;
 	#gameComponent: GameComponent;
+
+	#aiEnemyBrain: AIBrain;
 
 	#animationFrameId: number = 0;
 	#lastTime: number = 0;
@@ -28,10 +30,13 @@ export class LocalVersusAiGameController extends RouteController {
 		// Initialize game component
 		this.#gameComponent = new GameComponent({
 			gameId: 'local-ai',
-			isLocalGame: true
+			isLocalGame: true,
 		});
 		this.#gameComponent.updateKeyBindings({})
 		this.registerChildComponent(this.#gameComponent);
+
+		this.#aiEnemyBrain = new AIBrain();
+
 
 		this.updateTitleSuffix();
 	}
@@ -160,6 +165,9 @@ export class LocalVersusAiGameController extends RouteController {
 				this.#gameComponent.updateKeyBindings(keyBindings);
 
 
+				if (this.#isPlayerLeft) {
+					this.#aiEnemyBrain.setPosition('right');
+				}
 
 				// Start the game (internal loop)
 				this.#game.playerReady(this.#player);
@@ -175,33 +183,7 @@ export class LocalVersusAiGameController extends RouteController {
 		const animate = (currentTime: number) => {
 			if (this.#lastTime) {
 				const state = this.#game.getState();
-				// AI movement logic - smooth movement with dead zone
-				const aiSide = this.#isPlayerLeft ? 'right' : 'left';
-				const aiPaddlePos = aiSide === 'left' ? state.paddles.left : state.paddles.right;
-				let target = 50;
-
-				// Only move when ball is coming towards AI
-				if (aiSide === 'right' && state.ball.dirX >= 0) {
-					target = state.ball.y;
-				} else if (aiSide === 'left' && state.ball.dirX <= 0) {
-					target = state.ball.y;
-				}
-
-				const diff = target - aiPaddlePos;
-				const deadZone = 5; // Larger dead zone to prevent micro-adjustments
-
-				// Release all movements first
-				this.#game.release(aiSide, 'up');
-				this.#game.release(aiSide, 'down');
-
-				// Apply movement only if outside dead zone
-				if (Math.abs(diff) > deadZone) {
-					if (diff > 0) {
-						this.#game.press(aiSide, 'down');
-					} else {
-						this.#game.press(aiSide, 'up');
-					}
-				}
+				this.#aiEnemyBrain.processCycle(state, this.#game);
 				this.#gameComponent?.updateGameState(state);
 			}
 			this.#lastTime = currentTime;

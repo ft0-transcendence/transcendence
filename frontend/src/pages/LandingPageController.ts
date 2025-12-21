@@ -1,6 +1,6 @@
 import { authManager } from "@src/tools/AuthManager";
 import { k } from "@src/tools/i18n";
-import { Game, GameClass } from "@shared";
+import { AiAccuracy, AIBrain, Game, GameClass } from "@shared";
 import { RouteController } from "@tools/ViewController";
 import { GameComponent } from "@src/components/GameComponent";
 
@@ -55,7 +55,7 @@ export class LandingPageController extends RouteController {
 		return /*html*/`
 			<div class="relative flex flex-col grow w-full items-center justify-center">
 				<div class="absolute top-0 left-0 w-full h-full opacity-25 flex flex-col justify-center items-center">
-					<div id="game-container" class="max-w-5xl w-full grow overflow-hidden">
+					<div id="game-container" class="max-w-4xl w-full grow overflow-hidden">
 						${await this.#gameComponent!.silentRender()}
 					</div>
 				</div>
@@ -85,7 +85,7 @@ export class LandingPageController extends RouteController {
 
 		this.#gameComponent!.setActivePlayers(false, false);
 
-		this.startAnimation();
+		this.startAI();
 
 		document.querySelector(`#${this.id}-login-btn`)?.addEventListener('click', () => {
 			sessionStorage.removeItem('lastRoute')
@@ -94,41 +94,20 @@ export class LandingPageController extends RouteController {
 
 	}
 
-	private startAnimation() {
-		// TODO: use the Game's loop instead of this
+	private startAI() {
+		const leftAI = new AIBrain({ position: 'left', accuracy: AiAccuracy.PERFECT });
+		const rightAI = new AIBrain({ position: 'right', accuracy: AiAccuracy.PERFECT });
+
 		const animate = (currentTime: number) => {
 			if (this.#lastTime) {
-				const delta = currentTime - this.#lastTime;
-
-				// AI movement logic
-				const state = this.#game.getState();
-
-				const leftTarget = state.ball.dirX < 0 ? state.ball.y : 50;
-				const leftDiff = leftTarget - state.paddles.left;
-				if (Math.abs(leftDiff) > 1) {
-					if (leftDiff > 0) { this.#game.release('left', 'up'); this.#game.press('left', 'down'); }
-					else { this.#game.release('left', 'down'); this.#game.press('left', 'up'); }
-				} else {
-					this.#game.release('left', 'up'); this.#game.release('left', 'down');
-				}
-
-				const rightTarget = state.ball.dirX > 0 ? state.ball.y : 50;
-				const rightDiff = rightTarget - state.paddles.right;
-				if (Math.abs(rightDiff) > 1) {
-					if (rightDiff > 0) { this.#game.release('right', 'up'); this.#game.press('right', 'down'); }
-					else { this.#game.release('right', 'down'); this.#game.press('right', 'up'); }
-				} else {
-					this.#game.release('right', 'up'); this.#game.release('right', 'down');
-				}
-
-				// Game updates internally now; only render
+				leftAI.processCycle(this.#game.getState(), this.#game);
+				rightAI.processCycle(this.#game.getState(), this.#game);
 				this.#gameComponent?.updateGameState(this.#game.getState());
 			}
 
 			this.#lastTime = currentTime;
 			this.#animationFrameId = requestAnimationFrame(animate);
 		}
-
 		requestAnimationFrame(animate);
 	}
 
