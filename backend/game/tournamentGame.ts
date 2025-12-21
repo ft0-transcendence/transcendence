@@ -33,14 +33,21 @@ export class TournamentGame extends OnlineGame {
 			socketNamespace: TypedSocketNamespace | null,
 			config?: Partial<GameConfig>,
 			onGameFinish?: TournamentGameFinishCallback,
-			updateGameActivity?: () => Promise<void>,
+			updateGameActivity?: typeof OnlineGame.prototype['updateGameActivity'],
 		},
 		gameDto?: PrismaGame
 	) {
-		super(gameId, options?.socketNamespace ?? null, options?.config, async (state) => {
-			// Handle tournament advancement when game finishes (quello che faceva getMatchresults)
-			await this.handleTournamentAdvancement();
-		}, options?.updateGameActivity, gameDto);
+		super(
+			gameId,
+			options?.socketNamespace ?? null,
+			options?.config,
+			async (state) => {
+				// Handle tournament advancement when game finishes (quello che faceva getMatchresults)
+				await this.handleTournamentAdvancement();
+			},
+			options?.updateGameActivity,
+			gameDto
+		);
 		this.tournamentId = tournamentId;
 		this.onGameFinish = options?.onGameFinish;
 	}
@@ -86,6 +93,9 @@ export class TournamentGame extends OnlineGame {
 	public async handleTournamentAdvancement() {
 		const state = this.getState();
 		app.log.info(`handleTournamentAdvancement called for Tournament #${this.tournamentId} Game #${this.gameId} (${state.leftPlayer?.username ?? 'N/A'} vs ${state.rightPlayer?.username ?? 'N/A'})`);
+		if (state.scores.left !== state.gameScoreGoal && state.scores.right !== state.gameScoreGoal) {
+			return;
+		}
 		try {
 			const isLeftWinner = this.scores.left > this.scores.right;
 			const winnerId = (isLeftWinner ? this.leftPlayer?.id : this.rightPlayer?.id) ?? null;
@@ -310,10 +320,16 @@ export function createTournamentGameInstance(tournamentId: string, game: PrismaG
 					cache.tournaments.activeTournamentGames.delete(gid);
 					app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
 				},
-			updateGameActivity: async () => {
+			updateGameActivity: async (gameInstance) => {
+				if (!gameInstance) {
+					app.log.warn(`updateGameActivity: gameInstance is null`);
+					return;
+				}
+				const scores = gameInstance.getState().scores;
+
 				await db.game.updateMany({
 					where: { id: game.id, endDate: null },
-					data: { updatedAt: new Date() }
+					data: { updatedAt: new Date(), leftPlayerScore: scores.left, rightPlayerScore: scores.right }
 				});
 				tournamentBroadcastBracketUpdateById(tournamentId);
 			}

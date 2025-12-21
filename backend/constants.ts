@@ -24,7 +24,10 @@ export const STANDARD_GAME_CONFIG: GameConfig = {
 
 export enum AiAccuracy {
 	LOW = 0.25,
+	LOW_MEDIUM = 0.375,
 	MEDIUM = 0.5,
+	MEDIUM_HIGH = 0.625,
 	HIGH = 0.75,
+	HIGH_MAX = 0.875,
 	MAX = 1,
 }
