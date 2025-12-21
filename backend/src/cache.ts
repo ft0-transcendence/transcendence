@@ -373,19 +373,6 @@ export function removeTournamentFromCache(tournamentId: string) {
 	}
 }
 
-export function addTournamentGameToCache(gameId: string, game: TournamentGame) {
-	cache.tournaments.activeTournamentGames.set(gameId, game);
-}
-
-export function removeTournamentGameFromCache(gameId: string) {
-	cache.tournaments.activeTournamentGames.delete(gameId);
-}
-
-export function getOnlineFriends(userId: User['id']): User['id'][] {
-	// Questa funzione sarà implementata nel socket handler so x ora array vuoto
-	return [];
-}
-
 async function notifyFriendsUserOnline(userId: User['id']) {
 	try {
 		const user = await db.user.findFirst({
