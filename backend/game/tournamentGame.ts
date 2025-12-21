@@ -85,7 +85,7 @@ export class TournamentGame extends OnlineGame {
 
 	public async handleTournamentAdvancement() {
 		const state = this.getState();
-		app.log.warn(`handleTournamentAdvancement called for Tournament #${this.tournamentId} Game #${this.gameId} (${state.leftPlayer?.username ?? 'N/A'} vs ${state.rightPlayer?.username ?? 'N/A'})`);
+		app.log.info(`handleTournamentAdvancement called for Tournament #${this.tournamentId} Game #${this.gameId} (${state.leftPlayer?.username ?? 'N/A'} vs ${state.rightPlayer?.username ?? 'N/A'})`);
 		try {
 			const isLeftWinner = this.scores.left > this.scores.right;
 			const winnerId = (isLeftWinner ? this.leftPlayer?.id : this.rightPlayer?.id) ?? null;
@@ -143,6 +143,7 @@ export class TournamentGame extends OnlineGame {
 						app.log.info(`handleTournamentAdvancement: User ${winnerId} won the tournament game #${this.gameId} (tournamentId[${this.tournamentId}]). Advancing to next round`);
 						await checkAndCreateNextRoundInstances(db, this.tournamentId, currentGame.tournamentRound!);
 					}
+					tournamentBroadcastBracketUpdateById(this.tournamentId);
 
 				} else {
 					app.log.warn(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: No next game found`);
@@ -208,7 +209,7 @@ export class TournamentGame extends OnlineGame {
 		}
 	}
 
-	private startAI(playerId: PrismaGame['leftPlayerId'], side: 'left' | 'right', accuracy: AiAccuracy = AiAccuracy.LOW) {
+	private startAI(playerId: PrismaGame['leftPlayerId'], side: 'left' | 'right', accuracy: AiAccuracy = AiAccuracy.HIGH) {
 		accuracy = Math.max(0, Math.min(1, accuracy));
 
 		app.log.warn(`Starting AI for player ${playerId} on ${side} side in game #${this.gameId}. Accuracy set to ${accuracy}`);
@@ -239,7 +240,7 @@ export class TournamentGame extends OnlineGame {
 				}
 
 				const diff = target - aiPaddlePos;
-				const deadZone = errorRate * 5;
+				const deadZone = 5;
 
 				this.release(side, 'up');
 				this.release(side, 'down');
