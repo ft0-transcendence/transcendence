@@ -1,8 +1,9 @@
 import type { GameType, TournamentRound } from '@prisma/client';
 import type { AppRouter, RouterInputs, RouterOutputs } from './src/trpc/root';
-import { Game, GameUserInfo, STANDARD_GAME_CONFIG } from './game/game';
+import { Game, GameUserInfo } from './game/game';
 import type { SocketFriendInfo } from './src/socket-io';
 import { CONSTANTS } from './constants';
+import { STANDARD_GAME_CONFIG } from './constants';
 
 export type {
 	AppRouter,
