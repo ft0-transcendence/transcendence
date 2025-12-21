@@ -59,6 +59,14 @@ export class TournamentsListController extends RouteController {
 									<i class="fa fa-plus"></i>
 									<span class="flex">new random tournament</span>
 								</button>
+
+
+								<button id="${this.id}-cgs-tournament"
+										class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-base rounded-md bg-amber-700 hover:bg-amber-600 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
+										aria-label="Create Tournament" title="Clear all tournaments">
+									<i class="fa fa-plus"></i>
+									<span class="flex">clear->gen->start</span>
+								</button>
 							`
 							: ''
 					}
@@ -139,6 +147,16 @@ export class TournamentsListController extends RouteController {
 				});
 				toast.success(t('generic.tournament'), t('generic.create_tournament_success') ?? "");
 				this.#fetchAndShowTournaments();
+			} catch (err) {
+				showAndLogTrpcError(err, 'generic.tournament');
+			}
+		});
+		document.querySelector(`#${this.id}-cgs-tournament`)?.addEventListener('click', async () => {
+			try {
+				const tournamentId = await api.tournament.makeItFlow.query();
+				const res = await api.tournament.startTournament.mutate({ tournamentId });
+				toast.success(t('generic.tournament'), t('generic.start_tournament_success') ?? "");
+				router.navigate(`/play/online/tournaments/${tournamentId}`);
 			} catch (err) {
 				showAndLogTrpcError(err, 'generic.tournament');
 			}

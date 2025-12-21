@@ -5,9 +5,6 @@ import { app } from "../../main";
 import { db } from "../trpc/db";
 import { cache } from "../cache";
 import { User, Tournament, Game as PrismaGame } from '@prisma/client';
-import { GameUserInfo } from "../../shared_exports";
-import { OnlineGame } from "../../game/onlineGame";
-import { MovePaddleAction } from '../../game/game';
 import { craftTournamentDTODetailsForUser, getTournamentFullDetailsById } from "../trpc/routes/tournament";
 
 

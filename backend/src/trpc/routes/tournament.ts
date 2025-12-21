@@ -1,21 +1,20 @@
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, t } from "../trpc";
 import { z } from "zod";
-import { TournamentType, GameType, TournamentStatus, PrismaClient, Tournament, TournamentRound, User, Game as PrismaGame } from "@prisma/client";
+import { TournamentType, PrismaClient, Tournament, TournamentRound, User, Game as PrismaGame } from "@prisma/client";
 import sanitizeHtml from 'sanitize-html';
 import { BracketGenerator } from "../../../game/bracketGenerator";
 import { addTournamentToCache, removeTournamentFromCache, cache, updateTournamentBracket, TournamentCacheEntry } from "../../cache";
-import { tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastTournamentDeleted, tournamentBroadcastBracketUpdateById, notifyPlayersAboutNewTournamentGame } from "../../socket/tournamentSocketNamespace";
+import { tournamentBroadcastParticipantJoined, tournamentBroadcastParticipantLeft, tournamentBroadcastTournamentDeleted, tournamentBroadcastBracketUpdateById } from "../../socket/tournamentSocketNamespace";
 import { AIPlayerService } from "../../services/aiPlayerService";
 import {
 	TournamentValidator,
 	tournamentValidationSchemas,
 	handleTournamentError
 } from "../../utils/tournamentValidation";
-import { STANDARD_GAME_CONFIG } from "../../../shared_exports";
 import { app } from "../../../main";
 import { db } from "../db";
-import { TournamentGame } from "../../../game/tournamentGame";
+import { createTournamentGameInstance } from "../../../game/tournamentGame";
 import { env } from "../../../env";
 
 const TOURNAMENT_SIZES: { [key in TournamentType]: number } = {
@@ -328,73 +327,7 @@ export const tournamentRouter = t.router({
 				}),
 		}))
 		.mutation(async ({ ctx, input }) => {
-			try {
-				// If no startDate set to 1 hour from now
-				const defaultStartDate = new Date();
-				defaultStartDate.setHours(defaultStartDate.getHours() + 1);
-
-				const result = await ctx.db.$transaction(async (tx) => {
-
-					const tournament = await tx.tournament.create({
-						data: {
-							name: sanitizeHtml(input.name),
-							type: input.type,
-							startDate: input.startDate ? new Date(input.startDate) : defaultStartDate,
-							createdById: ctx.user!.id,
-						},
-						include: {
-							createdBy: { select: { id: true, username: true } },
-							participants: {
-								include: {
-									user: { select: { id: true, username: true } }
-								}
-							}
-						}
-					});
-
-
-					const creator = await tx.tournamentParticipant.create({
-						data: { tournamentId: tournament.id, userId: ctx.user!.id }
-					});
-
-					const participants = tournament.participants.map(p => p.userId);
-					participants.push(creator.userId);
-
-
-					const bracketGenerator = new BracketGenerator(tx);
-					const bracket = await bracketGenerator.generateAndCreateBracket(tournament, participants);
-
-
-					// await bracketGenerator.assignParticipantToSlot(tournament.id, ctx.user!.id);
-
-					return tournament;
-				});
-
-				const participantSlots = new Map<number, string | null>();
-				for (let i = 0; i < 8; i++) {
-					participantSlots.set(i, i === 0 ? ctx.user!.id : null);
-				}
-
-				const tournamentCacheEntry: TournamentCacheEntry = {
-					id: result.id,
-					name: result.name,
-					type: result.type,
-					status: result.status,
-					participants: new Set([ctx.user!.id]),
-					connectedUsers: new Set(),
-					creatorId: ctx.user!.id,
-					bracketCreated: true,
-					lastBracketUpdate: new Date(),
-					participantSlots
-				};
-
-				addTournamentToCache(result.id, tournamentCacheEntry);
-
-				return result;
-
-			} catch (error) {
-				handleTournamentError(error as Error, 'createTournament', undefined, ctx.user!.id);
-			}
+			return await createTournamentByUser(ctx.user.id, input, ctx.db);
 		}),
 
 	// TODO: remove this after testing
@@ -423,12 +356,130 @@ export const tournamentRouter = t.router({
 				handleTournamentError(error as Error, 'clearAllTournaments');
 			}
 		}),
+	makeItFlow: protectedProcedure
+		.query(async (data) => {
+			const { ctx } = data;
+			if (ctx.user!.username.toLowerCase() !== 'sandoramix' || env.NODE_ENV !== 'development') {
+				throw new TRPCError({
+					code: 'FORBIDDEN',
+					message: ''
+				});
+			};
+			const user = await db.user.findFirst({
+				where: { id: ctx.user!.id }
+			});
+			if (!user) {
+				throw new TRPCError({
+					code: 'NOT_FOUND',
+					message: 'User not found'
+				});
+			}
+
+			const tournaments = await db.tournament.findMany({
+				where: {
+					createdById: user.id
+				}
+			});
+
+			const tournamentIds = tournaments.map(t => t.id);
+
+			await db.game.deleteMany({
+				where: {
+					tournamentId: { in: tournamentIds }
+				}
+			});
+			await db.tournamentParticipant.deleteMany({
+				where: {
+					tournamentId: { in: tournamentIds }
+				}
+			});
+			await db.tournament.deleteMany({
+				where: {
+					id: { in: tournamentIds }
+				}
+			});
+
+			const nextHourDate = new Date();
+			nextHourDate.setHours(nextHourDate.getHours() + 1);
+
+			const tournament = await createTournamentByUser(user.id, { name: `GEN[${nextHourDate.toISOString()}]`, type: TournamentType.EIGHT, startDate: nextHourDate.toISOString() }, db);
+
+			return tournament.id;
+		})
 });
+
+async function createTournamentByUser(creatorId: string, input: { name: string, type: TournamentType, startDate?: string }, db: PrismaClient) {
+	try {
+		// If no startDate set to 1 hour from now
+		const defaultStartDate = new Date();
+		defaultStartDate.setHours(defaultStartDate.getHours() + 1);
+
+		const result = await db.$transaction(async (tx) => {
+
+			const tournament = await tx.tournament.create({
+				data: {
+					name: sanitizeHtml(input.name),
+					type: input.type,
+					startDate: input.startDate ? new Date(input.startDate) : defaultStartDate,
+					createdById: creatorId,
+				},
+				include: {
+					createdBy: { select: { id: true, username: true } },
+					participants: {
+						include: {
+							user: { select: { id: true, username: true } }
+						}
+					}
+				}
+			});
+
+
+			const creator = await tx.tournamentParticipant.create({
+				data: { tournamentId: tournament.id, userId: creatorId }
+			});
+
+			const participants = tournament.participants.map(p => p.userId);
+			participants.push(creator.userId);
+
+
+			const bracketGenerator = new BracketGenerator(tx);
+			const bracket = await bracketGenerator.generateAndCreateBracket(tournament, participants);
+
+
+			// await bracketGenerator.assignParticipantToSlot(tournament.id, creatorId);
+
+			return tournament;
+		});
+
+		const participantSlots = new Map<number, string | null>();
+		for (let i = 0; i < 8; i++) {
+			participantSlots.set(i, i === 0 ? creatorId : null);
+		}
+
+		const tournamentCacheEntry: TournamentCacheEntry = {
+			id: result.id,
+			name: result.name,
+			type: result.type,
+			status: result.status,
+			participants: new Set([creatorId]),
+			connectedUsers: new Set(),
+			creatorId: creatorId,
+			bracketCreated: true,
+			lastBracketUpdate: new Date(),
+			participantSlots
+		};
+
+		addTournamentToCache(result.id, tournamentCacheEntry);
+
+		return result;
+
+	} catch (error) {
+		handleTournamentError(error as Error, 'createTournament', undefined, creatorId);
+	}
+}
 
 async function createTournamentGameInstances(db: PrismaClient, tournamentId: string): Promise<void> {
 	app.log.info(`🎮 Creating TournamentGame instances for tournament ${tournamentId} (quarter finals only)`);
-
-	const tournamentNamespace = app.io.of("/tournament-game");
 
 	// Only create instances for QUARTER FINALS initially
 	const allGames = await db.game.findMany({
@@ -437,19 +488,9 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 			tournamentRound: 'QUARTI',
 			endDate: null
 		},
-		select: {
-			id: true,
-			scoreGoal: true,
-			leftPlayerScore: true,
-			rightPlayerScore: true,
-			tournamentRound: true,
+		include: {
 			leftPlayer: { select: { id: true, username: true } },
 			rightPlayer: { select: { id: true, username: true } },
-			leftPlayerUsername: true,
-			rightPlayerUsername: true,
-			leftPlayerId: true,
-			rightPlayerId: true,
-			tournamentId: true
 		},
 		orderBy: { startDate: 'asc' }
 	});
@@ -458,14 +499,13 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 	let aiGamesSkipped = 0;
 
 	for (const game of allGames) {
-		// Skip games with empty slots
-		if (!game.leftPlayer && !game.rightPlayer) {
+		const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
+		const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
+
+		if ((!game.leftPlayer && !isLeftAI) || (!game.rightPlayer && !isRightAI)) {
 			app.log.debug(`⏭️ Skipping game ${game.id} - has empty slots`);
 			continue;
 		}
-
-		const isLeftAI = !game.leftPlayerId && game.leftPlayerUsername !== null;
-		const isRightAI = !game.rightPlayerId && game.rightPlayerUsername !== null;
 
 		if (isLeftAI && isRightAI) {
 			app.log.debug(`⏭️Skipping AI vs AI game ${game.id} - already handled by simulation`);
@@ -475,72 +515,27 @@ async function createTournamentGameInstances(db: PrismaClient, tournamentId: str
 
 		app.log.info(`🆕 Creating TournamentGame instance for game ${game.id} (round: ${game.tournamentRound})`);
 
-		const gameInstance = new TournamentGame(
-			game.id,
-			tournamentId,
-			{
-				socketNamespace: tournamentNamespace,
-				config: { maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
-				onGameFinish:
-					async (state: any, _tid: string, gid: string) => {
-						const isAborted = gameInstance.wasForfeited;
-
-						app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
-
-						await db.game.updateMany({
-							where: { id: gid },
-							data: {
-								endDate: new Date(),
-								abortDate: isAborted ? new Date() : null,
-								leftPlayerScore: state.scores.left,
-								rightPlayerScore: state.scores.right
-							}
-						});
-
-						cache.tournaments.activeTournamentGames.delete(gid);
-						app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
-					},
-				updateGameActivity: async () => {
-					await db.game.updateMany({
-						where: { id: game.id, endDate: null },
-						data: { updatedAt: new Date() }
-					});
-				}
-			},
-
-		);
-
-		gameInstance.setPlayers(
-			{ id: game.leftPlayerId, username: game.leftPlayerUsername, isPlayer: !isLeftAI },
-			{ id: game.rightPlayerId, username: game.rightPlayerUsername, isPlayer: !isRightAI }
-		);
-
-		// Add to cache
-		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
+		const gameInstance = createTournamentGameInstance(tournamentId, game);
+		if (!gameInstance) {
+			continue ;
+		}
 
 		humanGamesCreated++;
 
 		app.log.info(`✅ TournamentGame instance created for ${game.id} - Left: ${game.leftPlayerUsername}, Right: ${game.rightPlayerUsername}`);
-
-		notifyPlayersAboutNewTournamentGame(game.tournamentId, game.id, game.leftPlayerId, game.rightPlayerId);
 	}
 
-	app.log.info(`🎮 Tournament ${tournamentId}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
+	app.log.info(`🎮 Tournament ${tournamentId}: Created ${humanGamesCreated} human game instances`);
 }
 
 //Only creates instances for games with at least one human player
 export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournamentId: string, currentRound: 'QUARTI' | 'SEMIFINALE' | 'FINALE'): Promise<void> {
-	app.log.debug(`🔍 Checking if round ${currentRound} is complete for tournament ${tournamentId}`);
+	app.log.debug(`checkAndCreateNextRoundInstances: Checking if round ${currentRound} is complete for tournament ${tournamentId}`);
 
 	const currentRoundGames = await db.game.findMany({
 		where: {
 			tournamentId,
 			tournamentRound: currentRound
-		},
-		select: {
-			id: true,
-			endDate: true,
-			nextGameId: true
 		}
 	});
 
@@ -548,11 +543,11 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 	const allGamesFinished = currentRoundGames.every(game => game.endDate !== null);
 
 	if (!allGamesFinished) {
-		app.log.debug(`⏳ Round ${currentRound} not yet complete - waiting for all games to finish`);
+		app.log.debug(`checkAndCreateNextRoundInstances: Round ${currentRound} not yet complete - waiting for all games to finish`);
 		return;
 	}
 
-	app.log.debug(`✅ Round ${currentRound} is complete! Checking for next round games...`);
+	app.log.debug(`checkAndCreateNextRoundInstances: Round ${currentRound} is complete! Checking for next round games...`);
 
 	let nextRound: 'SEMIFINALE' | 'FINALE' | null = null;
 	if (currentRound === 'QUARTI') {
@@ -562,7 +557,7 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 	}
 
 	if (!nextRound) {
-		app.log.debug(`🏆 Tournament ${tournamentId} is complete (FINALE finished)`);
+		app.log.debug(`checkAndCreateNextRoundInstances: Tournament ${tournamentId} is complete (FINALE finished)`);
 		return;
 	}
 
@@ -572,35 +567,19 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 			tournamentRound: nextRound,
 			endDate: null
 		},
-		select: {
-			id: true,
-			scoreGoal: true,
-			leftPlayerScore: true,
-			rightPlayerScore: true,
-			tournamentRound: true,
+		include: {
 			leftPlayer: { select: { id: true, username: true } },
 			rightPlayer: { select: { id: true, username: true } },
-			leftPlayerUsername: true,
-			rightPlayerUsername: true,
-			leftPlayerId: true,
-			rightPlayerId: true
 		},
 		orderBy: { startDate: 'asc' }
 	});
 
-	const tournamentNamespace = app.io.of("/tournament-game");
 	let humanGamesCreated = 0;
 	let aiGamesSkipped = 0;
 
 	for (const game of nextRoundGames) {
 		if (cache.tournaments.activeTournamentGames.has(game.id)) {
-			app.log.debug(`⏭️ Game instance ${game.id} already exists, skipping`);
-			continue;
-		}
-
-		// Skip games with empty slots
-		if (!game.leftPlayer || !game.rightPlayer) {
-			app.log.debug(`⏭️ Game ${game.id} has empty slots, waiting for players`);
+			app.log.debug(`checkAndCreateNextRoundInstances: Game instance ${game.id} already exists, skipping`);
 			continue;
 		}
 
@@ -609,58 +588,31 @@ export async function checkAndCreateNextRoundInstances(db: PrismaClient, tournam
 
 		// Skip AI vs AI games (they are handled by simulation)
 		if (isLeftAI && isRightAI) {
-			app.log.debug(`⏭️ Skipping AI vs AI game ${game.id} (${nextRound}) - handled by simulation`);
+			app.log.debug(`checkAndCreateNextRoundInstances: Skipping AI vs AI game ${game.id} (${nextRound}) - handled by simulation`);
 			aiGamesSkipped++;
 			continue;
 		}
 
-		app.log.info(`🆕 Creating TournamentGame instance for ${nextRound} game ${game.id}`);
+		// Skip games with empty slots
+		if ((!game.leftPlayer && !isLeftAI) || (!game.rightPlayer && !isRightAI)) {
+			app.log.debug(`checkAndCreateNextRoundInstances: Game ${game.id} has empty slots, waiting for players`);
+			continue;
+		}
 
-		const gameInstance = new TournamentGame(
-			game.id,
-			tournamentId,
-			{
-				socketNamespace: tournamentNamespace,
-				config: { maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
-				onGameFinish: async (state: any, _tid: string, gid: string) => {
-					const isAborted = gameInstance.wasForfeited;
+		app.log.info(`checkAndCreateNextRoundInstances: Creating TournamentGame instance for ${nextRound} game ${game.id}`);
 
-					app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
-
-					await db.game.update({
-						where: { id: gid },
-						data: {
-							endDate: new Date(),
-							abortDate: isAborted ? new Date() : null,
-							leftPlayerScore: state.scores.left,
-							rightPlayerScore: state.scores.right
-						}
-					});
-
-					cache.tournaments.activeTournamentGames.delete(gid);
-					app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
-				},
-				updateGameActivity: async () => {
-					await db.game.update({
-						where: { id: game.id },
-						data: { updatedAt: new Date() }
-					});
-				}
-			}
-		);
-
-		gameInstance.setPlayers(
-			{ id: game.leftPlayer.id, username: game.leftPlayerUsername, isPlayer: true },
-			{ id: game.rightPlayer.id, username: game.rightPlayerUsername, isPlayer: true }
-		);
+		const gameInstance = createTournamentGameInstance(tournamentId, game);
+		if (!gameInstance) {
+			continue;
+		}
 
 		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
 		humanGamesCreated++;
 
-		app.log.info(`✅ TournamentGame instance created for ${game.id} (${nextRound}) - Left: ${game.leftPlayerUsername}, Right: ${game.rightPlayerUsername}`);
+		app.log.info(`checkAndCreateNextRoundInstances: TournamentGame instance created for ${game.id} (${nextRound}) - Left: ${game.leftPlayerUsername}, Right: ${game.rightPlayerUsername}`);
 	}
 
-	app.log.info(`🎮 Next round ${nextRound}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
+	app.log.info(`checkAndCreateNextRoundInstances: Next round ${nextRound}: Created ${humanGamesCreated} human game instances, skipped ${aiGamesSkipped} AI vs AI games`);
 }
 
 async function executeTournamentStart(tournament: Tournament, startedByUsername: string) {

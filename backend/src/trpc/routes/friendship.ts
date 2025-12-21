@@ -4,7 +4,6 @@ import { FriendState } from "@prisma/client";
 import { isUserOnline, cache } from "../../cache";
 import { app } from "../../../main";
 import { TRPCError } from "@trpc/server";
-import { RouterOutputs } from "../root";
 
 export const friendshipRouter = t.router({
 	getFriends: protectedProcedure

@@ -112,7 +112,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 				</header>
 
 				<!-- Overview -->
-				<div class="flex flex-col grow items-center w-full px-4 py-6 overflow-y-auto">
+				<div class="flex flex-col grow items-center w-full px-4 py-6 overflow-y-auto gap-2">
 					<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-lg mb-6">
 						<div class="flex flex-col sm:flex-row justify-between gap-4">
 							<div class="flex items-center gap-3">
@@ -189,12 +189,12 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 					${tDto.winner
 						? /*html*/ `
-							<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md">
-								<h2 class="text-lg font-semibold mb-3 flex items-center gap-2 text-amber-400">
+							<div class="w-full max-w-4xl bg-neutral-800 rounded-lg px-5 shadow-md text-center py-8">
+								<h2 class="text-xl font-semibold mb-3 flex items-center justify-center gap-2 text-amber-400">
 									<i class="fa fa-trophy"></i>
 									<span data-i18n="${k('generic.winner')}">Winner</span>
 								</h2>
-								<div class="flex items-center gap-3">
+								<div class="flex items-center justify-center gap-3">
 									<img src="${getProfilePictureUrlByUserId(tDto.winner.id)}"
 										class="w-10 h-10 rounded-full ring-2 ring-amber-400">
 									<span class="text-lg font-bold text-amber-400">${tDto.winner.username}</span>

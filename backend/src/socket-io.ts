@@ -2,7 +2,7 @@ import { GameType, User, Game as PrismaGame } from '@prisma/client';
 
 import { DefaultEventsMap, Namespace, Server, Socket } from "socket.io";
 import { cache, addUserToOnlineCache, removeUserFromOnlineCache, isUserOnline } from './cache';
-import { Game, GameStatus, GameUserInfo, MovePaddleAction, STANDARD_GAME_CONFIG } from '../game/game';
+import { Game, GameStatus, GameUserInfo, MovePaddleAction } from '../game/game';
 import { OnlineGame } from '../game/onlineGame';
 import { BracketGenerator } from '../game/bracketGenerator';
 import { app } from '../main';

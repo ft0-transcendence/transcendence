@@ -1,7 +1,7 @@
 import { GameType, PrismaClient, Game as PrismaGame } from '@prisma/client';
 
 import { updateGameStats } from '../utils/statsUtils';
-import { STANDARD_GAME_CONFIG } from '../../game/game';
+import { STANDARD_GAME_CONFIG } from '../../constants';
 
 export type FinalizeVsGameParams = {
 	gameId: PrismaGame['id'];

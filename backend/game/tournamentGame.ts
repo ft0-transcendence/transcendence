@@ -2,23 +2,23 @@ import { Game as PrismaGame } from "@prisma/client";
 import { OnlineGame } from "./onlineGame";
 import { GameUserInfo, GameStatus, GameConfig } from "./game";
 import { db } from '../src/trpc/db';
-import { updateTournamentWinnerStats, updateGameStats } from "../src/utils/statsUtils";
+import { updateTournamentWinnerStats } from "../src/utils/statsUtils";
 import { AIPlayerService } from "../src/services/aiPlayerService";
 import { cache } from "../src/cache";
-import { TypedSocket, TypedSocketNamespace } from "../src/socket-io";
+import { TypedSocketNamespace } from "../src/socket-io";
 import { checkAndCreateNextRoundInstances } from "../src/trpc/routes/tournament";
-import { tournamentBroadcastTournamentCompleted } from "../src/socket/tournamentSocketNamespace";
+import { notifyPlayersAboutNewTournamentGame, tournamentBroadcastBracketUpdateById, tournamentBroadcastTournamentCompleted } from "../src/socket/tournamentSocketNamespace";
 import { app } from "../main";
 import { skipTournamentAiVsAiGame } from "./bracketGenerator";
+import { AiAccuracy, STANDARD_GAME_CONFIG } from "../constants";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
 /*
 TODOLIST:
-
 - [ ] When a player disconnects, pause the game for a lease time (15s), if he doesn't reconnect, forfeit the game to the other player
-- [ ] When a score is updated, update the bracket via socket
-- [ ] When the game ends, advance the winner to the next round and update the tournament bracket
+- [x] When a score is updated, update the bracket via socket
+- [x] When the game ends, advance the winner to the next round and update the tournament bracket
 - [ ] If the winner is AI, check if the next round is AI vs AI and autocomplete it if so
 */
 export class TournamentGame extends OnlineGame {
@@ -34,21 +34,22 @@ export class TournamentGame extends OnlineGame {
 			config?: Partial<GameConfig>,
 			onGameFinish?: TournamentGameFinishCallback,
 			updateGameActivity?: () => Promise<void>,
-		}
+		},
+		gameDto?: PrismaGame
 	) {
 		super(gameId, options?.socketNamespace ?? null, options?.config, async (state) => {
 			// Handle tournament advancement when game finishes (quello che faceva getMatchresults)
 			await this.handleTournamentAdvancement();
-		}, options?.updateGameActivity);
+		}, options?.updateGameActivity, gameDto);
 		this.tournamentId = tournamentId;
 		this.onGameFinish = options?.onGameFinish;
 	}
 
-	public override async finish() {
+	public async finish() {
 		if (this.finished) return;
 		this.finished = true;
 
-		app.log.debug(`Tournament's (#${this.tournamentId}) Game #${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
+		app.log.warn(`Tournament's (#${this.tournamentId}) Game #${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
 
 		for (const interval of this.aiIntervals.values()) {
 			clearInterval(interval);
@@ -72,60 +73,60 @@ export class TournamentGame extends OnlineGame {
 
 		if (this.onGameFinish) {
 			try {
-				console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} calling onGameFinish callback`);
+				app.log.warn(`Tournament's (#${this.tournamentId}) Game #${this.gameId} calling onGameFinish callback`);
 				await this.onGameFinish(state, this.tournamentId, this.gameId);
-				console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId} onGameFinish callback completed`);
+				app.log.warn(`Tournament's (#${this.tournamentId}) Game #${this.gameId} onGameFinish callback completed`);
 			} catch (error) {
-				console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId} onGameFinish callback failed:`, error);
+				app.log.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId} onGameFinish callback failed:`, error);
 			}
 		}
+		await this.handleTournamentAdvancement();
 	}
 
 	public async handleTournamentAdvancement() {
+		const state = this.getState();
+		app.log.warn(`handleTournamentAdvancement called for Tournament #${this.tournamentId} Game #${this.gameId} (${state.leftPlayer?.username ?? 'N/A'} vs ${state.rightPlayer?.username ?? 'N/A'})`);
 		try {
 			const isLeftWinner = this.scores.left > this.scores.right;
 			const winnerId = (isLeftWinner ? this.leftPlayer?.id : this.rightPlayer?.id) ?? null;
 			const loserId = (isLeftWinner ? this.rightPlayer?.id : this.leftPlayer?.id) ?? null;
 
 			const winnerUsername = isLeftWinner ? this.leftPlayer?.username : this.rightPlayer?.username;
-			const loserUsername = isLeftWinner ? this.rightPlayer?.username : this.leftPlayer?.username;
+			// const loserUsername = isLeftWinner ? this.rightPlayer?.username : this.leftPlayer?.username;
 
 
 			if (!winnerId && !loserId) {
-				console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: No winner/loser determined`);
+				app.log.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: No winner/loser determined`);
 				return;
 			}
 
-			// await updateGameStats(db, winnerId, loserId);
+			// @unused
+			// await updateGameStats(db, winnerId, loserId)
 
-			const currentGame = await db.game.findFirst({
-				where: { id: this.gameId },
-				include: { previousGames: { select: { id: true } } }
-			});
+			const currentGame = this.gameDto;
+			if (!currentGame) {
+				app.log.warn(`handleTournamentAdvancement: currentGame is null`);
+				return;
+			}
 
-			if (currentGame?.nextGameId) {
+			if (currentGame && currentGame.nextGameId) {
 				const nextGame = await db.game.findFirst({
 					where: { id: currentGame.nextGameId },
 					include: {
-						previousGames: {
-							select: {
-								id: true
-							}
-						},
+						previousGames: { select: { id: true } }
 					}
 				});
 
-				if (nextGame && nextGame.previousGames.length === 2) {
-					const childIds = nextGame.previousGames.map(g => g.id).sort();
-					const isLeft = this.gameId === childIds[0];
-
-					const needLastPlayerToStart = AIPlayerService.isAIPlayer(nextGame.leftPlayerId, nextGame.leftPlayerUsername) || AIPlayerService.isAIPlayer(nextGame.rightPlayerId, nextGame.rightPlayerUsername)
-						|| !!nextGame.leftPlayerId || !!nextGame.rightPlayerId;
-
-					const commonData = needLastPlayerToStart ? { startDate: new Date() } : {};
+				if (nextGame) {
+					const isLeftAI = AIPlayerService.isAIPlayer(nextGame.leftPlayerId, nextGame.leftPlayerUsername);
+					const isRightAI = AIPlayerService.isAIPlayer(nextGame.rightPlayerId, nextGame.rightPlayerUsername);
+					const isNextSlotLeft = this.gameId === nextGame.previousGames[0].id;
 
 
-					const data = isLeft
+					const commonData = (isLeftAI || isRightAI) ? { startDate: new Date() } : {};
+
+
+					const data = isNextSlotLeft
 						? { leftPlayerId: winnerId, leftPlayerUsername: winnerUsername, ...commonData }
 						: { rightPlayerId: winnerId, rightPlayerUsername: winnerUsername, ...commonData };
 
@@ -135,21 +136,22 @@ export class TournamentGame extends OnlineGame {
 					});
 
 					if (!winnerId) {
-						app.log.debug(`AI Won the tournament game #${this.gameId}, trying to advance next possible round of AI vs AI games`);
+						app.log.info(`handleTournamentAdvancement: AI Won the tournament game #${this.gameId}, trying to advance next possible round of AI vs AI games`);
 						await skipTournamentAiVsAiGame(this.tournamentId, nextGame);
 					}
+					else {
+						app.log.info(`handleTournamentAdvancement: User ${winnerId} won the tournament game #${this.gameId} (tournamentId[${this.tournamentId}]). Advancing to next round`);
+						await checkAndCreateNextRoundInstances(db, this.tournamentId, currentGame.tournamentRound!);
+					}
 
-					console.log(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: Winner ${winnerId} advanced to next game #${currentGame.nextGameId}`);
+				} else {
+					app.log.warn(`Tournament's (#${this.tournamentId}) Game #${this.gameId}: No next game found`);
 				}
+			} else {
+				// Torneo completato
+				app.log.warn(`Tournament ${this.tournamentId} completed! Winner: ${winnerId}`);
 
-				// Check if we need to create game instances for the next round
-				if (currentGame.tournamentRound) {
-					await checkAndCreateNextRoundInstances(db, this.tournamentId, currentGame.tournamentRound);
-				}
-			} else { // Torneo completato
-				console.log(`Tournament ${this.tournamentId} completed! Winner: ${winnerId}`);
-
-				await db.tournament.update({
+				const t = await db.tournament.update({
 					where: { id: this.tournamentId },
 					data: {
 						endDate: new Date(),
@@ -158,8 +160,9 @@ export class TournamentGame extends OnlineGame {
 						status: 'COMPLETED'
 					}
 				});
+				console.log({ ttt: t });
 				if (!winnerId) {
-					app.log.debug(`AI Won the tournament #${this.tournamentId}, no winnerId to update stats for.`);
+					app.log.warn(`AI Won the tournament #${this.tournamentId}, no winnerId to update stats for.`);
 				} else {
 					await updateTournamentWinnerStats(db, winnerId);
 				}
@@ -175,7 +178,7 @@ export class TournamentGame extends OnlineGame {
 			}
 
 		} catch (error) {
-			console.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId} advancement failed:`, error);
+			app.log.error(`Tournament's (#${this.tournamentId}) Game #${this.gameId} advancement failed:`, error);
 		}
 	}
 
@@ -205,43 +208,126 @@ export class TournamentGame extends OnlineGame {
 		}
 	}
 
-	private startAI(playerId: PrismaGame['leftPlayerId'], side: 'left' | 'right') {
-		console.log(`Starting AI for player ${playerId} on ${side} side in game #${this.gameId}`);
+	private startAI(playerId: PrismaGame['leftPlayerId'], side: 'left' | 'right', accuracy: AiAccuracy = AiAccuracy.LOW) {
+		accuracy = Math.max(0, Math.min(1, accuracy));
+
+		app.log.warn(`Starting AI for player ${playerId} on ${side} side in game #${this.gameId}. Accuracy set to ${accuracy}`);
 
 		const aiLogic = () => {
 			try {
 				const state = this.getState();
-
 				if (state.state !== 'RUNNING') return;
 
+				// reaction delay (frame skipping). needed?
+				if (Math.random() > accuracy) { return; }
+
+				const errorRate = 1 - accuracy;
+				// 1->0 accuracy value = 0->50% error
+				const percentageError = (Math.random() * 2 - 1) * (errorRate * 0.5);
+
+
 				const aiPaddlePos = side === 'left' ? state.paddles.left : state.paddles.right;
+
 				let target = 50;
 
-				if (side === 'right' && state.ball.dirX >= 0) {
+				const ballComingTowardsPaddle = side === 'right' ? state.ball.dirX >= 0 : state.ball.dirX <= 0;
+
+				if (ballComingTowardsPaddle) {
 					target = state.ball.y;
-				} else if (side === 'left' && state.ball.dirX <= 0) {
-					target = state.ball.y;
+
+					target += percentageError;
 				}
 
 				const diff = target - aiPaddlePos;
-				const deadZone = 5;
+				const deadZone = errorRate * 5;
 
 				this.release(side, 'up');
 				this.release(side, 'down');
 
 				if (Math.abs(diff) > deadZone) {
-					if (diff > 0) {
+					// let's make it undecisive
+					if (Math.random() > accuracy) {
+						return;
+					}
+
+					const moveDown = diff > 0;
+
+					// jiggle
+					// const shouldActuallyMoveDown = Math.random() < accuracy ? moveDown : !moveDown;
+					const shouldActuallyMoveDown = moveDown;
+
+					if (shouldActuallyMoveDown) {
 						this.press(side, 'down');
 					} else {
 						this.press(side, 'up');
 					}
 				}
 			} catch (error) {
-				console.error(`AI error for player ${playerId}:`, error);
+				app.log.error(`AI error for player ${playerId}:`, error);
 			}
 		};
 
 		const interval = setInterval(aiLogic, 1000 / 60);
 		this.aiIntervals.set(side, interval);
 	}
+}
+
+
+export function createTournamentGameInstance(tournamentId: string, game: PrismaGame) {
+	const tournamentNamespace = app.io.of("/tournament");
+
+	const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
+	const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
+
+	if (isLeftAI && isRightAI) {
+		app.log.warn(`createTournamentGameInstance: provided game is not AI vs AI (leftPlayerId[${game.leftPlayerId}] leftPlayerUsername[${game.leftPlayerUsername}] rightPlayerId[${game.rightPlayerId}] rightPlayerUsername[${game.rightPlayerUsername}])`);
+		return null;
+	}
+
+	const gameInstance = new TournamentGame(
+		game.id,
+		tournamentId,
+		{
+			socketNamespace: tournamentNamespace,
+			config: { maxScore: game.scoreGoal || STANDARD_GAME_CONFIG.maxScore },
+			onGameFinish:
+				async (state: any, _tid: string, gid: string) => {
+					const isAborted = gameInstance.wasForfeited;
+
+					app.log.info(`🏁 Tournament Game ${gid} finished - scores: ${state.scores.left}-${state.scores.right}, forfeited: ${isAborted}`);
+
+					await db.game.updateMany({
+						where: { id: gid },
+						data: {
+							endDate: new Date(),
+							abortDate: isAborted ? new Date() : null,
+							leftPlayerScore: state.scores.left,
+							rightPlayerScore: state.scores.right
+						}
+					});
+
+					cache.tournaments.activeTournamentGames.delete(gid);
+					app.log.info(`🗑️ Tournament Game ${gid} removed from cache`);
+				},
+			updateGameActivity: async () => {
+				await db.game.updateMany({
+					where: { id: game.id, endDate: null },
+					data: { updatedAt: new Date() }
+				});
+				tournamentBroadcastBracketUpdateById(tournamentId);
+			}
+		},
+		game
+	);
+
+	notifyPlayersAboutNewTournamentGame(game.tournamentId, game.id, game.leftPlayerId, game.rightPlayerId);
+
+	gameInstance.setPlayers(
+		{ id: game.leftPlayerId, username: game.leftPlayerUsername, isPlayer: !isLeftAI },
+		{ id: game.rightPlayerId, username: game.rightPlayerUsername, isPlayer: !isRightAI }
+	);
+
+
+	cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
+	return gameInstance;
 }

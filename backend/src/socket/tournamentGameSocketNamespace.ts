@@ -6,7 +6,6 @@ import { app } from "../../main";
 import { GameUserInfo } from "../../shared_exports";
 import { OnlineGame } from "../../game/onlineGame";
 import { MovePaddleAction } from "../../game/game";
-import { db } from "../trpc/db";
 import { User } from "@prisma/client";
 
 export function setupTournamentGameNamespace(io: Server) {

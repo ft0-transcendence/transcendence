@@ -1,18 +1,18 @@
-import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState, STANDARD_GAME_CONFIG, GameConfig } from "./game";
+import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState, GameConfig } from "./game";
 import { Game as PrismaGame } from "@prisma/client";
 import { TypedSocketNamespace } from "../src/socket-io";
 import { app } from "../main";
+import { STANDARD_GAME_CONFIG } from "../constants";
 
 type FinishCallback = (state: GameStatus) => Promise<void> | void;
 
 export class OnlineGame extends Game {
+	protected gameDto: PrismaGame | null = null;
 	protected gameId: string;
 
 	get currentGameId() { return this.gameId; }
 
 	protected socketNamespace: TypedSocketNamespace | null;
-
-	public pendingDbCreation: PrismaGame | null = null;
 
 	protected updateGameActivity?: (gameInstance?: OnlineGame) => Promise<void>;
 
@@ -38,6 +38,7 @@ export class OnlineGame extends Game {
 		config?: Partial<GameConfig>,
 		onFinish?: FinishCallback,
 		updateGameActivity?: (gameInstance?: OnlineGame) => Promise<void>,
+		gameDto?: PrismaGame
 	) {
 		super(config);
 		this.gameId = gameId;
@@ -51,7 +52,7 @@ export class OnlineGame extends Game {
 				this.socketNamespace.to(this.gameId).emit("game-state", state);
 			}
 			if (this.state === GameState.FINISH && !this.finished) {
-				console.log(`Game ${this.gameId} ended naturally with score ${this.scores.left}-${this.scores.right}`);
+				app.log.debug(`Game ${this.gameId} ended naturally with score ${this.scores.left}-${this.scores.right}`);
 				this.finish();
 			}
 		});
@@ -61,6 +62,7 @@ export class OnlineGame extends Game {
 				await this.updateGameActivity(this);
 			}
 		});
+		this.gameDto = gameDto ?? null;
 	}
 
 	public onPlayerJoin(_player: GameUserInfo): void { }

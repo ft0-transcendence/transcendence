@@ -5,10 +5,11 @@ import { cache } from "../cache";
 import { applySocketAuth } from "../plugins/socketAuthSession";
 import { TypedSocket } from "../socket-io";
 import { db } from "../trpc/db";
-import { GameUserInfo, STANDARD_GAME_CONFIG } from "../../shared_exports";
+import { GameUserInfo } from "../../shared_exports";
 import { GameType, Game as PrismaGame } from '@prisma/client';
 import { finalizeVsGameResult } from "../services/vsGameService";
 import { GameStatus } from "../../game/game";
+import { STANDARD_GAME_CONFIG } from "../../constants";
 
 export function setupMatchmakingNamespace(io: Server) {
 	const matchmakingNamespace = io.of("/matchmaking");

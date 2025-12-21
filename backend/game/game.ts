@@ -1,3 +1,5 @@
+import { STANDARD_GAME_CONFIG } from "../constants";
+
 export enum GameState {
 	TOSTART = "TOSTART",
 	RUNNING = "RUNNING",
@@ -76,19 +78,6 @@ const COLLISION_OFFSET = 0.5;
 const TARGET_FPS = 120;
 const FRAME_TIME_MS = 1000 / TARGET_FPS;
 
-export const STANDARD_GAME_CONFIG: GameConfig = {
-	debug: false,
-	shouldUseRequestAnimationFrame: false,
-	gameStartCountdown: 3000,
-	maxScore: 5,
-	initialVelocity: 0.05,
-	velocityIncrease: 0.000005,
-	maxVelocity: 0.16,
-	paddleSpeed: 3,
-	movementSensitivity: 0.5,
-	paddleHeightPercentage: 20,
-	paddleWidthPercentage: 5,
-};
 
 export class Game {
 	protected config: GameConfig;

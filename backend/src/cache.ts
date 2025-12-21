@@ -1,6 +1,6 @@
 import { Game, PrismaClient, TournamentStatus, TournamentType, User } from "@prisma/client";
 import { OnlineGame } from "../game/onlineGame";
-import { TournamentGame } from "../game/tournamentGame";
+import { createTournamentGameInstance, TournamentGame } from "../game/tournamentGame";
 import { TypedSocket } from "./socket-io";
 import { FastifyInstance } from "fastify/types/instance";
 import { db } from "./trpc/db";
@@ -108,7 +108,7 @@ export const cache: Cache = {
 
 
 export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: FastifyInstance) {
-	app.log.info('Loading active games from database into cache...');
+	app.log.info('loadActiveGamesIntoCache: Loading active games from database into cache...');
 
 	// Carica partite VS nel DB
 	const activeVSGames = await db.game.findMany({
@@ -123,7 +123,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 	for (const game of activeVSGames) {
 		// Skip games with missing players (should not happen for VS games, but handle gracefully)
 		if (!game.leftPlayer || !game.rightPlayer || !game.leftPlayerId || !game.rightPlayerId) {
-			fastify.log.warn('VS Game #%s has missing players, marking as aborted', game.id);
+			app.log.warn(`loadActiveGamesIntoCache: vsGame[${game.id}] has missing players, marking as aborted`);
 			await db.game.update({
 				where: { id: game.id },
 				data: {
@@ -139,7 +139,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 		const now = new Date();
 		const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);
 		if (now > limitDate) {
-			fastify.log.warn('VS Game #%s is expired (last updated: %s), removing from cache', game.id, game.updatedAt.toISOString());
+			app.log.warn(`loadActiveGamesIntoCache: vsGame[${game.id}] is expired (last updated: %s), removing from cache`, game.updatedAt.toISOString());
 			await db.game.update({
 				where: { id: game.id },
 				data: {
@@ -206,27 +206,28 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 
 	for (const game of activeTournamentGames) {
 		if (game.tournament?.status === 'COMPLETED') {
-			fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s is completed, skipping`, game.id);
+			app.log.info(`loadActiveGamesIntoCache: tournamentGame[${game.id}] is completed, skipping`);
 			continue;
 		}
 		const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
 		const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
 
 		if (isLeftAI && isRightAI) {
-
+			app.log.info(`loadActiveGamesIntoCache: tournamentGame[${game.id}] is AI vs AI, skipping`);
+			continue;
 		}
 
 
 		if (!game.startDate){
-			fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s has no start date, skipping`, game.id);
+			app.log.info(`loadActiveGamesIntoCache: tournamentGame[${game.id}] has no start date, skipping`);
 			continue;
 		}
 
 		// // Skip games with empty slots (they will be created on-demand when needed)
-		// if (!game.leftPlayer || !game.rightPlayer) {
-		// 	fastify.log.debug(`Tournament's (#${game.tournamentId}) Game #%s has empty slots, skipping (will create on-demand)`, game.id);
-		// 	continue;
-		// }
+		if ((!game.leftPlayer && !isLeftAI) || (!game.rightPlayer && !isRightAI)) {
+			app.log.info(`loadActiveGamesIntoCache: tournamentGame[${game.id}] has empty slots, skipping (will create on-demand)`);
+			continue;
+		}
 
 		const LEASE_TIME = 1000 * 60; // 1 min
 
@@ -234,7 +235,7 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 			const now = new Date();
 			const limitDate = new Date(game.updatedAt.getTime() + LEASE_TIME);
 			if (now > limitDate) {
-				fastify.log.warn(`Tournament's (#${game.tournamentId}) Game #%s is expired (last updated: %s), removing from cache`, game.id, game.updatedAt.toISOString());
+				app.log.warn(`loadActiveGamesIntoCache: tournamentGame[${game.id}] is expired (last updated: %s), removing from cache`, game.updatedAt.toISOString());
 				await db.game.update({
 					where: { id: game.id },
 					data: {
@@ -246,76 +247,24 @@ export async function loadActiveGamesIntoCache(db: PrismaClient, fastify: Fastif
 			}
 		}
 
-
 		if (!game.tournamentId) {
-			fastify.log.warn(`Tournament's (#${game.tournamentId}) Game #%s has no tournamentId, skipping`, game.id);
+			app.log.warn(`loadActiveGamesIntoCache: tournamentGame[${game.id}] has no tournamentId, skipping`);
 			continue;
 		}
 
-		const gameInstance = new TournamentGame(
-			game.id,
-			game.tournamentId,
-			{
-				socketNamespace: null,
-				config: {
-					maxScore: game.scoreGoal,
-					initialData: {
-						leftPlayerScore: game.leftPlayerScore,
-						rightPlayerScore: game.rightPlayerScore,
-					}
-				},
-				onGameFinish: async (state, tournamentId, gameId) => {
-					// Check if game was forfeited due to disconnection
-					const isAborted = gameInstance.wasForfeited;
+		const gameInstance = createTournamentGameInstance(game.tournamentId, game);
 
-					const updateData: Partial<Game> = {
-						endDate: new Date(),
-						leftPlayerScore: state.scores.left,
-						rightPlayerScore: state.scores.right,
-					};
-
-					if (isAborted) {
-						updateData.abortDate = new Date();
-					}
-					await db.game.updateMany({
-						where: { id: gameId },
-						data: updateData,
-					});
-
-					cache.tournaments.activeTournamentGames.delete(gameId);
-					fastify.log.info("Tournament (Game #%s persisted and removed from cache.", gameId);
-				},
-				updateGameActivity: async () => {
-					await db.game.updateMany({
-						where: { id: game.id, endDate: null },
-						data: { updatedAt: new Date() }
-					});
-				}
-			}
-		);
-
-		// For AI games, we'll handle AI logic in the TournamentGame itself
-		// by checking player types when they join
-		const leftPlayer = {
-			id: game.leftPlayerId,
-			username: game.leftPlayerUsername,
-			isPlayer: !isLeftAI
-		};
-		const rightPlayer = {
-			id: game.rightPlayerId,
-			username: game.rightPlayerUsername,
-			isPlayer: !isRightAI
+		if (!gameInstance) {
+			continue;
 		}
 
-
-		gameInstance.setPlayers(leftPlayer, rightPlayer);
 		gameInstance.scores.left = game.leftPlayerScore;
 		gameInstance.scores.right = game.rightPlayerScore;
 
 		cache.tournaments.activeTournamentGames.set(game.id, gameInstance);
 	}
 
-	fastify.log.info(`Loaded [VS: ${activeVSGames.length}] and [Tournament: ${activeTournamentGames.length}] games from database into cache`);
+	app.log.info(`loadActiveGamesIntoCache: Loaded [VS: ${activeVSGames.length}] and [Tournament: ${activeTournamentGames.length}] games from database into cache`);
 }
 
 export function addUserToOnlineCache(userId: User['id'], socket: TypedSocket) {

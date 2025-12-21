@@ -5,7 +5,7 @@ import { MapTournamentGamesDTO, mapTournamentGamesToDTO } from "../src/trpc/rout
 import { db } from "../src/trpc/db";
 import { tournamentBroadcastTournamentCompleted } from "../src/socket/tournamentSocketNamespace";
 import { CONSTANTS } from "../constants";
-import { STANDARD_GAME_CONFIG } from "./game";
+import { STANDARD_GAME_CONFIG } from "../constants";
 
 
 export type BracketNode = {
@@ -154,31 +154,21 @@ export class BracketGenerator {
 		}
 	}
 
-	//AI game
-	async updateGameTypeForAIPlayers(tournamentId: string): Promise<void> {
-		const games = await db.game.findMany({
-			where: { tournamentId },
-			select: {
-				id: true,
-				leftPlayerUsername: true,
-				rightPlayerUsername: true,
-				leftPlayerId: true,
-				rightPlayerId: true
+	async updateGameTypeForAIPlayers(tournamentId: string) {
+		const result = await db.game.updateMany({
+			where: {
+				tournamentId,
+				AND: [
+					{ leftPlayerId: null, leftPlayerUsername: { not: null } },
+					{ rightPlayerId: null, rightPlayerUsername: { not: null } }
+				]
+			},
+			data: {
+				type: 'AI'
 			}
 		});
-
-		for (const game of games) {
-			const isLeftAI = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
-			const isRightAI = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
-
-			if (isLeftAI || isRightAI) {
-				await db.game.update({
-					where: { id: game.id },
-					data: { type: 'AI' }
-				});
-				app.log.debug(`Game ${game.id} updated to AI type (left: ${isLeftAI}, right: ${isRightAI})`);
-			}
-		}
+		app.log.debug(`Updated ${result.count} games to AI type`);
+		return result;
 	}
 
 	async generateAndCreateBracket(
@@ -502,28 +492,37 @@ export class BracketGenerator {
 		await skipAiVsAiGames(allGames.filter(g => g.tournamentRound === 'SEMIFINALE'));
 		await skipAiVsAiGames(allGames.filter(g => g.tournamentRound === 'FINALE'));
 
-		const finaleGame = allGames.find(g => g.tournamentRound === 'FINALE');
-		if (finaleGame && finaleGame.endDate) {
-			const isLeftWinner = finaleGame.leftPlayerScore > finaleGame.rightPlayerScore;
-
-			const winnerId = isLeftWinner ? finaleGame.leftPlayerId : finaleGame.rightPlayerId;
-			const winnerUsername = isLeftWinner ? finaleGame.leftPlayerUsername : finaleGame.rightPlayerUsername;
-
-			await db.tournament.update({
-				where: { id: tournamentId },
-				data: {
-					endDate: new Date(),
-					status: 'COMPLETED',
-					winnerId,
-					winnerUsername
-				}
-			})
-			tournamentBroadcastTournamentCompleted(tournamentId, winnerId, winnerUsername);
-		}
-
 		await this.updateGameTypeForAIPlayers(tournamentId);
 	}
 
+}
+
+export async function skipNextGameAIVsAI(tournamentId: Tournament['id'], nextGameId: Game['id']) {
+	let { allGames, sortedGames } = await getAllTournamentGames(tournamentId);
+
+	const game = allGames.find(g => g.id === nextGameId);
+	if (!game) {
+		app.log.warn(`skipNextGameAIVsAI: Game #${nextGameId} not found`);
+		return;
+	}
+	const isLeftAi = AIPlayerService.isAIPlayer(game.leftPlayerId, game.leftPlayerUsername);
+	const isRightAi = AIPlayerService.isAIPlayer(game.rightPlayerId, game.rightPlayerUsername);
+
+	if (!isLeftAi || !isRightAi) {
+		app.log.warn(`skipNextGameAIVsAI: Game #${nextGameId} is not AI vs AI`);
+		return;
+	}
+
+	await skipTournamentAiVsAiGame(tournamentId, game, allGames, sortedGames);
+
+	const nextGame = allGames.find(g => g.id === game.nextGameId);
+	if (nextGame) {
+		const isNextGameLeftAi = AIPlayerService.isAIPlayer(nextGame?.leftPlayerId, nextGame?.leftPlayerUsername);
+		const isNextGameRightAi = AIPlayerService.isAIPlayer(nextGame?.rightPlayerId, nextGame?.rightPlayerUsername);
+		if (isNextGameLeftAi && isNextGameRightAi) {
+			await skipNextGameAIVsAI(tournamentId, nextGame.id);
+		}
+	}
 }
 
 const getAllTournamentGames = async (tournamentId: string) => {
@@ -574,6 +573,7 @@ export const skipTournamentAiVsAiGame = async (
 		rightPlayerUsername: Game['rightPlayerUsername'],
 		scoreGoal: Game['scoreGoal'],
 		nextGameId: Game['nextGameId'],
+		startDate: Game['startDate']
 	},
 	allGames: MapTournamentGamesDTO[] = [],
 	sortedGames: ReturnType<typeof mapTournamentGamesToDTO> = []
@@ -584,20 +584,24 @@ export const skipTournamentAiVsAiGame = async (
 		allGames = gamesData.allGames;
 		sortedGames = gamesData.sortedGames;
 	}
+	const foundGame = allGames.find(g => g.id === game.id);
 
 	const isLeftAi = game.leftPlayerId === null && game.leftPlayerUsername !== null;
 	const isRightAi = game.rightPlayerId === null && game.rightPlayerUsername !== null;
 
 	if (!isLeftAi || !isRightAi) {
+		app.log.warn(`skipNextGameAIVsAI: Game #${game.id} is not AI vs AI (round(${foundGame?.tournamentRound}) leftPlayerId[${game.leftPlayerId}] leftPlayerUsername[${game.leftPlayerUsername}] rightPlayerId[${game.rightPlayerId}] rightPlayerUsername[${game.rightPlayerUsername}])`);
 		return;
 	}
 
-	app.log.debug(`Autocompleting AI vs AI game #${game.id}; leftPlayer[${game.leftPlayerUsername}] rightPlayer[${game.rightPlayerUsername}]`);
+	app.log.info(`Autocompleting AI vs AI game #${game.id}; leftPlayer[${game.leftPlayerUsername}] rightPlayer[${game.rightPlayerUsername}]`);
 
 	const winner = Math.random() < 0.5 ? 'left' : 'right';
 	const leftScore = winner === 'left' ? game.scoreGoal : Math.floor(Math.random() * (game.scoreGoal));
 	const rightScore = winner === 'right' ? game.scoreGoal : Math.floor(Math.random() * (game.scoreGoal));
-	const updated = await db.game.update({
+
+
+	const updatedGame = await db.game.update({
 		where: { id: game.id },
 		data: {
 			leftPlayerScore: leftScore,
@@ -605,14 +609,14 @@ export const skipTournamentAiVsAiGame = async (
 			type: 'AI',
 			endDate: new Date(),
 			updatedAt: new Date(),
-
+			startDate: game.startDate ?? new Date()
 		}
 	});
 
 	const gameIdx = allGames.findIndex(g => g.id === game.id);
 	if (gameIdx !== -1) {
 		const prev = allGames[gameIdx];
-		allGames[gameIdx] = { ...prev, ...updated };
+		allGames[gameIdx] = { ...prev, ...updatedGame };
 	}
 
 
@@ -644,5 +648,24 @@ export const skipTournamentAiVsAiGame = async (
 			});
 		}
 		allGames[nextGameIdx] = { ...nextGame, ...updatedNextGame };
+	} else {
+		// FINALE
+		const finalGame = updatedGame;
+		app.log.info(`skipNextGameAIVsAI: Tournament's FINALE game finished, AI is the winner. (tournamentId[${tournamentId}] gameId[${finalGame.id}])`);
+
+		const winnerId = finalGame.leftPlayerId || finalGame.rightPlayerId;
+		const winnerUsername = finalGame.leftPlayerUsername || finalGame.rightPlayerUsername;
+
+		const res = await db.tournament.updateMany({
+			where: { id: tournamentId },
+			data: {
+				endDate: new Date(),
+				winnerId,
+				winnerUsername,
+				status: 'COMPLETED',
+			}
+		});
+		console.log({res});
+		tournamentBroadcastTournamentCompleted(tournamentId, winnerId, winnerUsername);
 	}
 }
