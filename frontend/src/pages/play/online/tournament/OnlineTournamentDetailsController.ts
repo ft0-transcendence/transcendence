@@ -353,7 +353,9 @@ export class OnlineTournamentDetailsController extends RouteController {
 			const socketEventsToRemove = [
 				'tournament-lobby-joined',
 				'tournament-deleted',
-				'your-match-is-ready'
+				'your-match-is-ready',
+				'tournament-completed',
+				'bracket-updated'
 			]
 			for (const event of socketEventsToRemove) {
 				this.#tournamentNamespace.off(event);
