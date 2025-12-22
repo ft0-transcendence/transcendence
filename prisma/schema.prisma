@@ -9,8 +9,8 @@ generator client {
 }
 
 datasource db {
-    provider = "mysql"
-    // provider = "sqlite"
+    // provider = "mysql"
+    provider = "sqlite"
     url      = env("DATABASE_URL")
 }
 
@@ -66,6 +66,7 @@ model Tournament {
     id             String                  @id @default(cuid())
     type           TournamentType?         @default(EIGHT)
     name           String
+    createdAt      DateTime?               @default(now())
     startDate      DateTime
     endDate        DateTime?
     status         TournamentStatus        @default(WAITING_PLAYERS)
@@ -74,7 +75,6 @@ model Tournament {
     winnerUsername String?
     createdById    String
     createdBy      User                    @relation("createdTournaments", fields: [createdById], references: [id])
-    createdAt      DateTime?               @default(now())
     participants   TournamentParticipant[] @relation("participants")
     games          Game[]                  @relation("games")
 }
