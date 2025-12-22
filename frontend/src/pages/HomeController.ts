@@ -447,7 +447,7 @@ export class HomeController extends RouteController {
 				<!-- Match Avatar -->
 				<div class="grid grid-cols-3 gap-1 items-center col-span-9">
 					<div class="flex flex-col justify-center items-center gap-1 text-sm">
-						<a href="/users/${match.leftPlayerUsername}">
+						<a href="/users/${match.leftPlayerUsername}" data-route="/users/${match.leftPlayerUsername}">
 							<img src="${getProfilePictureUrlByUserId(match.leftPlayer!.id)}"
 								alt="${match?.leftPlayerUsername ?? match.leftPlayer!.username}'s avatar"
 								class="w-10 h-10 rounded-full object-cover match-image ring-1 ring-white/10">
@@ -460,7 +460,7 @@ export class HomeController extends RouteController {
 						<span class="${!mySideIsLeft ? myResultClass : ''}">${match.rightPlayerScore}</span>
 					</div>
 					<div class="flex flex-col justify-center items-center gap-1 text-sm">
-						<a href="/users/${match.rightPlayerUsername}">
+						<a href="/users/${match.rightPlayerUsername}" data-route="/users/${match.rightPlayerUsername}">
 							<img src="${getProfilePictureUrlByUserId(match.rightPlayer!.id)}"
 								alt="${match?.rightPlayerUsername ?? match.rightPlayer!.username}"
 								class="w-10 h-10 rounded-full object-cover match-image ring-1 ring-white/10">
@@ -529,7 +529,7 @@ export class HomeController extends RouteController {
 			<div class="flex items-center gap-3 p-2">
 				<!-- Friend Avatar -->
 				<div class="relative">
-					<a href="/users/${friendRequest.username}">
+					<a href="/users/${friendRequest.username}" data-route="/users/${friendRequest.username}" >
 						<img src="${getProfilePictureUrlByUserId(friendRequest.friendRelationId)}"
 							alt="${friendRequest.username}'s avatar"
 							class="w-10 h-10 rounded-full object-cover friend-image ring-1 ring-white/10">
@@ -703,7 +703,7 @@ export class HomeController extends RouteController {
 		<div class="flex items-center gap-3 p-2">
 			<!-- Friend Avatar -->
 			<div class="relative">
-				<a href="/users/${friend.username}" >
+				<a href="/users/${friend.username}" data-route="/users/${friend.username}">
 					<img src="${getProfilePictureUrlByUserId(friend.id)}"
 						alt="${friend.username}'s avatar"
 						class="w-10 h-10 rounded-full object-cover friend-image ring-1 ring-white/10">
@@ -837,7 +837,7 @@ export class HomeController extends RouteController {
 		<div class="flex items-center gap-3 p-2">
 			<!-- Friend Avatar -->
 			<div class="relative">
-				<a href="/users/${friend.username}" >
+				<a href="/users/${friend.username}" data-route="/users/${friend.username}">
 					<img src="${getProfilePictureUrlByUserId(friend.friendRelationId)}"
 						alt="${friend.username}'s avatar"
 						class="w-10 h-10 rounded-full object-cover friend-image ring-1 ring-white/10">
