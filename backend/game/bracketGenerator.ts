@@ -489,8 +489,6 @@ export class BracketGenerator {
 		};
 
 		await skipAiVsAiGames(allGames.filter(g => g.tournamentRound === 'QUARTI'));
-		await skipAiVsAiGames(allGames.filter(g => g.tournamentRound === 'SEMIFINALE'));
-		await skipAiVsAiGames(allGames.filter(g => g.tournamentRound === 'FINALE'));
 
 		await this.updateGameTypeForAIPlayers(tournamentId);
 	}
@@ -585,51 +583,59 @@ export const skipTournamentAiVsAiGame = async (
 		sortedGames = gamesData.sortedGames;
 	}
 	const foundGame = allGames.find(g => g.id === game.id);
-
-	const isLeftAi = game.leftPlayerId === null && game.leftPlayerUsername !== null;
-	const isRightAi = game.rightPlayerId === null && game.rightPlayerUsername !== null;
-
-	if (!isLeftAi || !isRightAi) {
-		app.log.warn(`skipNextGameAIVsAI: Game #${game.id} is not AI vs AI (round(${foundGame?.tournamentRound}) leftPlayerId[${game.leftPlayerId}] leftPlayerUsername[${game.leftPlayerUsername}] rightPlayerId[${game.rightPlayerId}] rightPlayerUsername[${game.rightPlayerUsername}])`);
+	if (!foundGame) {
+		app.log.warn(`skipNextGameAIVsAI: Game #${game.id} not found`);
 		return;
 	}
 
-	app.log.info(`Autocompleting AI vs AI game #${game.id}; leftPlayer[${game.leftPlayerUsername}] rightPlayer[${game.rightPlayerUsername}]`);
+	const isLeftAi = foundGame.leftPlayerId === null && foundGame.leftPlayerUsername !== null;
+	const isRightAi = foundGame.rightPlayerId === null && foundGame.rightPlayerUsername !== null;
+
+	if (!isLeftAi || !isRightAi) {
+		app.log.warn(`skipNextGameAIVsAI: Game #${foundGame.id} is not AI vs AI (round(${foundGame?.tournamentRound}) leftPlayerId[${foundGame.leftPlayerId}] leftPlayerUsername[${foundGame.leftPlayerUsername}] rightPlayerId[${foundGame.rightPlayerId}] rightPlayerUsername[${foundGame.rightPlayerUsername}])`);
+		return;
+	}
+
+	app.log.info(`Autocompleting AI vs AI game #${foundGame.id}; leftPlayer[${foundGame.leftPlayerUsername}] rightPlayer[${foundGame.rightPlayerUsername}]`);
 
 	const winner = Math.random() < 0.5 ? 'left' : 'right';
-	const leftScore = winner === 'left' ? game.scoreGoal : Math.floor(Math.random() * (game.scoreGoal));
-	const rightScore = winner === 'right' ? game.scoreGoal : Math.floor(Math.random() * (game.scoreGoal));
+	const leftScore = winner === 'left' ? foundGame.scoreGoal : Math.floor(Math.random() * (foundGame.scoreGoal));
+	const rightScore = winner === 'right' ? foundGame.scoreGoal : Math.floor(Math.random() * (foundGame.scoreGoal));
 
 
-	const updatedGame = await db.game.update({
-		where: { id: game.id },
-		data: {
-			leftPlayerScore: leftScore,
-			rightPlayerScore: rightScore,
-			type: 'AI',
-			endDate: new Date(),
-			updatedAt: new Date(),
-			startDate: game.startDate ?? new Date()
-		}
+	const updateData: Partial<Game> = {
+		leftPlayerScore: leftScore,
+		rightPlayerScore: rightScore,
+		type: 'AI',
+		endDate: new Date(),
+		updatedAt: new Date(),
+		startDate: foundGame.startDate ?? new Date()
+	};
+
+	await db.game.updateMany({
+		where: { id: foundGame.id },
+		data: updateData
 	});
 
-	const gameIdx = allGames.findIndex(g => g.id === game.id);
+	let updatedGame: Game = foundGame;
+	const gameIdx = allGames.findIndex(g => g.id === foundGame.id);
 	if (gameIdx !== -1) {
 		const prev = allGames[gameIdx];
-		allGames[gameIdx] = { ...prev, ...updatedGame };
+		allGames[gameIdx] = { ...prev, ...updateData };
+		updatedGame = prev;
 	}
 
 
-	const nextGameIdx = game.nextGameId ? allGames.findIndex(g => g.id === game.nextGameId) : -1;
+	const nextGameIdx = foundGame.nextGameId ? allGames.findIndex(g => g.id === foundGame.nextGameId) : -1;
 	const nextGame = nextGameIdx !== -1 ? allGames[nextGameIdx] : null;
 
 	if (nextGame) {
 		let shouldBePlacedOnLeft = false;
 		const [gameBeforeNextOnLeftSide] = sortedGames.filter(g => g.nextGameId === nextGame.id);
-		if (gameBeforeNextOnLeftSide?.id === game.id) {
+		if (gameBeforeNextOnLeftSide?.id === foundGame.id) {
 			shouldBePlacedOnLeft = true;
 		}
-		app.log.debug(`AI vs AI game #${game.id} has next game #${nextGame.id}. Placing the winner on the ${shouldBePlacedOnLeft ? 'left' : 'right'} side`);
+		app.log.debug(`AI vs AI game #${foundGame.id} has next game #${nextGame.id}. Placing the winner on the ${shouldBePlacedOnLeft ? 'left' : 'right'} side`);
 
 		let updatedNextGame: Game;
 		if (shouldBePlacedOnLeft) {
@@ -648,6 +654,7 @@ export const skipTournamentAiVsAiGame = async (
 			});
 		}
 		allGames[nextGameIdx] = { ...nextGame, ...updatedNextGame };
+		skipTournamentAiVsAiGame(tournamentId, nextGame, allGames, sortedGames);
 	} else {
 		// FINALE
 		const finalGame = updatedGame;
@@ -665,7 +672,6 @@ export const skipTournamentAiVsAiGame = async (
 				status: 'COMPLETED',
 			}
 		});
-		console.log({res});
 		tournamentBroadcastTournamentCompleted(tournamentId, winnerId, winnerUsername);
 	}
 }

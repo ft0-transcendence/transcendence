@@ -112,7 +112,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 				</header>
 
 				<!-- Overview -->
-				<div class="flex flex-col grow items-center w-full px-4 py-6 overflow-y-auto gap-2">
+				<div class="flex flex-col grow items-center w-full px-4 py-6 overflow-y-auto gap-2 relative">
 					<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-lg mb-6">
 						<div class="flex flex-col sm:flex-row justify-between gap-4">
 							<div class="flex items-center gap-3">
@@ -187,22 +187,18 @@ export class OnlineTournamentDetailsController extends RouteController {
 						</div>
 					</div>
 
-					${tDto.winner
-						? /*html*/ `
-							<div class="w-full max-w-4xl bg-neutral-800 rounded-lg px-5 shadow-md text-center py-8">
-								<h2 class="text-xl font-semibold mb-3 flex items-center justify-center gap-2 text-amber-400">
-									<i class="fa fa-trophy"></i>
-									<span data-i18n="${k('generic.winner')}">Winner</span>
-								</h2>
-								<div class="flex items-center justify-center gap-3">
-									<img src="${getProfilePictureUrlByUserId(tDto.winner.id)}"
-										class="w-10 h-10 rounded-full ring-2 ring-amber-400">
-									<span class="text-lg font-bold text-amber-400">${tDto.winner.username}</span>
-								</div>
-							</div>
-						`
-				: ``
-			}
+					<div id="${this.id}-winner" class="z-20 w-full max-w-4xl bg-neutral-800 rounded-lg px-5 shadow-md text-center py-8 mb-6 ${tDto.winner ? '' : 'hidden'}">
+						<h2 class="text-xl font-semibold mb-3 flex items-center justify-center gap-2 text-amber-400">
+							<i class="fa fa-trophy"></i>
+							<span data-i18n="${k('generic.winner')}">Winner</span>
+						</h2>
+						<div class="flex items-center justify-center gap-3">
+							<img id="${this.id}-winner-image" src="${tDto?.winner?.id ? getProfilePictureUrlByUserId(tDto.winner.id) : 'base64;'}"
+								class="w-10 h-10 rounded-full ring-2 ring-amber-400 ${tDto.winner?.id ? '' : 'hidden'}">
+							<span class="text-lg font-bold text-amber-400">${tDto.winnerUsername ?? ''}</span>
+						</div>
+					</div>
+					<div id="${this.id}-winner-backdrop" class="absolute inset-0 bg-black/15 pointer-events-none z-10"></div>
 
 					<!-- Bracket -->
 					<div class="w-full max-w-4xl bg-neutral-800 rounded-lg p-5 shadow-md mb-6 overflow-x-auto md:overflow-x-visible">
@@ -230,7 +226,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 							<!-- Round 3 -->
 							<div id="${this.id}-bracket-round-3" class="flex flex-col items-center justify-center gap-8 md:gap-16 flex-1 w-full">
 								<h3 class="text-center text-sm font-bold text-stone-400 uppercase"
-									data-i18n="${k("tournament.final")}">Final</h3>
+									data-i18n="${k("tournament.finals")}">Final</h3>
 								${this.#renderBracketRoundGames(tDto.games ?? [], "FINALE")}
 							</div>
 
@@ -248,8 +244,24 @@ export class OnlineTournamentDetailsController extends RouteController {
 		this.#updateBracket(dto.games);
 		this.#renderParticipantsList(dto.participants ?? []);
 		this.#showHideButtons();
+		this.#showHideWinner();
 
 		this.updateTitleSuffix();
+	}
+	#showHideWinner() {
+		const winnerId = this.#tournamentDto?.winner?.id;
+		const winnerUsername = this.#tournamentDto?.winnerUsername;
+
+		if (!winnerId && !winnerUsername) return;
+
+		const $winnerImage = document.querySelector(`#${this.id}-winner-image`) as HTMLImageElement | null;
+		$winnerImage?.classList.toggle('hidden', !winnerId);
+		if (winnerId && $winnerImage) {
+			$winnerImage.src = getProfilePictureUrlByUserId(winnerId);
+		}
+		document.querySelector(`#${this.id}-winner`)?.classList.toggle('hidden', !winnerUsername);
+
+		document.querySelector(`#${this.id}-winner-backdrop`)?.classList.toggle('hidden', !winnerUsername);
 	}
 
 	#showHideButtons() {
@@ -307,8 +319,8 @@ export class OnlineTournamentDetailsController extends RouteController {
 				toast.info(t('generic.tournament'), t('generic.returning_to_lobby_in', { seconds: 30 }) ?? `Returning to lobby in 30 seconds...`);
 
 				this.#autoRedirectToLobbyTimeout = setTimeout(() => {
-					router.navigate(`/play/online/tournaments/${this.#tournamentId}`);
-				}, 3000);
+					router.navigate(`/play/online/tournaments`);
+				}, 30000);
 			});
 		})
 

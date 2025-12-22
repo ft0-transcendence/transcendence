@@ -110,7 +110,7 @@ export const ua: TranslationSchema = {
 		bracket: "Склад",
 		quarterfinals: "Чвертя фіналів",
 		semifinals: "Полуфінал",
-		final: "Фінал",
+		finals: "Фінал",
 		tournament_has_been_deleted: "Турнір \"{{tournamentName}}\" був видалений автором.",
 		match_is_ready: "Твій матч против {{opponent}} знайдений.<br/>Готуйся!",
 		tournament_has_been_completed: "Турнір завершений. <b>{{winner}}</b> виграв!",

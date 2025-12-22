@@ -628,24 +628,21 @@ async function executeTournamentStart(tournament: Tournament, startedByUsername:
 
 	const startDate = new Date();
 
-	const result = await db.$transaction(async (tx) => {
-		await tx.tournament.update({
-			where: { id: tournament.id },
-			data: {
-				status: 'IN_PROGRESS',
-				startDate: startDate
-			}
-		});
-		const result = await tx.game.updateMany({
-			where: {
-				tournamentId: tournament.id,
-				tournamentRound: TournamentRound.QUARTI
-			},
-			data: {
-				startDate: startDate
-			}
-		});
-		return result;
+	await db.tournament.update({
+		where: { id: tournament.id },
+		data: {
+			status: 'IN_PROGRESS',
+			startDate: startDate
+		}
+	});
+	const result = await db.game.updateMany({
+		where: {
+			tournamentId: tournament.id,
+			tournamentRound: TournamentRound.QUARTI
+		},
+		data: {
+			startDate: startDate
+		}
 	});
 
 	app.log.debug(`Updated tournament #${tournament.id} startDate for the initial round=${TournamentRound.QUARTI} games (${result.count})`);
@@ -862,6 +859,7 @@ export function craftTournamentDetailsDTO(tournamentData: Awaited<ReturnType<typ
 			createdBy: tournament!.createdBy,
 
 			winner: tournament!.winner,
+			winnerUsername: tournament!.winnerUsername,
 
 			participants: tournament!.participants.map(p => p.user),
 			participantsCount: tournament!._count.participants,

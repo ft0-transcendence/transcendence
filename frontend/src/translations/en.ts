@@ -108,7 +108,7 @@ export const en = {
 		bracket: "Bracket",
 		quarterfinals: "Quarterfinals",
 		semifinals: "Semifinals",
-		final: "Final",
+		finals: "Finals",
 		tournament_has_been_deleted: "The tournament \"{{tournamentName}}\" has been deleted by the creator.",
 		match_is_ready: "Your match against {{opponent}} is ready.<br/>Get ready!",
 		tournament_has_been_completed: "The tournament has been completed. <b>{{winner}}</b> has won!",

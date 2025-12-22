@@ -109,7 +109,7 @@ export const it: TranslationSchema = {
 		bracket: "Programma",
 		quarterfinals: "Quarti di finale",
 		semifinals: "Semifinali",
-		final: "Finale",
+		finals: "Finali",
 		tournament_has_been_deleted: "Il torneo \"{{tournamentName}}\" è stato cancellato dal creatore.",
 		match_is_ready: "La tua partita contro {{opponent}} è pronta.<br/>Preparati!",
 		tournament_has_been_completed: "Il torneo è stato completato. <b>{{winner}}</b> ha vinto!",
