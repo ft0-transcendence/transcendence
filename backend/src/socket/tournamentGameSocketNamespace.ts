@@ -146,7 +146,7 @@ export function setupTournamentGameNamespace(io: Server) {
 				if (removed) {
 					socket.to(gameId).emit('player-left', userGameInfo);
 				}
-				if (game.isPlayerInGame(user.id)) {
+				if (game.isPlayerInGame(user.id) && game.getPlayerConnectionCount(user.id) === 0) {
 					game.markPlayerDisconnected(user.id);
 				}
 			});

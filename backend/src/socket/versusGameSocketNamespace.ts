@@ -41,6 +41,7 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 			game.setSocketNamespace(onlineVersusGameNamespace);
 
 			game.addConnectedUser(gameUserInfo);
+
 			socket.emit('game-found', {
 				connectedUsers: game.getConnectedPlayers(),
 				ableToPlay: isPlayerInGame,
@@ -163,8 +164,8 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 				if (removed) {
 					onlineVersusGameNamespace.to(gameId).emit('player-left', userGameInfo);
 				}
-				if (game.isPlayerInGame(user.id)) {
-					(game as OnlineGame).markPlayerDisconnected(user.id);
+				if (game.isPlayerInGame(user.id) && game.getPlayerConnectionCount(user.id) === 0) {
+					game.markPlayerDisconnected(user.id);
 				}
 			});
 		});

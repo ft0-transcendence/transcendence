@@ -1,6 +1,6 @@
 import { Game, GameUserInfo, GameStatus, MovePaddleAction, GameState, GameConfig } from "./game";
 import { Game as PrismaGame } from "@prisma/client";
-import { TypedSocketNamespace } from "../src/socket-io";
+import { TypedSocket, TypedSocketNamespace } from "../src/socket-io";
 import { app } from "../main";
 import { STANDARD_GAME_CONFIG } from "../constants";
 
@@ -31,6 +31,11 @@ export class OnlineGame extends Game {
 	private _playerLeft: GameUserInfo | null = null;
 	private _playerRight: GameUserInfo | null = null;
 	private connectedUsers: GameUserInfo[] = [];
+
+	// userId -> GameUserInfo
+	#connectedUsersMap: Map<string, GameUserInfo> = new Map();
+	// socketId -> count of user sockets connected to this game
+	#connectedUserSockets: Map<string, number> = new Map();
 
 	constructor(
 		gameId: string,
@@ -103,6 +108,11 @@ export class OnlineGame extends Game {
 		return id === this._playerLeft?.id || id === this._playerRight?.id;
 	}
 
+	public getPlayerConnectionCount(playerId: GameUserInfo['id']) {
+		if (!playerId) return 0;
+		return this.#connectedUserSockets.get(playerId) ?? 0;
+	}
+
 	public movePlayerPaddle(playerId: GameUserInfo['id'], direction: MovePaddleAction) {
 		if (playerId === this._playerLeft?.id) {
 			this.movePaddle("left", direction);
@@ -113,22 +123,31 @@ export class OnlineGame extends Game {
 	}
 
 	public addConnectedUser(user: GameUserInfo): void {
-		const existingUserIndex = this.connectedUsers.findIndex(u => u.id === user.id);
-		if (existingUserIndex >= 0) {
-			this.connectedUsers[existingUserIndex] = user;
-		} else {
-			this.connectedUsers.push(user);
+		if (!user.id) return;
+		if (!this.#connectedUserSockets.has(user.id)) {
+			this.#connectedUserSockets.set(user.id, 0);
 		}
+		this.#connectedUserSockets.set(user.id, this.#connectedUserSockets.get(user.id)! + 1);
+
+		this.#connectedUsersMap.set(user.id, user);
 	}
 
 	public removeConnectedUser(user: GameUserInfo): boolean {
-		const initialLength = this.connectedUsers.length;
-		this.connectedUsers = this.connectedUsers.filter(u => u.id !== user.id);
-		return this.connectedUsers.length < initialLength;
+		if (!user.id) return false;
+		if (!this.#connectedUserSockets.has(user.id)) return false;
+
+		const newSocketCount = this.#connectedUserSockets.get(user.id)! - 1;
+		this.#connectedUserSockets.set(user.id, newSocketCount);
+
+		if (newSocketCount <= 0) {
+			this.#connectedUsersMap.delete(user.id);
+			this.#connectedUserSockets.delete(user.id);
+		}
+		return true;
 	}
 
 	public getConnectedPlayers(): GameUserInfo[] {
-		return [...this.connectedUsers];
+		return [...this.#connectedUsersMap.values()];
 	}
 
 	public get leftPlayer(): GameUserInfo | null { return this._playerLeft; }
