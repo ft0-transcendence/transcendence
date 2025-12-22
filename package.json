@@ -6,7 +6,7 @@
 		"dev": "concurrently \"npm run dev:backend\" \"vite dev\"",
 		"build": "npm run build:frontend && npm run build:backend",
 		"prestart": "npm run build",
-		"prebuild": "npm run db:generate",
+		"prebuild": "npm run db:generate && npm run db:push",
 		"dev:backend": "ts-node-dev --project backend/tsconfig.json --ignore-watch frontend --ignore-watch node_modules --respawn --transpile-only backend/main.ts",
 		"dev:frontend": "vite dev --host 0.0.0.0",
 		"build:frontend": "vite build",

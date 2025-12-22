@@ -15,13 +15,6 @@ import { AIBrain } from "./AIBrain";
 
 type TournamentGameFinishCallback = (state: GameStatus, tournamentId: string, gameId: string) => Promise<void>;
 
-/*
-TODOLIST:
-- [ ] When a player disconnects, pause the game for a lease time (15s), if he doesn't reconnect, forfeit the game to the other player
-- [x] When a score is updated, update the bracket via socket
-- [x] When the game ends, advance the winner to the next round and update the tournament bracket
-- [ ] If the winner is AI, check if the next round is AI vs AI and autocomplete it if so
-*/
 export class TournamentGame extends OnlineGame {
 	public readonly tournamentId: string;
 	private onGameFinish?: TournamentGameFinishCallback;

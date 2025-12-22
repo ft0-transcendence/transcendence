@@ -42,34 +42,6 @@ export class TournamentsListController extends RouteController {
 						<i class="fa fa-plus"></i>
 						<span class="flex" data-i18n="${k('generic.create_tournament')}">Create Tournament</span>
 					</button>
-					${
-						// TODO: remove this button after testing
-						authManager.user?.username.toLocaleLowerCase() === "sandoramix"
-							? /*html*/`
-								<button id="${this.id}-clear-tournaments-btn"
-										class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-base rounded-md bg-red-700 hover:bg-red-600 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
-										aria-label="Create Tournament" title="Clear all tournaments">
-									<i class="fa fa-plus"></i>
-									<span class="flex">Remove all tournaments</span>
-								</button>
-
-								<button id="${this.id}-gen-random-tournament"
-										class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-base rounded-md bg-amber-700 hover:bg-amber-600 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
-										aria-label="Create Tournament" title="Clear all tournaments">
-									<i class="fa fa-plus"></i>
-									<span class="flex">new random tournament</span>
-								</button>
-
-
-								<button id="${this.id}-cgs-tournament"
-										class="px-2 py-1 md:px-4 md:py-2 text-sm md:text-base rounded-md bg-amber-700 hover:bg-amber-600 cursor-pointer transition-colors text-white font-semibold drop-shadow-lg drop-shadow-black flex items-center gap-2"
-										aria-label="Create Tournament" title="Clear all tournaments">
-									<i class="fa fa-plus"></i>
-									<span class="flex">clear->gen->start</span>
-								</button>
-							`
-							: ''
-					}
 				</div>
 				<div class="grow"></div>
 
@@ -121,46 +93,6 @@ export class TournamentsListController extends RouteController {
 	protected async postRender() {
 		this.#fetchAndShowTournaments();
 		this.#bindOnCreateTournamentModalOpen();
-
-		// TODO: remove this after testing
-		document.querySelector(`#${this.id}-clear-tournaments-btn`)?.addEventListener('click', async () => {
-			try {
-				const res = await api.tournament.clearAllTournaments.mutate();
-				toast.success(t('generic.tournament'), t('generic.delete_tournament_success') ?? "");
-				this.#fetchAndShowTournaments();
-			} catch (err) {
-				showAndLogTrpcError(err, 'generic.tournament');
-			}
-		});
-
-		document.querySelector(`#${this.id}-gen-random-tournament`)?.addEventListener('click', async () => {
-			try {
-				const randomFutureDate = new Date();
-				randomFutureDate.setDate(randomFutureDate.getDate() + Math.floor(Math.random() * 100));
-				const randomDate = new Date(randomFutureDate.getTime() + Math.random() * 1000 * 60 * 60 * 24 * 365);
-
-				const randomName = `tournament: ${randomDate.toISOString().replace(/T/, ' ')}`;
-				const res = await api.tournament.createTournament.mutate({
-					name: randomName,
-					type: "EIGHT",
-					startDate: randomDate.toISOString()
-				});
-				toast.success(t('generic.tournament'), t('generic.create_tournament_success') ?? "");
-				this.#fetchAndShowTournaments();
-			} catch (err) {
-				showAndLogTrpcError(err, 'generic.tournament');
-			}
-		});
-		document.querySelector(`#${this.id}-cgs-tournament`)?.addEventListener('click', async () => {
-			try {
-				const tournamentId = await api.tournament.makeItFlow.query();
-				const res = await api.tournament.startTournament.mutate({ tournamentId });
-				toast.success(t('generic.tournament'), t('generic.start_tournament_success') ?? "");
-				router.navigate(`/play/online/tournaments/${tournamentId}`);
-			} catch (err) {
-				showAndLogTrpcError(err, 'generic.tournament');
-			}
-		});
 	}
 
 	async #fetchAndShowTournaments() {

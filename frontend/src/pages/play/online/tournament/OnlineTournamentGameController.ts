@@ -209,7 +209,7 @@ export class OnlineTournamentGameController extends RouteController {
 
 			this.#gameSocket?.on('game-finished', (data: { winnerId: string, winnerUsername: string }) => {
 				console.debug('Tournament game finished', data);
-				// TODO: Maybe add a winner banner
+				// Maybe add a winner banner. Nah
 			});
 
 			this.#gameSocket?.on('player-joined-tournament-game', (data: { userId: string, username: string }) => {
