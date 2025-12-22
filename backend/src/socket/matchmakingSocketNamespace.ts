@@ -119,9 +119,16 @@ export function setupMatchmakingNamespace(io: Server) {
 					const player1 = cache.matchmaking.queuedPlayers.pop()!;
 					const player2 = socket;
 
-
 					const player1Data: GameUserInfo = { id: player1.data.user.id, username: player1.data.user.username, isPlayer: true };
 					const player2Data: GameUserInfo = { id: player2.data.user.id, username: player2.data.user.username, isPlayer: true };
+
+					// Check if same user on different devices - prevent self-match
+					if (player1Data.id === player2Data.id) {
+						app.log.warn('Cannot match user with themselves (same account, different devices). user=%s', player1Data.username);
+						socket.emit('error', 'Cannot play against yourself. Please use different accounts.');
+						cache.matchmaking.queuedPlayers.push(player1);
+						return;
+					}
 
 					let game: PrismaGame | null = null;
 					let gameId: string | null = null;

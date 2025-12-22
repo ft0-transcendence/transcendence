@@ -20,7 +20,6 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 	onlineVersusGameNamespace.on("connection", (socket: TypedSocket) => {
 		app.log.info("Online Versus Game socket connected. id=%s, username=%s", socket.id, socket.data.user.username);
 
-
 		const { user } = socket.data;
 
 		socket.on("join-game", async (gameId: string) => {
@@ -30,10 +29,10 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 			let gameUserInfo: GameUserInfo = {
 				id: user.id,
 				username: user.username,
-				isPlayer: false,
+				isPlayer: true,
 			}
 			if (!game) {
-				socket.emit('error', 'Game not found');
+				onlineVersusGameNamespace.emit('error', 'Game not found');
 				return;
 			}
 			const isPlayerInGame = game.isPlayerInGame(user.id);
@@ -88,19 +87,20 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 			// Create and join a "label" (not a real room, just a way to group sockets) to which we can broadcast the game state
 			await socket.join(gameId);
 			await socket.join(getOnlineVersusGameRoomNameForUser(gameId, user.id));
-			game.playerReady({ id: user.id, username: user.username });
+			game.playerReady({ id: user.id, username: user.username, isPlayer: true });
+
 			// After joining, if both players are ready the game may have just started; emit fresh state to this socket too
-			socket.emit('game-state', game.getState());
+			onlineVersusGameNamespace.to(gameId).emit('game-state', game.getState());
 			// If the user is a player and was previously disconnected, mark as reconnected
 			if (isPlayerInGame && 'markPlayerReconnected' in game) {
 				(game as OnlineGame).markPlayerReconnected(user.id);
 			}
-			socket.emit('game-state', game.getState());
+			onlineVersusGameNamespace.to(gameId).emit('game-state', game.getState());
 
-			app.log.debug("Socket joined game. id=%s, gameId=%s. is_a_player=%s", socket.id, gameId, isPlayerInGame);
+			app.log.debug("Socket joined game. id=%s, gameId=%s. playerId=%s playerUsername=%s is_a_player=%s", socket.id, gameId, user.id, user.username, isPlayerInGame);
 
 			// Notify other players in the game
-			socket.to(gameId).emit('player-joined', gameUserInfo);
+			onlineVersusGameNamespace.to(gameId).emit('player-joined', gameUserInfo);
 		});
 
 		socket.on("player-press", (input: { direction: MovePaddleAction, gameId: string }) => {
@@ -134,12 +134,12 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 
 			const game = cache.active_1v1_games.get(gameId);
 			if (!game) {
-				socket.emit('error', 'Game not found');
+				onlineVersusGameNamespace.to(getOnlineVersusGameRoomNameForUser(gameId, user.id)).emit('error', 'Game not found');
 				return;
 			}
 			const isPlayerInGame = game.isPlayerInGame(user.id);
 			if (!isPlayerInGame) {
-				socket.emit('error', 'You are not a player in this game');
+				onlineVersusGameNamespace.to(getOnlineVersusGameRoomNameForUser(gameId, user.id)).emit('error', 'You are not a player in this game');
 				return;
 			}
 			if (game.leftPlayer?.id === user.id) {
@@ -161,7 +161,7 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 			cache.active_1v1_games.forEach((game, gameId) => {
 				const removed = game.removeConnectedUser(userGameInfo);
 				if (removed) {
-					socket.to(gameId).emit('player-left', userGameInfo);
+					onlineVersusGameNamespace.to(gameId).emit('player-left', userGameInfo);
 				}
 				if (game.isPlayerInGame(user.id)) {
 					(game as OnlineGame).markPlayerDisconnected(user.id);
