@@ -1,9 +1,7 @@
 import { TRPCError } from "@trpc/server";
-import { PrismaClient, Tournament, TournamentStatus, TournamentType } from "@prisma/client";
+import { Tournament, TournamentStatus, TournamentType } from "@prisma/client";
 import { z } from "zod";
 import { app } from "../../main";
-import { cache } from "../cache";
-import { AIPlayerService } from "../services/aiPlayerService";
 
 
 export const tournamentValidationSchemas = {
@@ -68,131 +66,6 @@ export class TournamentValidator {
 			});
 		}
 	}
-
-	static validateParticipantCapacity(currentCount: number, maxCount: number): void {
-		if (currentCount >= maxCount) {
-			throw new TRPCError({
-				code: 'BAD_REQUEST',
-				message: 'Tournament is full'
-			});
-		}
-	}
-
-	static validateAlreadyJoined(alreadyJoined: boolean): void {
-		if (alreadyJoined) {
-			throw new TRPCError({
-				code: 'BAD_REQUEST',
-				message: 'Already joined this tournament'
-			});
-		}
-	}
-
-	static validateNotParticipant(isParticipant: boolean): void {
-		if (!isParticipant) {
-			throw new TRPCError({
-				code: 'BAD_REQUEST',
-				message: 'You are not a participant in this tournament'
-			});
-		}
-	}
-
-	static validateBracketExists(gamesCount: number): void {
-		if (gamesCount < 0) {
-			throw new TRPCError({
-				code: 'INTERNAL_SERVER_ERROR',
-				message: 'Invalid tournament state'
-			});
-		}
-	}
-
-	static validateAIPlayerByUsername(username: string | null, db: PrismaClient): boolean {
-		const aiPlayerService = new AIPlayerService(db);
-		return aiPlayerService.isAIPlayer(username);
-	}
-
-	static validateGameAIConfiguration(
-		leftPlayerUsername: string | null,
-		rightPlayerUsername: string | null,
-		db: PrismaClient
-	): { leftIsAI: boolean; rightIsAI: boolean; isAIGame: boolean } {
-		const aiPlayerService = new AIPlayerService(db);
-		const leftIsAI = aiPlayerService.isAIPlayer(leftPlayerUsername);
-		const rightIsAI = aiPlayerService.isAIPlayer(rightPlayerUsername);
-		const isAIGame = leftIsAI || rightIsAI;
-
-		return { leftIsAI, rightIsAI, isAIGame };
-	}
-
-	static async validateTournamentBracketConsistency(tournamentId: string, db: PrismaClient): Promise<void> {
-		try {
-			const tournament = await db.tournament.findUnique({
-				where: { id: tournamentId },
-				include: {
-					games: {
-						select: {
-							id: true,
-							leftPlayerUsername: true,
-							rightPlayerUsername: true,
-							leftPlayerId: true,
-							rightPlayerId: true,
-							type: true,
-							startDate: true
-						}
-					}
-				}
-			});
-
-			if (!tournament) {
-				throw new TRPCError({
-					code: 'NOT_FOUND',
-					message: 'Tournament not found for bracket validation'
-				});
-			}
-
-			const aiPlayerService = new AIPlayerService(db);
-			const inconsistencies: string[] = [];
-
-			for (const game of tournament.games) {
-				if (!game.startDate) continue;
-				const leftIsAI = aiPlayerService.isAIPlayer(game.leftPlayerUsername);
-				const rightIsAI = aiPlayerService.isAIPlayer(game.rightPlayerUsername);
-				const hasAI = leftIsAI && rightIsAI;
-
-				// Validate that AI games have the correct type
-				if (hasAI && game.type !== 'AI') {
-					inconsistencies.push(`Game ${game.id} has AI players but type is not 'AI'`);
-				}
-
-				if (game.leftPlayerUsername === undefined || game.rightPlayerUsername === undefined) {
-					inconsistencies.push(`Game ${game.id} has undefined username fields`);
-				}
-			}
-
-			if (inconsistencies.length > 0) {
-				app.log.warn({
-					tournament_id: tournamentId,
-					inconsistencies
-				}, 'Tournament bracket inconsistencies detected');
-			}
-
-		} catch (error) {
-			app.log.error({
-				tournament_id: tournamentId,
-				error: (error as Error).message
-			}, 'Failed to validate tournament bracket consistency');
-		}
-	}
-
-	static validateAIvsAIGameConfiguration(
-		leftPlayerUsername: string | null,
-		rightPlayerUsername: string | null,
-		db: PrismaClient
-	): boolean {
-		const aiPlayerService = new AIPlayerService(db);
-		return aiPlayerService.isAIPlayer(leftPlayerUsername) && aiPlayerService.isAIPlayer(rightPlayerUsername);
-	}
-
-
 }
 
 // Simple error handling with logging
