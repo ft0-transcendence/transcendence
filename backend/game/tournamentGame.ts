@@ -165,7 +165,6 @@ export class TournamentGame extends OnlineGame {
 						status: 'COMPLETED'
 					}
 				});
-				console.log({ ttt: t });
 				if (!winnerId) {
 					app.log.warn(`AI Won the tournament #${this.tournamentId}, no winnerId to update stats for.`);
 				} else {

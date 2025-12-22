@@ -1,12 +1,11 @@
 import {env} from "../../env";
 import {PrismaClient} from "@prisma/client";
 
-const prismaShowOnlyErrors = true;
 
 const createPrismaClient = () =>
 	new PrismaClient({
 		log:
-			env.NODE_ENV === "development" && !prismaShowOnlyErrors ? ["query", "error", "warn"] : ["error"],
+			env.NODE_ENV === "development" ? ["query", "error", "warn"] : env.NODE_ENV === 'test' ? ["error", "warn"] : ["error"],
 	});
 
 const globalForPrisma = globalThis as unknown as {

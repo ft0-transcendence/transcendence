@@ -11,8 +11,8 @@ import { AIPlayerService } from "./services/aiPlayerService";
 
 
 async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstance: OnlineGame, leftPlayerId: string | null, rightPlayerId: string | null) {
-	console.log(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
-	console.log(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
+	app.log.debug(`🎮 VS Game ${gameId} finishing with scores: ${state.scores.left}-${state.scores.right}, forfeited: ${gameInstance.wasForfeited}`);
+	app.log.debug(`🎮 VS Game ${gameId} players: left=${leftPlayerId}, right=${rightPlayerId}`);
 
 	const isAborted = gameInstance.wasForfeited;
 
@@ -31,7 +31,7 @@ async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstanc
 			where: { id: gameId },
 			data: updateData,
 		});
-		console.log(`✅ VS Game ${gameId} successfully updated in database`);
+		app.log.debug(`✅ VS Game ${gameId} successfully updated in database`);
 
 		// Aggiorna sempre le statistiche dei giocatori
 		if (state.scores.left !== state.scores.right && leftPlayerId && rightPlayerId) {
@@ -46,12 +46,12 @@ async function handleVSGameFinish(gameId: string, state: GameStatus, gameInstanc
 				loserId = leftPlayerId;
 			}
 
-			console.log(`📊 VS Game ${gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${isAborted}`);
+			app.log.debug(`📊 VS Game ${gameId}: Updating stats - winner=${winnerId}, loser=${loserId}, forfeited=${isAborted}`);
 			await updateGameStats(db, winnerId, loserId);
 		} else if (!leftPlayerId || !rightPlayerId) {
-			console.log(`⚠️ VS Game ${gameId} has missing player IDs, skipping stats update`);
+			app.log.debug(`⚠️ VS Game ${gameId} has missing player IDs, skipping stats update`);
 		} else {
-			console.log(`⚠️ VS Game ${gameId} ended in a tie, skipping stats update`);
+			app.log.debug(`⚠️ VS Game ${gameId} ended in a tie, skipping stats update`);
 		}
 
 	} catch (error) {
