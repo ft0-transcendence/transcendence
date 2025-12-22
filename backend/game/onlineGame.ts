@@ -266,7 +266,7 @@ export class OnlineGame extends Game {
 		if (this.finished) return;
 		this.finished = true;
 
-		console.log(`🏁 Game ${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
+		console.debug(`🏁 Game ${this.gameId} finishing with scores: ${this.scores.left}-${this.scores.right}`);
 
 		for (const [playerId, interval] of this.warningIntervals) {
 			clearInterval(interval);
@@ -290,19 +290,19 @@ export class OnlineGame extends Game {
 
 		if (this.onFinish) {
 			try {
-				console.log(`🎮 Game ${this.gameId} calling onFinish callback with state:`, {
+				console.debug(`🎮 Game ${this.gameId} calling onFinish callback with state:`, {
 					scores: state.scores,
 					leftPlayer: this.leftPlayer?.username,
 					rightPlayer: this.rightPlayer?.username,
 					wasForfeited: this.wasForfeited
 				});
 				await this.onFinish(state);
-				console.log(`✅ Game ${this.gameId} onFinish callback completed`);
+				console.debug(`✅ Game ${this.gameId} onFinish callback completed`);
 			} catch (error) {
 				console.error(`❌ Game ${this.gameId} onFinish callback failed:`, error);
 			}
 		} else {
-			console.log(`⚠️ Game ${this.gameId} has no onFinish callback!`);
+			console.debug(`⚠️ Game ${this.gameId} has no onFinish callback!`);
 		}
 	}
 

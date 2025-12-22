@@ -266,7 +266,6 @@ export class GameComponent extends ComponentController {
 		this.#rightPlayerData = state.rightPlayer;
 
 		if (!this.#gameState && state && (this.#leftPlayerData?.isPlayer || this.#rightPlayerData?.isPlayer)) {
-			console.log('Game state is null, updating game header');
 			const gameScoreGoalElement = document.getElementById(`${this.id}-game-goal-title`);
 			gameScoreGoalElement?.setAttribute('data-i18n-vars', JSON.stringify({ score_goal: state.gameScoreGoal }));
 			const gameHeaderElement = document.getElementById(`${this.id}-game-header`);
