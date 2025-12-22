@@ -126,7 +126,6 @@ export function setupMatchmakingNamespace(io: Server) {
 					if (player1Data.id === player2Data.id) {
 						app.log.warn('Cannot match user with themselves (same account, different devices). user=%s', player1Data.username);
 						socket.emit('error', 'Cannot play against yourself. Please use different accounts.');
-						// Put player1 back in queue
 						cache.matchmaking.queuedPlayers.push(player1);
 						return;
 					}
