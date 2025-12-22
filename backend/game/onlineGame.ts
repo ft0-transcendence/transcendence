@@ -226,20 +226,20 @@ export class OnlineGame extends Game {
 					const playerName = this.getPlayerName(playerId);
 					const opponentName = this.getPlayerName(opponentId ?? '');
 
-					if (opponentId) {
-						const FORFEIT_WIN = (this.config.maxScore ?? STANDARD_GAME_CONFIG.maxScore)!;
-						const FORFEIT_LOSS = 0;
-						if (this.leftPlayer && this.rightPlayer) {
-							if (opponentId === this.leftPlayer.id) {
-								this.scores.left = FORFEIT_WIN;
-								this.scores.right = FORFEIT_LOSS;
-							} else if (opponentId === this.rightPlayer.id) {
-								this.scores.left = FORFEIT_LOSS;
-								this.scores.right = FORFEIT_WIN;
-							}
+					// Assign forfeit scores (works even if opponentId is null for AI players)
+					const FORFEIT_WIN = (this.config.maxScore ?? STANDARD_GAME_CONFIG.maxScore)!;
+					const FORFEIT_LOSS = 0;
+					if (this.leftPlayer && this.rightPlayer) {
+						// The disconnected player loses, opponent wins
+						if (playerId === this.leftPlayer.id) {
+							this.scores.left = FORFEIT_LOSS;
+							this.scores.right = FORFEIT_WIN;
+						} else if (playerId === this.rightPlayer.id) {
+							this.scores.left = FORFEIT_WIN;
+							this.scores.right = FORFEIT_LOSS;
 						}
-						this.wasForfeited = true;
 					}
+					this.wasForfeited = true;
 
 					this.disconnectedUntil.delete(playerId);
 					this.abortWarningsSent.delete(playerId);
