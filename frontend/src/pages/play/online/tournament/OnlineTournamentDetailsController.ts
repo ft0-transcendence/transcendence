@@ -46,7 +46,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 	}
 
 	protected async preRender() {
-		document.querySelector(`#app_layout_content`)?.scrollTo(0,0);
+		document.querySelector(`#app_layout_content`)?.scrollTo(0, 0);
 
 		this.registerChildComponent(this.#loadingOverlays.root);
 		console.debug('[TournamentDetails] Loading tournament with ID:', this.#tournamentId);
@@ -513,6 +513,23 @@ export class OnlineTournamentDetailsController extends RouteController {
 		gameEl.querySelector('.left-player-score')!.innerHTML = game.leftPlayerScore.toString();
 		gameEl.querySelector('.right-player-score')!.innerHTML = game.rightPlayerScore.toString();
 
+		const leftImage = gameEl.querySelector('.left-player-image') as HTMLImageElement;
+		const rightImage = gameEl.querySelector('.right-player-image') as HTMLImageElement;
+
+		if (game.leftPlayerId) {
+			leftImage.classList.remove('hidden');
+			leftImage.src = getProfilePictureUrlByUserId(game.leftPlayerId);
+		} else {
+			leftImage.classList.add('hidden');
+		}
+
+		if (game.rightPlayerId) {
+			rightImage.classList.remove('hidden');
+			rightImage.src = getProfilePictureUrlByUserId(game.rightPlayerId);
+		} else {
+			rightImage.classList.add('hidden');
+		}
+
 		const gameState = gameEl.querySelector('.state')
 		if (gameState) {
 			const key = this.#getGameStateKey(game);
@@ -537,12 +554,23 @@ export class OnlineTournamentDetailsController extends RouteController {
 					<p class="absolute bottom-2 left-2 text-sm uppercase text-stone-400 font-semibold font-mono">${index + 1}</p>
 					<div class=" items-center text-sm text-center gap-1 grid grid-flow-row grid-cols-3">
 						<div class="flex flex-col justify-center items-center gap-1">
-							<div class="font-semibold left-player-username md:px-2">${this.#getUserUsername(g.leftPlayer?.id, g.leftPlayerUsername ?? g.leftPlayer?.username ?? null, g.leftPlayerIsAI)}</div>
+								<div class="font-semibold left-player-username md:px-2">${this.#getUserUsername(g.leftPlayer?.id, g.leftPlayerUsername ?? g.leftPlayer?.username ?? null, g.leftPlayerIsAI)}</div>
 							<p class="left-player-score">${g.leftPlayerScore}</p>
 						</div>
-						<span class="text-stone-400 text-xs" data-i18n="${k('generic.vs')}">vs</span>
+						<div class="flex items-center justify-center gap-2">
+							<div class="w-6 h-6 flex items-center justify-center">
+								<img class="left-player-image w-6 h-6 rounded-full ${g.leftPlayerIsAI ? 'hidden' : ''}" ${g.leftPlayerId ? `src="${getProfilePictureUrlByUserId(g.leftPlayerId)}"` : ''}>
+							</div>
+
+
+							<span class="text-stone-400 text-xs" data-i18n="${k('generic.vs')}">vs</span>
+
+							<div class="w-6 h-6 flex items-center justify-center">
+								<img class="right-player-image w-6 h-6 rounded-full ${g.rightPlayerIsAI ? 'hidden' : ''}" ${g.rightPlayerId ? `src="${getProfilePictureUrlByUserId(g.rightPlayerId)}"` : ''}>
+							</div>
+						</div>
 						<div class="flex flex-col justify-center items-center gap-1">
-							<div class="font-semibold right-player-username md:px-2">${this.#getUserUsername(g.rightPlayer?.id, g.rightPlayerUsername ?? g.rightPlayer?.username ?? null, g.rightPlayerIsAI)}</div>
+								<div class="font-semibold right-player-username md:px-2">${this.#getUserUsername(g.rightPlayer?.id, g.rightPlayerUsername ?? g.rightPlayer?.username ?? null, g.rightPlayerIsAI)}</div>
 							<p class="right-player-score">${g.rightPlayerScore}</p>
 						</div>
 					</div>
@@ -579,11 +607,12 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 			item.className = `flex items-center gap-2 bg-neutral-700/50 p-2 rounded-md`;
 			item.id = `tournament-participant-${p.id}`;
+			const usernameLabel = p.tournamentUsername && p.tournamentUsername != p.username ? `${p.tournamentUsername} (${p.username})` : p.username;
 			item.innerHTML = /*html*/`
 				<img src="${getProfilePictureUrlByUserId(p.id)}"
 					alt="${p.username}"
 					class="w-8 h-8 rounded-full ring-1 ring-white/10 object-cover">
-				<span class="truncate">${p.username}</span>
+				<span class="truncate" title="${usernameLabel}">${usernameLabel}</span>
 			`;
 
 			container?.appendChild(item);

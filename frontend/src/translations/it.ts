@@ -104,6 +104,9 @@ export const it: TranslationSchema = {
 		match_is_ready: "La partita è pronta!",
 		returning_to_lobby_in: "Ritorno alla lista in {{seconds}} secondi...",
 		game_has_ended: "Partita finita",
+		update_username: "Aggiorna Username",
+		update_tournament_username: "Aggiorna Username Torneo",
+		tournament_username: "Username Torneo",
 	},
 	tournament:{
 		bracket: "Programma",
@@ -178,7 +181,12 @@ export const it: TranslationSchema = {
 				title: 'Aggiornamento avatar',
 				success: 'Avatar aggiornato con successo',
 			}
-		}
+		},
+		tournament_username_instructions: 'Seleziona un nome utente che verrà usato quando giochi tornei. Segue le stesse regole del nome utente. Se non specificato, verrà usato il tuo nome utente.',
+		update_tournament_username: {
+			title: 'Aggiornamento nome utente torneo',
+			success: 'Nome utente torneo aggiornato con successo',
+		},
 	},
 
 

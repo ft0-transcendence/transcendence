@@ -105,6 +105,9 @@ export const ua: TranslationSchema = {
 		match_is_ready: "Матч готовий!",
 		returning_to_lobby_in: "Закриття сторінки через {{seconds}} секунд...",
 		game_has_ended: "Гра завершена",
+		update_username: "Оновити ім'я користувача",
+		update_tournament_username: "Оновити ім'я користувача турніру",
+		tournament_username: "Ім'я користувача турніру",
 	},
 	tournament:{
 		bracket: "Склад",
@@ -179,7 +182,12 @@ export const ua: TranslationSchema = {
 				title: 'Оновлення аватару',
 				success: 'Аватар оновлено успішно',
 			}
-		}
+		},
+		tournament_username_instructions: 'Виберіть ім’я користувача, яке буде використовуватися при грі турнірів. Слідують такі правила, як і ім’я користувача. Якщо не вказано, ваше ім’я користувача буде використано.',
+		update_tournament_username: {
+			title: 'Оновлення імені користувача турніру',
+			success: 'Ім’я користувача турніру оновлено успішно',
+		},
 	},
 	page_titles: {
 		play: {

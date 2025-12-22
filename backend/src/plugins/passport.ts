@@ -57,11 +57,13 @@ export const passportPlugin = fp(async (fastify) => {
 						},
 					});
 				} else {
+					const username = await standardizeProfileUsername(profile.displayName!);
 					user = await fastify.prisma.user.create({
 						data: {
 							id: profile.id!,
 							email: email!,
-							username: await standardizeProfileUsername(profile.displayName!),
+							username: username,
+							tournamentUsername: username,
 							imageUrl: imageUrl,
 							imageBlob: imageBlob,
 							imageBlobMimeType: blobMimeType

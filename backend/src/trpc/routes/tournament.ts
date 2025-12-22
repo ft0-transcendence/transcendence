@@ -68,7 +68,7 @@ export const tournamentRouter = t.router({
 			const result = await ctx.db.$transaction(async (tx) => {
 				const participant = await tx.tournamentParticipant.create({
 					data: { tournamentId: input.tournamentId, userId: ctx.user!.id },
-					include: { user: { select: { id: true, username: true } } }
+					include: { user: { select: { id: true, username: true, tournamentUsername: true } } }
 				});
 
 				const bracketGenerator = new BracketGenerator(tx);
@@ -78,7 +78,7 @@ export const tournamentRouter = t.router({
 					where: { id: input.tournamentId },
 					include: {
 						participants: {
-							include: { user: { select: { id: true, username: true } } }
+							include: { user: { select: { id: true, username: true, tournamentUsername: true } } }
 						}
 					}
 				});
@@ -126,7 +126,8 @@ export const tournamentRouter = t.router({
 
 			return result.updatedTournament.participants.map(p => ({
 				id: p.user.id,
-				username: p.user.username
+				username: p.user.username,
+				tournamentUsername: p.user.tournamentUsername
 			}));
 		}),
 
@@ -764,7 +765,8 @@ async function fetchTournamentsWithFullDetails(tournamentIds: string[]) {
 					user: {
 						select: {
 							id: true,
-							username: true
+							username: true,
+							tournamentUsername: true
 						}
 					}
 				}
@@ -774,13 +776,15 @@ async function fetchTournamentsWithFullDetails(tournamentIds: string[]) {
 					leftPlayer: {
 						select: {
 							id: true,
-							username: true
+							username: true,
+							tournamentUsername: true
 						}
 					},
 					rightPlayer: {
 						select: {
 							id: true,
-							username: true
+							username: true,
+							tournamentUsername: true
 						}
 					},
 					previousGames: {

@@ -119,6 +119,22 @@ export const userRouter = t.router({
 				data: { username: input.username },
 			});
 		}),
+	updateTournamentUsername: protectedProcedure
+		.input(z.object({
+			tournamentUsername: z.string().min(3).max(24).optional().nullable()
+		}))
+		.mutation(async ({ ctx, input }) => {
+			if (input.tournamentUsername){
+				const existing = await ctx.db.user.findFirst({ where: { tournamentUsername: input.tournamentUsername } });
+				if (existing && existing.id !== ctx.user!.id) {
+					throw new TRPCError({ code: "BAD_REQUEST", message: "The tournament username is already taken" });
+				}
+			}
+			return ctx.db.user.update({
+				where: { id: ctx.user!.id },
+				data: { tournamentUsername: input.tournamentUsername },
+			});
+		}),
 
 	uploadAvatar: protectedProcedure
 		.input(z.object({

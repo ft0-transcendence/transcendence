@@ -103,6 +103,9 @@ export const en = {
 		match_is_ready: "Match is ready!",
 		returning_to_lobby_in: "Returning to lobby in {{seconds}} seconds...",
 		game_has_ended: "Game has ended",
+		update_username: "Update Username",
+		update_tournament_username: "Update Tournament Username",
+		tournament_username: "Tournament Username",
 	},
 	tournament:{
 		bracket: "Bracket",
@@ -181,6 +184,11 @@ export const en = {
 				title: 'Avatar update',
 				success: 'Avatar updated successfully',
 			}
+		},
+		tournament_username_instructions: 'Select a username that will be used when you play tournaments. Follows the same rules as the username. If not specified, your username will be used.',
+		update_tournament_username: {
+			title: 'Tournament username update',
+			success: 'Tournament username updated successfully',
 		}
 	},
 

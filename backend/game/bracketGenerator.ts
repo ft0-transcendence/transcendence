@@ -6,6 +6,7 @@ import { db } from "../src/trpc/db";
 import { tournamentBroadcastTournamentCompleted } from "../src/socket/tournamentSocketNamespace";
 import { CONSTANTS } from "../constants";
 import { STANDARD_GAME_CONFIG } from "../constants";
+import { t } from '../src/trpc/trpc';
 
 
 export type BracketNode = {
@@ -110,18 +111,18 @@ export class BracketGenerator {
 				if (node.leftPlayerId) {
 					const leftUser = await tx.user.findUnique({
 						where: { id: node.leftPlayerId },
-						select: { username: true, id: true }
+						select: { username: true, id: true , tournamentUsername: true}
 					});
-					leftPlayerUsername = leftUser?.username || null;
+					leftPlayerUsername = leftUser?.tournamentUsername || leftUser?.username || null;
 					leftPlayerId = leftUser?.id || null;
 				}
 
 				if (node.rightPlayerId) {
 					const rightUser = await tx.user.findUnique({
 						where: { id: node.rightPlayerId },
-						select: { username: true, id: true }
+						select: { username: true, id: true, tournamentUsername: true }
 					});
-					rightPlayerUsername = rightUser?.username || null;
+					rightPlayerUsername = rightUser?.tournamentUsername || rightUser?.username || null;
 					rightPlayerId = rightUser?.id || null;
 				}
 

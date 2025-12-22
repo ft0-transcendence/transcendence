@@ -13,13 +13,15 @@ export class SettingsController extends RouteController {
 	#previewAvatar: HTMLImageElement | null = null;
 	#avatarInput: HTMLInputElement | null = null;
 	#usernameInput: HTMLInputElement | null = null;
+	#tournamentUsernameInput: HTMLInputElement | null = null;
 	#saveAvatarButton: HTMLButtonElement | null = null;
 	#saveUsernameButton: HTMLButtonElement | null = null;
+	#saveTournamentUsernameButton: HTMLButtonElement | null = null;
 
 	#onAvatarUpload = this.onAvatarUpload.bind(this);
 	#onSaveAvatar = this.onSaveAvatar.bind(this);
 	#onSaveUsername = this.onSaveUsername.bind(this);
-
+	#onSaveTournamentUsername = this.onSaveTournamentUsername.bind(this);
 
 	constructor() {
 		super();
@@ -89,10 +91,40 @@ export class SettingsController extends RouteController {
 					</div>
 					<button id="save-username"
 							class="mt-4 w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold
-									py-2 px-4 rounded-lg transition duration-300 transform hover:scale-[1.01]">
+									py-2 px-4 rounded-lg transition duration-300 transform hover:scale-[1.01]"
+									data-i18n="${k('generic.update_username')}"
+									>
 						Update Username
 					</button>
 				</div>
+
+				<!-- Preferred Tournament username -->
+				<div class="p-6 bg-zinc-700 rounded-lg">
+					<h2 class="text-lg font-semibold text-gray-300 mb-4" data-i18n="${k('generic.tournament_username')}">Tournament Username</h2>
+					<div class="flex flex-col space-y-2">
+						<input value="${userData?.tournamentUsername ?? ''}"
+								type="text"
+								id="tournament-username-input"
+								minlength="3"
+								maxlength="24"
+								placeholder="E.g. Pippo"
+								class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg
+										text-gray-100 placeholder-gray-400 focus:outline-none
+										focus:border-amber-500 transition duration-300">
+						<p class="text-sm text-gray-400" data-i18n="${k('settings.tournament_username_instructions')}">
+							Select a username that will be used when you play tournaments. Follows the same rules as the username. If not specified, your username will be used.
+						</p>
+					</div>
+					<button id="save-tournament-username"
+							class="mt-4 w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold
+									py-2 px-4 rounded-lg transition duration-300 transform hover:scale-[1.01]"
+									data-i18n="${k('generic.update_tournament_username')}"
+									>
+						Update Tournament Username
+					</button>
+				</div>
+
+
 			</div>
 		</div>
 	`;
@@ -102,12 +134,15 @@ export class SettingsController extends RouteController {
 		this.#previewAvatar = document.getElementById('preview-avatar') as HTMLImageElement;
 		this.#avatarInput = document.getElementById('avatar-input') as HTMLInputElement;
 		this.#usernameInput = document.getElementById('username-input') as HTMLInputElement;
+		this.#tournamentUsernameInput = document.getElementById('tournament-username-input') as HTMLInputElement;
 		this.#saveAvatarButton = document.getElementById('save-avatar') as HTMLButtonElement;
 		this.#saveUsernameButton = document.getElementById('save-username') as HTMLButtonElement;
+		this.#saveTournamentUsernameButton = document.getElementById('save-tournament-username') as HTMLButtonElement;
 
 		this.#avatarInput?.addEventListener('change', this.#onAvatarUpload);
 		this.#saveAvatarButton?.addEventListener('click', this.#onSaveAvatar);
 		this.#saveUsernameButton?.addEventListener('click', this.#onSaveUsername);
+		this.#saveTournamentUsernameButton?.addEventListener('click', this.#onSaveTournamentUsername);
 
 		this.#saveAvatarButton!.disabled = true;
 	}
@@ -161,6 +196,23 @@ export class SettingsController extends RouteController {
 			if (err instanceof TRPCClientError) {
 				console.debug('Error saving username', { err });
 				toast.error(t('settings.update.username.title'), err.message);
+			}
+		}
+	}
+
+	private async onSaveTournamentUsername() {
+		const value = this.#tournamentUsernameInput?.value?.trim();
+		const newUsername = value?.length ? value : null;
+
+		try {
+			const response = await api.user.updateTournamentUsername.mutate({ tournamentUsername: newUsername });
+			authManager.refreshUser();
+			toast.success(t('settings.update_tournament_username.title'), t('settings.update_tournament_username.success') ?? "");
+			this.#tournamentUsernameInput!.value = response.tournamentUsername!;
+		} catch (err) {
+			if (err instanceof TRPCClientError) {
+				console.debug('Error saving tournament username', { err });
+				toast.error(t('settings.update_tournament_username.title'), err.message);
 			}
 		}
 	}
