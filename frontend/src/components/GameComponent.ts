@@ -265,7 +265,7 @@ export class GameComponent extends ComponentController {
 		this.#leftPlayerData = state.leftPlayer;
 		this.#rightPlayerData = state.rightPlayer;
 
-		if (!this.#gameState && state && (this.#leftPlayerData?.isPlayer || this.#rightPlayerData?.isPlayer)) {
+		if (state && (this.#leftPlayerData?.isPlayer || this.#rightPlayerData?.isPlayer)) {
 			const gameScoreGoalElement = document.getElementById(`${this.id}-game-goal-title`);
 			gameScoreGoalElement?.setAttribute('data-i18n-vars', JSON.stringify({ score_goal: state.gameScoreGoal }));
 			const gameHeaderElement = document.getElementById(`${this.id}-game-header`);
@@ -369,9 +369,10 @@ export class GameComponent extends ComponentController {
 	}
 
 	#renderGameState() {
-		const state = this.#gameState!;
-		const ctx = this.#ctx!;
-		const canvas = this.#canvas!;
+		const state = this.#gameState;
+		const ctx = this.#ctx;
+		const canvas = this.#canvas;
+		if (!state || !ctx || !canvas) return;
 
 		// Clear canvas
 		ctx.fillStyle = '#000';
@@ -558,7 +559,6 @@ export class GameComponent extends ComponentController {
 
 	#subscribeToSocketEvents(socket: Socket) {
 		const messageContainer = document.querySelector(`#${this.id}-game-overlay-message-container`);
-		if (!messageContainer) return;
 
 		socket.on('game-state', data => this.updateGameState(data));
 		socket.on('player-joined', user => this.#connectedUsers.push(user));
@@ -574,17 +574,19 @@ export class GameComponent extends ComponentController {
 			const messageKey = reason === 'player-disconnection-timeout' ? 'game.aborted.user_not_reconnected' : 'game.aborted.generic';
 			const messageVars = reason === 'player-disconnection-timeout' ? { username: data.disconnectedPlayerName } : {};
 
-			messageContainer.innerHTML = `<div class="flex flex-col gap-2 items-center justify-center bg-black/50 p-2">
-				<div class="flex items-center justify-center text-xl text-center" data-i18n="${messageKey}" data-i18n-vars='${JSON.stringify(messageVars)}'>${data.message}</div>
-			</div>`;
-			messageContainer.classList.remove('!hidden');
-			updateDOMTranslations(messageContainer);
+			if (messageContainer) {
+				messageContainer.innerHTML = `<div class="flex flex-col gap-2 items-center justify-center bg-black/50 p-2">
+					<div class="flex items-center justify-center text-xl text-center" data-i18n="${messageKey}" data-i18n-vars='${JSON.stringify(messageVars)}'>${data.message}</div>
+				</div>`;
+				messageContainer.classList.remove('!hidden');
+				updateDOMTranslations(messageContainer);
+			}
 		});
 		socket.on('player-disconnected', data => this.#showDisconnectMessage(data));
 		socket.on('disconnection-timer-update', data => this.#showDisconnectMessage(data));
 		socket.on('player-reconnected', () => {
 			this.#hideOverlaysExceptFor();
-			messageContainer.classList.add('!hidden')
+			if (messageContainer) messageContainer.classList.add('!hidden')
 		});
 	}
 

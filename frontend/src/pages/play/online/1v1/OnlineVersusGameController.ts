@@ -32,7 +32,85 @@ export class OnlineVersusGameController extends RouteController {
 			gameType: 'VS',
 			isLocalGame: false,
 		});
+
 		this.registerChildComponent(this.#gameComponent);
+
+		this.#gameSocket.on('connect', () => {
+			console.debug('Game Socket connected to server');
+			this.#gameSocket.emit('join-game', this.#gameId);
+
+			this.#gameComponent.updatePartialProps({
+				socketConnection: this.#gameSocket
+			})
+
+			this.#gameSocket.on('game-found',
+				(data: {
+					connectedUsers: Game['GameUserInfo'][],
+					leftPlayer: Game['GameUserInfo'],
+					rightPlayer: Game['GameUserInfo'],
+					ableToPlay: boolean,
+					state: Game['GameStatus']
+				}) => {
+					console.debug('Game found', data);
+					this.#isGameValidated = true;
+
+					const myId = authManager.user?.id;
+					const amILeftPlayer = data.leftPlayer.id === myId;
+
+					this.#gameComponent.updateGameState(data.state);
+					this.#gameComponent.setActivePlayers(amILeftPlayer, !amILeftPlayer);
+
+					let newKeyBindings: GameComponent['defaultKeyBindings'] = {};
+
+					if (amILeftPlayer) {
+						newKeyBindings = {
+							'w': { side: 'left', direction: 'up' },
+							's': { side: 'left', direction: 'down' },
+							'arrowup': { side: 'left', direction: 'up' },
+							'arrowdown': { side: 'left', direction: 'down' },
+						}
+					} else {
+						newKeyBindings = {
+							'w': { side: 'right', direction: 'up' },
+							's': { side: 'right', direction: 'down' },
+							'arrowup': { side: 'right', direction: 'up' },
+							'arrowdown': { side: 'right', direction: 'down' },
+						}
+					}
+
+					this.#gameComponent.updateKeyBindings(newKeyBindings);
+
+					const otherPlayer = amILeftPlayer ? data.rightPlayer : data.leftPlayer;
+
+					if (data.ableToPlay) {
+						this.titleSuffix = `VS ${otherPlayer.username}`;
+					} else {
+						this.titleSuffix = `${data.leftPlayer.username} vs ${data.rightPlayer.username}`;
+					}
+					this.#gameComponent.updatePartialProps({
+						socketConnection: this.#gameSocket
+					});
+				});
+
+
+
+			this.#gameSocket.on('error', (data) => {
+				console.debug('Error', data);
+				if (this.#isGameValidated) {
+					// GAME IS FOUND BUT THERE IS AN ERROR
+					console.error('Game error', data);
+					toast.error('Error', data);
+				} else {
+					console.debug('Game not found');
+					this.#gameComponent.showError(data);
+				}
+			});
+
+			this.#gameSocket.on('game-cancelled', (data) => {
+				toast.error('Partita cancellata', data.message);
+				this.#gameComponent.showError(data.message);
+			});
+		});
 
 		this.updateTitleSuffix();
 	}
@@ -105,11 +183,6 @@ export class OnlineVersusGameController extends RouteController {
 				this.#gameSocket.emit(event, { direction, gameId: this.#gameId });
 			});
 
-			this.#gameSocket.on('connect', () => {
-				console.debug('Game Socket connected to server');
-				this.#gameSocket.emit('join-game', this.#gameId);
-			});
-			this.#setupSocketEvents();
 		} else {
 			this.unregisterChildComponent(this.#gameComponent);
 		}
@@ -119,78 +192,6 @@ export class OnlineVersusGameController extends RouteController {
 			this.#gameSocket.close();
 			console.debug('Cleaning up game socket');
 		}
-	}
-
-
-
-	#setupSocketEvents() {
-		this.#gameSocket.on('game-found',
-			(data: {
-				connectedUsers: Game['GameUserInfo'][],
-				leftPlayer: Game['GameUserInfo'],
-				rightPlayer: Game['GameUserInfo'],
-				ableToPlay: boolean,
-				state: Game['GameStatus']
-			}) => {
-				console.debug('Game found', data);
-				this.#isGameValidated = true;
-
-				const myId = authManager.user?.id;
-				const amILeftPlayer = data.leftPlayer.id === myId;
-
-				this.#gameComponent.updateGameState(data.state);
-				this.#gameComponent.setActivePlayers(amILeftPlayer, !amILeftPlayer);
-
-				let newKeyBindings: GameComponent['defaultKeyBindings'] = {};
-
-				if (amILeftPlayer) {
-					newKeyBindings = {
-						'w': { side: 'left', direction: 'up' },
-						's': { side: 'left', direction: 'down' },
-						'arrowup': { side: 'left', direction: 'up' },
-						'arrowdown': { side: 'left', direction: 'down' },
-					}
-				} else {
-					newKeyBindings = {
-						'w': { side: 'right', direction: 'up' },
-						's': { side: 'right', direction: 'down' },
-						'arrowup': { side: 'right', direction: 'up' },
-						'arrowdown': { side: 'right', direction: 'down' },
-					}
-				}
-
-				this.#gameComponent.updateKeyBindings(newKeyBindings);
-
-				const otherPlayer = amILeftPlayer ? data.rightPlayer : data.leftPlayer;
-
-				if (data.ableToPlay) {
-					this.titleSuffix = `VS ${otherPlayer.username}`;
-				} else {
-					this.titleSuffix = `${data.leftPlayer.username} vs ${data.rightPlayer.username}`;
-				}
-				this.#gameComponent.updatePartialProps({
-					socketConnection: this.#gameSocket
-				});
-			});
-
-
-
-		this.#gameSocket.on('error', (data) => {
-			console.debug('Error', data);
-			if (this.#isGameValidated) {
-				// GAME IS FOUND BUT THERE IS AN ERROR
-				console.error('Game error', data);
-				toast.error('Error', data);
-			} else {
-				console.debug('Game not found');
-				this.#gameComponent.showError(data);
-			}
-		});
-
-		this.#gameSocket.on('game-cancelled', (data) => {
-			toast.error('Partita cancellata', data.message);
-			this.#gameComponent.showError(data.message);
-		});
 	}
 
 }
