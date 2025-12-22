@@ -149,18 +149,6 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 			}
 		});
 
-		socket.on("leave-game", async (gameId: string) => {
-			await socket.leave(gameId);
-			app.log.info(`User ${user.username} left game room ${gameId}`);
-			socket.to(gameId).emit("player-left", { userId: user.id });
-
-			const g = cache.active_1v1_games.get(gameId) as OnlineGame | undefined;
-			if (g && g.isPlayerInGame(user.id)) {
-				// Start grace period instead of finishing immediately
-				g.markPlayerDisconnected(user.id);
-			}
-		});
-
 		socket.on("disconnect", () => {
 			app.log.info("Online Versus Game socket disconnected %s", socket.id);
 			// iterate for each game and remove the user from the connected users list
@@ -179,7 +167,6 @@ export function setupOnlineVersusGameNamespace(io: Server) {
 					(game as OnlineGame).markPlayerDisconnected(user.id);
 				}
 			});
-			// do something with the disconnected user, check if he was in a game and handle that situation.
 		});
 
 	});

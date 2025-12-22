@@ -118,6 +118,9 @@ export class OnlineTournamentGameController extends RouteController {
 		eventsToRemove.forEach(event => {
 			this.#gameSocket?.off(event);
 		});
+		if (this.#gameSocket?.connected) {
+			this.#gameSocket?.close();
+		}
 	}
 
 	#setupSocketEvents() {

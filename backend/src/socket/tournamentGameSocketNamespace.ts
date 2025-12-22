@@ -133,28 +133,23 @@ export function setupTournamentGameNamespace(io: Server) {
 			}
 		});
 
-		const onSocketDisconnect = async (gameId: string) => {
-			await socket.leave(gameId);
-			app.log.info(`User ${user.username} left tournament game room ${gameId}`);
-			socket.to(gameId).emit("player-left", { userId: user.id });
-
-			const game = cache.tournaments.activeTournamentGames.get(gameId);
-			if (game && game.isPlayerInGame(user.id)) {
-				(game as OnlineGame).markPlayerDisconnected(user.id);
-			}
-		}
-
-		socket.on("leave-game", (gameId: string) => {
-			onSocketDisconnect(gameId)
-		});
-
 		socket.on("disconnect", () => {
-			app.log.info(`Socket ${socket.id} disconnected from tournament-game namespace`);
-			const allGames = Array.from(cache.tournaments.activeTournamentGames.values());
-			const playerGames = allGames.filter(g => g.isPlayerInGame(user.id));
-			for (const game of playerGames) {
-				onSocketDisconnect(game.currentGameId);
+			app.log.info("Tournament Game socket disconnected %s", socket.id);
+			const userGameInfo = {
+				id: user.id,
+				username: user.username,
+				isPlayer: false,
 			}
+
+			cache.tournaments.activeTournamentGames.forEach((game, gameId) => {
+				const removed = game.removeConnectedUser(userGameInfo);
+				if (removed) {
+					socket.to(gameId).emit('player-left', userGameInfo);
+				}
+				if (game.isPlayerInGame(user.id)) {
+					game.markPlayerDisconnected(user.id);
+				}
+			});
 		});
 	});
 
