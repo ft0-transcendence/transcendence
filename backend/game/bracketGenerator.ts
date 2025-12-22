@@ -3,7 +3,7 @@ import { AIPlayerService } from "../src/services/aiPlayerService";
 import { app } from "../main";
 import { MapTournamentGamesDTO, mapTournamentGamesToDTO } from "../src/trpc/routes/tournament";
 import { db } from "../src/trpc/db";
-import { tournamentBroadcastTournamentCompleted } from "../src/socket/tournamentSocketNamespace";
+import { tournamentBroadcastBracketUpdateById, tournamentBroadcastTournamentCompleted } from "../src/socket/tournamentSocketNamespace";
 import { CONSTANTS } from "../constants";
 import { STANDARD_GAME_CONFIG } from "../constants";
 import { t } from '../src/trpc/trpc';
@@ -674,5 +674,6 @@ export const skipTournamentAiVsAiGame = async (
 			}
 		});
 		tournamentBroadcastTournamentCompleted(tournamentId, winnerId, winnerUsername);
+		tournamentBroadcastBracketUpdateById(tournamentId);
 	}
 }

@@ -168,6 +168,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 
 							<a
 								id="${this.id}-rejoin-btn"
+								data-router="/play/online/tournaments/${this.#tournamentId}/${tDto.myCurrentActiveGame}"
 								href="/play/online/tournaments/${this.#tournamentId}/${tDto.myCurrentActiveGame}"
 								class="${!tDto.myCurrentActiveGame ? 'hidden' : ''} px-4 py-2 bg-amber-700 hover:bg-amber-600 rounded-md font-semibold text-sm"
 							>
@@ -278,6 +279,7 @@ export class OnlineTournamentDetailsController extends RouteController {
 		const rejoinBtn = document.querySelector(`#${this.id}-rejoin-btn`);
 		rejoinBtn?.classList.toggle('hidden', !this.#tournamentDto?.myCurrentActiveGame);
 		rejoinBtn?.setAttribute('href', `/play/online/tournaments/${this.#tournamentId}/${this.#tournamentDto?.myCurrentActiveGame}`);
+		rejoinBtn?.setAttribute('data-route', `/play/online/tournaments/${this.#tournamentId}/${this.#tournamentDto?.myCurrentActiveGame}`);
 
 	}
 
