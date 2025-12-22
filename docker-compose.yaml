@@ -1,0 +1,53 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: transcendence-nginx
+    restart: unless-stopped
+    ports:
+      - "${PORT}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx-certs:/etc/nginx/certs:ro
+    depends_on:
+      cert-generator:
+        condition: service_completed_successfully
+      app:
+        condition: service_started
+
+  cert-generator:
+    image: alpine:latest
+    container_name: transcendence-cert-generator
+    volumes:
+      - nginx-certs:/certs
+    command: >
+      sh -c "if [ ! -f /certs/cert.pem ] || [ ! -f /certs/key.pem ]; then
+        echo 'Generating SSL certificates...';
+        apk add --no-cache openssl;
+        openssl req -x509 -newkey rsa:4096 -keyout /certs/key.pem -out /certs/cert.pem -days 365 -nodes -subj '/C=IT/ST=Italy/L=Florence/O=42School/CN=localhost';
+        echo 'SSL certificates generated successfully';
+      else
+        echo 'SSL certificates already exist, skipping generation';
+      fi"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: transcendence
+    restart: unless-stopped
+    volumes:
+      - db-data:/db
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/db/db.sqlite
+      - PORT=${PORT}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - AUTH_SECRET=${AUTH_SECRET}
+      - BACKEND_URL=${BACKEND_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+
+volumes:
+  nginx-certs:
+  db-data:
+
