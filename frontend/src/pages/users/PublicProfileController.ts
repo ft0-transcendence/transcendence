@@ -82,7 +82,7 @@ export class PublicProfileController extends RouteController {
 							<div class="relative w-20 h-20 flex items-center justify-center">
 								<img src="${authManager.userImageUrl}"
 									alt="User image"
-									class="user-image w-20 h-20 rounded-full object-cover shrink-0 ring-2 ring-amber-500/50 ring-offset-zinc-900">
+									class="public-user-image w-20 h-20 rounded-full object-cover shrink-0 ring-2 ring-amber-500/50 ring-offset-zinc-900">
 								<div class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-green-500 border-2 border-zinc-900"></div>
 							</div>
 							<div class="text-base font-bold truncate max-w-[180px] text-center">
@@ -128,7 +128,7 @@ export class PublicProfileController extends RouteController {
 							<div class="relative w-24 h-24 flex items-center justify-center">
 								<img src="${getProfilePictureUrlByUserId(userData.id)}"
 										alt="User image"
-										class="user-image w-24 h-24 rounded-full object-cover shrink-0 ring-2 ring-amber-500/50 ring-offset-zinc-900">
+										class="public-user-image w-24 h-24 rounded-full object-cover shrink-0 ring-2 ring-amber-500/50 ring-offset-zinc-900">
 								<div class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-green-500 border-2 border-zinc-900"></div>
 							</div>
 							<div class="flex justify-center items-center overflow-hidden text-base font-bold">

@@ -126,8 +126,10 @@ export class TournamentGame extends OnlineGame {
 					const isRightAI = AIPlayerService.isAIPlayer(nextGame.rightPlayerId, nextGame.rightPlayerUsername);
 					const isNextSlotLeft = this.gameId === nextGame.previousGames[0].id;
 
+					const oneSlotOccupied = isLeftAI || isRightAI || nextGame.leftPlayerId || nextGame.rightPlayerId;
 
-					const commonData = (isLeftAI || isRightAI) ? { startDate: new Date() } : {};
+
+					const commonData = (isLeftAI || isRightAI || oneSlotOccupied) ? { startDate: new Date() } : {};
 
 
 					const data = isNextSlotLeft
